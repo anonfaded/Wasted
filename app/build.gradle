@@ -4,12 +4,13 @@ plugins {
 }
 
 android {
-    compileSdk 32
+    namespace "me.lucky.wasted"
+    compileSdk 36
 
     defaultConfig {
         applicationId "me.lucky.wasted"
         minSdk 23
-        targetSdk 32
+        targetSdk 36
         versionCode 39
         versionName "1.5.10"
 
