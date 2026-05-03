@@ -1,9 +1,12 @@
 package me.lucky.wasted
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
@@ -29,10 +32,21 @@ open class MainActivity : AppCompatActivity() {
         prefs.copyTo(prefsdb, key)
     }
 
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            android.util.Log.d("PostNotifications", "POST_NOTIFICATIONS permission granted")
+        } else {
+            android.util.Log.d("PostNotifications", "POST_NOTIFICATIONS permission denied")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        requestNotificationPermissionIfNeeded()
         init1()
         if (initBiometric()) return
         init2()
@@ -43,6 +57,19 @@ open class MainActivity : AppCompatActivity() {
         prefs = Preferences(this)
         prefsdb = Preferences(this, encrypted = false)
         prefs.copyTo(prefsdb)
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+            val permissionStatus = ContextCompat.checkSelfPermission(this, permission)
+            if (permissionStatus != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                android.util.Log.d("PostNotifications", "Requesting POST_NOTIFICATIONS permission")
+                requestNotificationPermissionLauncher.launch(permission)
+            } else {
+                android.util.Log.d("PostNotifications", "POST_NOTIFICATIONS permission already granted")
+            }
+        }
     }
 
     private fun init2() {
