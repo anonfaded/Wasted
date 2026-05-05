@@ -263,6 +263,88 @@ class ShizukuManager(private val ctx: Context) {
     // ─── Account checking ────────────────────────────────────────────────────
 
     /**
+     * Parse dumpsys account output to extract packages providing accounts.
+     * Returns list of unique package names found in account providers.
+     * Format: Extracts from lines like "Authenticator{account-type}:" and related package info.
+     */
+    fun getAccountProviderPackages(): List<String> {
+        if (!isRunning()) throw Exception("Shizuku is not running.")
+        if (!hasPermission()) throw Exception("Shizuku permission not granted.")
+        val s = shell ?: throw Exception("Shell not connected yet.")
+
+        Log.i(TAG, "Running: dumpsys account list")
+        val output = s.executeNow("dumpsys account list")
+        Log.d(TAG, "dumpsys output length: ${output.length}")
+
+        val packages = mutableSetOf<String>()
+        
+        // Parse dumpsys account output to extract package names
+        // Lines typically contain package names after authenticator types
+        val lines = output.split("\n")
+        for (line in lines) {
+            val trimmed = line.trim()
+            // Look for lines with package names (contain dots and are lowercase)
+            when {
+                trimmed.contains("Account {") && trimmed.contains("}") -> {
+                    // Extract package from lines like: Account {name=example@gmail.com type=com.google accounts=...}
+                    val regex = """type=([a-zA-Z0-9._]+)""".toRegex()
+                    regex.find(trimmed)?.groupValues?.get(1)?.let { packages.add(it) }
+                }
+                trimmed.startsWith("Authenticator") && trimmed.contains("{") -> {
+                    // Extract from lines like: Authenticator{com.motorola.contacts...}
+                    val start = trimmed.indexOf("{") + 1
+                    val end = trimmed.indexOf("}")
+                    if (start > 0 && end > start) {
+                        val pkg = trimmed.substring(start, end)
+                        if (pkg.contains(".") && !pkg.contains(" ")) {
+                            packages.add(pkg)
+                        }
+                    }
+                }
+                trimmed.contains("@") && trimmed.contains("type=") -> {
+                    // Extract package from account entries
+                    val regex = """type=([a-zA-Z0-9._]+)""".toRegex()
+                    regex.find(trimmed)?.groupValues?.get(1)?.let { packages.add(it) }
+                }
+            }
+        }
+
+        return packages.filter { it.isNotEmpty() }.sorted()
+    }
+
+    /**
+     * Disable a specific package via `pm disable-user`.
+     * Returns true if successful.
+     */
+    fun disablePackage(packageName: String): Boolean {
+        if (!isRunning()) throw Exception("Shizuku is not running.")
+        if (!hasPermission()) throw Exception("Shizuku permission not granted.")
+        val s = shell ?: throw Exception("Shell not connected yet.")
+
+        Log.i(TAG, "Running: pm disable-user --user 0 $packageName")
+        val output = s.executeNow("pm disable-user --user 0 $packageName")
+        Log.d(TAG, "pm disable output: $output")
+
+        return output.isBlank() || output.contains("Success", ignoreCase = true)
+    }
+
+    /**
+     * Enable a specific package via `pm enable-user`.
+     * Returns true if successful.
+     */
+    fun enablePackage(packageName: String): Boolean {
+        if (!isRunning()) throw Exception("Shizuku is not running.")
+        if (!hasPermission()) throw Exception("Shizuku permission not granted.")
+        val s = shell ?: throw Exception("Shell not connected yet.")
+
+        Log.i(TAG, "Running: pm enable --user 0 $packageName")
+        val output = s.executeNow("pm enable --user 0 $packageName")
+        Log.d(TAG, "pm enable output: $output")
+
+        return output.isBlank() || output.contains("Success", ignoreCase = true)
+    }
+
+    /**
      * Check for hidden or synced accounts on the device via `dumpsys account list`.
      * Returns a user-readable string: either "No accounts detected" or a list of found accounts.
      * Requires Shizuku to be running and shell to be connected.

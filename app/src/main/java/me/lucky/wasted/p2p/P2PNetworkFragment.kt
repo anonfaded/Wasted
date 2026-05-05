@@ -1339,7 +1339,9 @@ class P2PNetworkFragment : Fragment() {
             val act = activity ?: return@Thread
             act.runOnUiThread {
                 if (!isAdded) return@runOnUiThread
-                AlertDialog.Builder(requireContext())
+                
+                val hasAccountError = message?.contains("account", ignoreCase = true) == true
+                val builder = AlertDialog.Builder(requireContext())
                     .setTitle(if (success) "✓ Device Owner Set" else "Failed")
                     .setMessage(message)
                     .setPositiveButton("OK") { _, _ ->
@@ -1347,9 +1349,138 @@ class P2PNetworkFragment : Fragment() {
                             refreshP2pSetupCard()
                         }
                     }
+                
+                // Show "Fix Accounts" button if account error
+                if (hasAccountError) {
+                    builder.setNegativeButton("Fix Accounts") { _, _ ->
+                        showAccountFixDialog(shizuku)
+                    }
+                }
+                
+                builder.show()
+            }
+        }.start()
+    }
+
+    private fun showAccountFixDialog(shizuku: ShizukuManager) {
+        showMessage("Discovering system accounts…")
+        Thread {
+            val (packages, error) = try {
+                val pkgs = shizuku.getAccountProviderPackages()
+                Pair(pkgs, null)
+            } catch (e: Exception) {
+                Pair(emptyList(), e.message)
+            }
+
+            val act = activity ?: return@Thread
+            act.runOnUiThread {
+                if (!isAdded) return@runOnUiThread
+
+                if (error != null) {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Discovery Failed")
+                        .setMessage("Could not discover account packages: $error\n\nEnter package name manually below.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                    showManualPackageDisableDialog(shizuku)
+                } else if (packages.isEmpty()) {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("No Accounts Found")
+                        .setMessage("No account provider packages detected.\n\nTry running 'Become Device Owner' again.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                } else {
+                    showPackageSelectionDialog(shizuku, packages)
+                }
+            }
+        }.start()
+    }
+
+    private fun showPackageSelectionDialog(shizuku: ShizukuManager, packages: List<String>) {
+        val ctx = requireContext()
+        val dialog = AlertDialog.Builder(ctx)
+            .setTitle("Disable Account Packages")
+            .setMessage("Select packages to disable, then reboot and retry Device Owner setup.\n\nIf none listed, enter manually:")
+            .setItems(packages.toTypedArray()) { _, which ->
+                showPackageDisableConfirmDialog(shizuku, packages[which])
+            }
+            .setNegativeButton("Manual Entry") { _, _ ->
+                showManualPackageDisableDialog(shizuku)
+            }
+            .setPositiveButton("Cancel", null)
+            .show()
+    }
+
+    private fun showPackageDisableConfirmDialog(shizuku: ShizukuManager, packageName: String) {
+        val ctx = requireContext()
+        AlertDialog.Builder(ctx)
+            .setTitle("Disable Package?")
+            .setMessage("Package: $packageName\n\nThis will disable the package and remove its accounts.\n\nAfter disabling, REBOOT your device, then tap 'Become Device Owner' again.")
+            .setPositiveButton("Disable & Reboot Instructions") { _, _ ->
+                disablePackageAndShowInstructions(shizuku, packageName)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun disablePackageAndShowInstructions(shizuku: ShizukuManager, packageName: String) {
+        showMessage("Disabling $packageName…")
+        Thread {
+            val success = try {
+                shizuku.disablePackage(packageName)
+            } catch (e: Exception) {
+                Log.e("P2PNetworkFragment", "Disable failed: ${e.message}")
+                false
+            }
+
+            val act = activity ?: return@Thread
+            act.runOnUiThread {
+                if (!isAdded) return@runOnUiThread
+                AlertDialog.Builder(requireContext())
+                    .setTitle(if (success) "✓ Package Disabled" else "Failed")
+                    .setMessage(
+                        if (success)
+                            "Package disabled successfully.\n\n" +
+                            "IMPORTANT: You must REBOOT your device now to clear the account from the system.\n\n" +
+                            "After rebooting:\n" +
+                            "1. Open Wasted\n" +
+                            "2. Go to p2p screen's setup\n" +
+                            "3. Tap 'Become Device Owner' again"
+                        else
+                            "Failed to disable package. Try manual entry or check Shizuku."
+                    )
+                    .setPositiveButton("OK", null)
                     .show()
             }
         }.start()
+    }
+
+    private fun showManualPackageDisableDialog(shizuku: ShizukuManager) {
+        val ctx = requireContext()
+        val input = android.widget.EditText(ctx).apply {
+            hint = "com.example.package"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            setPadding(20.dp, 12.dp, 20.dp, 8.dp)
+        }
+
+        AlertDialog.Builder(ctx)
+            .setTitle("Enter Package Name")
+            .setMessage("Enter the full package name to disable:")
+            .setView(input)
+            .setPositiveButton("Disable") { _, _ ->
+                val pkg = input.text.toString().trim()
+                if (pkg.isNotEmpty() && pkg.contains(".")) {
+                    showPackageDisableConfirmDialog(shizuku, pkg)
+                } else {
+                    AlertDialog.Builder(ctx)
+                        .setTitle("Invalid Package")
+                        .setMessage("Package name must contain at least one dot (e.g., com.example.package)")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showScrollableInfoDialog(title: String, body: String) {

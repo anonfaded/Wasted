@@ -12,8 +12,8 @@ android {
         applicationId = "me.lucky.wasted"
         minSdk = 23
         targetSdk = 36
-        versionCode = 39
-        versionName = "1.5.10"
+        versionCode = 40
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
