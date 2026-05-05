@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+        Override Shizuku library minSdk declaration (24) — Shizuku itself supports API 23+.
+        We guard all Shizuku calls at runtime with Build.VERSION.SDK_INT checks anyway.
+    -->
+    <uses-sdk tools:overrideLibrary="rikka.shizuku.api,rikka.shizuku.provider" />
+
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
@@ -15,6 +21,11 @@
     <uses-feature android:name="android.software.device_admin" android:required="true" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <uses-feature android:name="android.hardware.usb.accessory" android:required="false" />
+
+    <!-- Allow Wasted to query/detect if Shizuku is installed -->
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -265,6 +276,28 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+
+        <!--
+            Shizuku ContentProvider — handles the IPC channel between the Shizuku service
+            and the app. Required by the Shizuku library. Must be exported with INTERACT_ACROSS_USERS_FULL.
+        -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <!--
+            ShizukuShell UserService — Shizuku loads this class in the ADB shell process.
+            Must be in a separate process (:shizuku) and NOT exported to other apps.
+        -->
+        <service
+            android:name=".shizuku.ShizukuShell"
+            android:enabled="true"
+            android:exported="false"
+            android:process=":shizuku" />
 
     </application>
 </manifest>

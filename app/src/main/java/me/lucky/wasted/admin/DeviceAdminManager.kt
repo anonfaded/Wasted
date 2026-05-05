@@ -10,6 +10,8 @@ import android.os.UserManager
 import android.provider.MediaStore
 import java.lang.Exception
 
+import android.util.Log
+import me.lucky.wasted.Application as WastedApp
 import me.lucky.wasted.Preferences
 
 class DeviceAdminManager(private val ctx: Context) {
@@ -42,32 +44,53 @@ class DeviceAdminManager(private val ctx: Context) {
     fun lockNow() { if (!lockPrivilegedNow()) dpm?.lockNow() }
 
     fun getResetSupport(): ResetSupport {
-        if (!isActive()) {
-            return ResetSupport(
-                isSupported = false,
-                userMessage = "Device Admin is not active on this phone.",
-            )
-        }
+        if (!isActive()) return ResetSupport(
+            isSupported = false,
+            userMessage = "Device Admin is not active on this phone.",
+        )
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            return ResetSupport(
-                isSupported = true,
-                userMessage = "Reset is available on this phone.",
-            )
-        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return ResetSupport(
+            isSupported = true,
+            userMessage = "Full factory reset available (Android 13 or earlier).",
+        )
 
-        if (canUseFullDeviceWipeApi()) {
-            return ResetSupport(
-                isSupported = true,
-                userMessage = "Full factory reset is available on this phone (Device Owner mode).",
-            )
-        }
+        if (canUseFullDeviceWipeApi()) return ResetSupport(
+            isSupported = true,
+            userMessage = "Full factory reset armed — Device Owner mode active.",
+        )
 
-        // On Android 14+ as device admin: best-effort file/data wipe
+        // Android 14+, not Device Owner — tiered best-effort wipe
         return ResetSupport(
             isSupported = true,
-            userMessage = "Partial wipe available: deletes photos, videos, downloads and other user files. Requires granting \"All files access\" to Wasted (Settings > Apps > Special app access > All files access). For full factory reset, enroll Wasted as Device Owner.",
+            userMessage = when (getProtectionTier()) {
+                2 -> "Strong wipe armed: TRIM + app data clear + file deletion on trigger."
+                3 -> "Partial wipe armed: photos and files deleted. Enable Shizuku for stronger protection."
+                else -> "Minimal wipe: only Wasted data cleared. Grant All Files Access and enable Shizuku."
+            },
         )
+    }
+
+    /**
+     * Returns the current wipe tier:
+     * 1 = Device Owner → full factory reset
+     * 2 = Shizuku connected → TRIM + pm clear + file wipe
+     * 3 = MANAGE_EXTERNAL_STORAGE → file wipe only
+     * 4 = nothing extra → own data only
+     *
+     * Only meaningful on Android 14+ when not Device Owner.
+     * On <14, wipeData() is always a full factory reset regardless of tier.
+     */
+    fun getProtectionTier(): Int = when {
+        canUseFullDeviceWipeApi() -> 1
+        isShizukuConnected() -> 2
+        hasManageExternalStoragePermission() -> 3
+        else -> 4
+    }
+
+    private fun isShizukuConnected(): Boolean {
+        return try {
+            WastedApp.shizuku.isConnected()
+        } catch (_: UninitializedPropertyAccessException) { false }
     }
 
     private fun lockPrivilegedNow(): Boolean {
@@ -90,17 +113,31 @@ class DeviceAdminManager(private val ctx: Context) {
         }
 
         if (canUseFullDeviceWipeApi()) {
+            // Tier 1: Device Owner → factory reset (reformats the partition, TRIM not needed)
+            Log.i(TAG, "wipeData: Tier 1 — hardReset via Device Owner")
             hardReset()
             return
         }
 
-        // For device admin on Android 14+: attempt deep manual wipe
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Tier 2+3: Android 14+, not Device Owner — best-effort chain
+            Log.i(TAG, "wipeData: Android 14+, not Device Owner — best-effort wipe")
+            // Tier 2: Shizuku (TRIM + pm clear) — makes deleted data unrecoverable
+            if (isShizukuConnected()) {
+                Log.i(TAG, "wipeData: Tier 2 — running Shizuku wipe commands")
+                try {
+                    WastedApp.shizuku.runWipeCommands()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Shizuku wipe commands failed: ${e.message}")
+                }
+            }
+            // Tier 3: delete user files if MANAGE_EXTERNAL_STORAGE granted
             deepManualWipe()
             return
         }
 
-        // Fallback for older Android: use wipeData API
+        // Android <14: wipeData() = full factory reset — do NOT replace with file deletion
+        Log.i(TAG, "wipeData: Android <14 — calling dpm.wipeData()")
         dpm?.wipeData(buildLegacyWipeFlags())
     }
 
@@ -144,7 +181,7 @@ class DeviceAdminManager(private val ctx: Context) {
         }
     }
 
-    private fun hasManageExternalStoragePermission(): Boolean {
+    fun hasManageExternalStoragePermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
         } else {
@@ -188,7 +225,7 @@ class DeviceAdminManager(private val ctx: Context) {
         Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
             .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, deviceAdmin)
 
-    private fun canUseFullDeviceWipeApi(): Boolean {
+    fun canUseFullDeviceWipeApi(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             return false
         }
@@ -199,7 +236,7 @@ class DeviceAdminManager(private val ctx: Context) {
         return isDeviceOwner || isOrgOwnedProfileOwner
     }
 
-    private fun isOrgOwnedProfileOwner(): Boolean {
+    fun isOrgOwnedProfileOwner(): Boolean {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             isProfileOwner() &&
             dpm?.isOrganizationOwnedDeviceWithManagedProfile == true
@@ -219,5 +256,9 @@ class DeviceAdminManager(private val ctx: Context) {
             flags = flags.or(DevicePolicyManager.WIPE_EUICC)
         }
         return flags
+    }
+
+    companion object {
+        private const val TAG = "DeviceAdminManager"
     }
 }

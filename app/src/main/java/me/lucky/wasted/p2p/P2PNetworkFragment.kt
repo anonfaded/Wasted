@@ -1,10 +1,14 @@
 package me.lucky.wasted.p2p
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.text.InputType
 import android.util.TypedValue
 import android.view.LayoutInflater
@@ -17,6 +21,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
@@ -35,6 +40,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import me.lucky.wasted.Application as WastedApp
 import me.lucky.wasted.ApplicationOption
 import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
@@ -44,8 +50,10 @@ import me.lucky.wasted.databinding.FragmentP2pNetworkBinding
 import me.lucky.wasted.p2p.models.DeviceSettingsSnapshot
 import me.lucky.wasted.p2p.models.PairingState
 import me.lucky.wasted.p2p.models.Peer
+import me.lucky.wasted.shizuku.ShizukuManager
 import java.text.DateFormat
 import java.util.Date
+import java.util.UUID
 import java.util.regex.Pattern
 
 class P2PNetworkFragment : Fragment() {
@@ -112,6 +120,7 @@ class P2PNetworkFragment : Fragment() {
         super.onResume()
         if (this::adminManager.isInitialized) {
             updateLocalDeviceActionsState()
+            refreshP2pSetupCard()
         }
     }
 
@@ -126,6 +135,7 @@ class P2PNetworkFragment : Fragment() {
         settingsInfoButton.setOnClickListener { showSettingsHelpDialog() }
         localActionsInfoButton.setOnClickListener { showLocalActionsHelpDialog() }
         enableAdminButton.setOnClickListener { requestDeviceAdmin() }
+        p2pSetupAction.setOnClickListener { jumpToMainTab() }
 
         localTimeoutEditText.doAfterTextChanged {
             validateLocalTimeoutInput()
@@ -287,10 +297,10 @@ class P2PNetworkFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             controller.pairingState.collectLatest { state ->
                 binding.pairingStatusText.text = when (state) {
-                    PairingState.UNPAIRED -> "Generate a PIN when you are ready to approve a new device."
-                    PairingState.PAIRING -> "A pairing PIN is active. Ask the other device to enter it or scan the QR."
-                    PairingState.PAIRED -> "Pairing complete. Approved devices can now sync settings and request reset confirmation."
-                    PairingState.PAIRING_FAILED -> "Pairing failed. Check the PIN, discovery status, or QR payload and try again."
+                    PairingState.UNPAIRED -> "🔓 Ready to pair. Tap 'Generate PIN' or 'Show QR' to start. Tap ❓ for full setup guide."
+                    PairingState.PAIRING -> "⏳ Pairing active. Ask the other device to enter this PIN or scan the QR. Valid for 5 minutes."
+                    PairingState.PAIRED -> "✓ Paired! Both phones can now sync settings. To enable full factory reset: set Device Owner on BOTH phones (see setup guide)."
+                    PairingState.PAIRING_FAILED -> "❌ Pairing failed. Check the PIN/QR and network connection, then try again."
                 }
             }
         }
@@ -850,32 +860,42 @@ class P2PNetworkFragment : Fragment() {
         showScrollableInfoDialog(
             title = "Peer Control Help",
             body =
-                "Use this screen to pair trusted phones, view each phone's live Wasted settings, edit a specific phone's settings, and send reset requests that still require confirmation on the target phone.\n\n" +
-                    "Typical flow:\n" +
-                    "1. Open this screen on both phones.\n" +
-                    "2. Generate a code or QR on one phone.\n" +
-                    "3. Enter that code or scan that QR on the other phone.\n" +
-                    "4. Once the phone becomes Approved, refresh its settings, edit that phone if needed, or send a remote reset request.\n\n" +
-                    "Android 14+ full reset requirement:\n" +
-                    "• A normal personal phone is not enough for full remote wipe anymore.\n" +
-                    "• The target phone must be enrolled with Wasted as Device Owner during setup or after a factory reset.\n" +
-                    "• This build already includes the managed provisioning entry points needed for that enrollment.\n\n" +
-                    "Safety rules:\n" +
-                    "• Remote reset never wipes silently. The target phone must still confirm.\n" +
-                    "• Unapproved phones cannot receive settings changes or reset requests.\n" +
-                    "• Traffic stays on the local network and uses TLS."
+                "🔒 DEVICE OWNER (ANDROID 14+ ONLY):\n" +
+                "On Android 14+, set up Device Owner to enable full factory reset capability. On Android 13 and below, Device Admin alone is sufficient.\n\n" +
+                "🔗 PAIRING FLOW:\n" +
+                "1. One phone: Tap 'Generate PIN' or 'Show QR'\n" +
+                "2. Other phone: Scan QR or enter PIN code\n" +
+                "3. Pairing completes automatically (no approval needed)\n\n" +
+                "✓ ONCE PAIRED:\n" +
+                "• View each phone's settings\n" +
+                "• Edit another phone's settings\n" +
+                "• Send remote reset requests (confirmation optional per-device)\n" +
+                "• Peer discovery is automatic on same local network\n\n" +
+                "🔐 SAFETY:\n" +
+                "• Remote reset confirmation can be toggled per-device in settings\n" +
+                "• Unapproved (not paired) phones cannot receive changes or requests\n" +
+                "• All traffic is encrypted (TLS) and stays on local network"
         )
     }
 
     private fun showPairingHelpDialog() {
         showScrollableInfoDialog(
-            title = "How Pairing Works",
+            title = "Pairing Guide",
             body =
-                "Each phone can approve another phone in two ways:\n\n" +
-                    "• Code: generate a 6-digit code here, then type it on the other phone.\n" +
-                    "• QR: show a QR here, then scan it on the other phone.\n\n" +
-                    "Codes stay valid for 5 minutes. If the wrong code is entered or the code expires, both phones should now show a visible message.\n\n" +
-                    "After approval, the device appears as Approved in the list and you can unpair it later from its card."
+                "✓ Pairing works on all Android versions.\n\n" +
+                "🔗 TO PAIR ANOTHER PHONE:\n" +
+                "1. On this phone: Tap 'Generate PIN' or 'Show QR'\n" +
+                "2. On the other phone:\n" +
+                "   • Open Wasted → P2P tab\n" +
+                "   • Scan this phone's QR code, OR\n" +
+                "   • Enter the PIN code\n" +
+                "3. Pairing completes automatically — both phones exchange settings\n\n" +
+                "📌 DEVICE OWNER (Android 14+ only):\n" +
+                "If you want factory reset to work via P2P on Android 14+, set up Device Owner using the 'Setup Device Owner' guide card at the top of the P2P screen.\n\n" +
+                "💬 RESET CONFIRMATION:\n" +
+                "By default, remote resets execute immediately. To require confirmation, toggle 'Require confirmation before remote reset' in This Device Settings.\n\n" +
+                "🔐 FULL CONTROL:\n" +
+                "Even with confirmation disabled, all connected phones retain full control. If they toggle confirmation back on on either phone, the reset dialog is canceled."
         )
     }
 
@@ -884,10 +904,14 @@ class P2PNetworkFragment : Fragment() {
             title = "This Device Settings",
             body =
                 "This section edits only this phone.\n\n" +
-                    "It includes Wasted enable state, wipe options, trigger toggles, inactivity timeout, tile delay, fake application options, and recast fields.\n\n" +
-                        "Require confirmation before remote reset controls whether this phone asks for approval when another approved phone sends a reset request.\n\n" +
-                    "Use the same timeout format as the original settings screen: 7d, 48h, or 120m.\n\n" +
-                    "Save Settings stores the values on this phone and shares its latest state with approved phones so their device list stays current. To change a different phone, use that phone's card in the Devices section."
+                "📝 SETTINGS MANAGED HERE:\n" +
+                "Wasted enable state, wipe options, trigger toggles, inactivity timeout, tile delay, fake applications, and recast fields.\n\n" +
+                "💬 REMOTE RESET CONFIRMATION:\n" +
+                "By default OFF. When enabled, remote reset requests show a confirmation dialog before executing. When disabled, resets execute immediately, but all the connected phones retain full control — toggling confirmation back on will cancel the reset.\n\n" +
+                "⏱️ TIMEOUT FORMAT:\n" +
+                "Use format like: 7d (days), 48h (hours), or 120m (minutes).\n\n" +
+                "💾 SAVING:\n" +
+                "Saves values on this phone and syncs state with paired peers for their device lists. To change another phone's settings, use that phone's card in the Devices section."
         )
     }
 
@@ -896,10 +920,18 @@ class P2PNetworkFragment : Fragment() {
             title = "This Device Actions",
             body =
                 "These actions affect only the phone in your hand.\n\n" +
-                    "• Enable Device Admin: grants Wasted the system privilege it needs for lock and reset on this phone.\n\n" +
-                    "• Modern Android reset support: on Android 14+ a personal phone must be enrolled as Device Owner during setup or after a factory reset before Wasted can perform a full remote reset. This build now includes the managed provisioning entry points required for that enrollment.\n\n" +
-                    "• Lock This Device: immediately sends this phone back to its lock screen. It does not erase data.\n\n" +
-                    "• Reset This Device: runs Wasted's local reset path after confirmation. If wipe is enabled in the app, this can erase data on this phone."
+                "📋 ENABLE DEVICE ADMIN:\n" +
+                "Grants Wasted system privilege for locking.\n" +
+                "• Android 14+: Locking only (reset requires Device Owner via P2P setup)\n" +
+                "• Android 13 and below: Locking AND factory reset\n\n" +
+                "🔒 DEVICE OWNER SETUP (Android 14+ ONLY):\n" +
+                "Only needed on Android 14 and above. Use the 'Setup Device Owner' guide at the top of the P2P screen. Once set up:\n" +
+                "• Enables full factory reset capability\n" +
+                "• Works reliably for local and remote resets\n" +
+                "• Required for P2P remote control on Android 14+\n\n" +
+                "⚙️ LOCK & RESET BUTTONS:\n" +
+                "• Lock: Sends to lock screen immediately (no data loss)\n" +
+                "• Reset: Factory resets with confirmation (wipes data if enabled)"
         )
     }
 
@@ -985,6 +1017,280 @@ class P2PNetworkFragment : Fragment() {
         val isValid = isValidTimeoutInput(input)
         binding.localTimeoutInputLayout.error = if (isValid || input.isBlank()) null else getString(R.string.trigger_lock_time_error)
         return isValid
+    }
+
+    // ─── P2P Setup Card ──────────────────────────────────────────────────────
+
+    /** Show setup card only on Android 14+; on older versions Device Admin is sufficient. */
+    fun refreshP2pSetupCard() {
+        // Device Owner is only required on Android 14+ for factory reset capability
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            binding.p2pSetupCard.visibility = View.GONE
+            return
+        }
+
+        if (adminManager.isDeviceOwner() || adminManager.isOrgOwnedProfileOwner()) {
+            binding.p2pSetupCard.visibility = View.VISIBLE
+            binding.p2pSetupTitle.text = "✓ Device Owner Active"
+            binding.p2pSetupBody.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone and all paired peers.\n\nShizuku is no longer needed — Wasted will work reliably with factory reset capability enabled."
+            binding.p2pSetupAction.text = "Setup Complete"
+            binding.p2pSetupAction.isEnabled = false
+        } else {
+            binding.p2pSetupCard.visibility = View.VISIBLE
+            binding.p2pSetupTitle.text = "⚠️ Setup Required"
+            binding.p2pSetupBody.text = "Tap 'Setup Device Owner' to complete setup steps.\n\nThis enables full factory reset capability."
+            binding.p2pSetupAction.apply {
+                text = "Setup Device Owner"
+                isEnabled = true
+            }
+        }
+    }
+
+    /** Show Device Owner setup in a bottom sheet dialog. */
+    private fun jumpToMainTab() {
+        val ctx = requireContext()
+        val admin = DeviceAdminManager(ctx)
+        val shizuku = try { WastedApp.shizuku } catch (_: Exception) { null }
+
+        // Create bottom sheet
+        val bottomSheet = BottomSheetDialog(ctx)
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            setPadding(24.dp, 24.dp, 24.dp, 12.dp)
+        }
+
+        val title = TextView(ctx).apply {
+            text = "🔒 Device Owner Setup"
+            textSize = 20f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16.dp }
+        }
+        container.addView(title)
+
+        val body = TextView(ctx).apply {
+            textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16.dp }
+        }
+        container.addView(body)
+
+        val button = MaterialButton(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        container.addView(button)
+
+        // State machine
+        when {
+            admin.isDeviceOwner() || admin.isOrgOwnedProfileOwner() -> {
+                title.text = "✓ Device Owner Active"
+                body.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone.\n\nShizuku is no longer needed."
+                button.visibility = View.GONE
+                bottomSheet.setOnDismissListener { 
+                    refreshP2pSetupCard()
+                    bottomSheet.dismiss()
+                }
+            }
+
+            shizuku == null || !shizuku.isInstalled() -> {
+                title.text = "Step 1 — Install Shizuku"
+                body.text = "Shizuku lets Wasted clear all app data before wiping.\n\nDownload Shizuku v13.6.0 and install it."
+                button.apply {
+                    text = "Download Shizuku"
+                    setOnClickListener { 
+                        openShizukuGitHub()
+                        bottomSheet.dismiss()
+                    }
+                }
+            }
+
+            !shizuku.isRunning() -> {
+                title.text = "Step 2 — Start Shizuku"
+                body.text = "Enable Wireless Debugging:\n" +
+                    "Settings → Developer Options → Wireless Debugging ON\n\n" +
+                    "Then open Shizuku and tap 'Start via Wireless Debugging'."
+                button.apply {
+                    text = "Open Shizuku"
+                    setOnClickListener { 
+                        val intent = ctx.packageManager.getLaunchIntentForPackage(ShizukuManager.SHIZUKU_PACKAGE)
+                        if (intent != null) startActivity(intent) else openShizukuGitHub()
+                        bottomSheet.dismiss()
+                    }
+                }
+            }
+
+            !shizuku.hasPermission() -> {
+                title.text = "Step 3 — Grant Permission"
+                body.text = "Wasted needs permission to use Shizuku.\n\nTap 'Grant Permission' — allow it in the Shizuku dialog."
+                button.apply {
+                    text = "Grant Permission"
+                    setOnClickListener { 
+                        shizuku.requestPermission()
+                        bottomSheet.dismiss()
+                    }
+                }
+            }
+
+            !shizuku.isConnected() -> {
+                title.text = "⏳ Connecting Shell…"
+                body.text = "Shizuku shell is starting. Please wait…"
+                button.visibility = View.GONE
+                
+                // Live update: poll until shell connects, then auto-refresh the dialog
+                Thread {
+                    var elapsed = 0
+                    while (elapsed < 15000 && !shizuku.isConnected()) { // max 15 sec
+                        Thread.sleep(500)
+                        elapsed += 500
+                        
+                        val act = activity ?: return@Thread
+                        act.runOnUiThread {
+                            if (!isAdded) return@runOnUiThread
+                            body.text = "Shizuku shell is starting.\n${elapsed / 1000}s elapsed…"
+                        }
+                    }
+                    
+                    // If connected, auto-proceed to next step
+                    if (shizuku.isConnected()) {
+                        val act = activity ?: return@Thread
+                        act.runOnUiThread {
+                            if (!isAdded) return@runOnUiThread
+                            bottomSheet.dismiss()
+                            jumpToMainTab() // Re-show with next step
+                        }
+                    } else {
+                        // Still not connected, show error
+                        val act = activity ?: return@Thread
+                        act.runOnUiThread {
+                            if (!isAdded) return@runOnUiThread
+                            title.text = "❌ Connection Timeout"
+                            body.text = "Shizuku shell did not connect after 15 seconds.\n\nTry:\n1. Close and reopen Shizuku app\n2. Restart this dialog"
+                            button.apply {
+                                visibility = View.VISIBLE
+                                text = "Retry"
+                                setOnClickListener { 
+                                    bottomSheet.dismiss()
+                                    jumpToMainTab()
+                                }
+                            }
+                        }
+                    }
+                }.start()
+            }
+
+            else -> {
+                title.text = "🔒 Set Device Owner"
+                body.text = "Remove all linked accounts first from your phone, else we cannot set Wasted as Device Owner:\n" +
+                    "Settings → Accounts → remove each one (Gmail etc.)\n" +
+                    "Then tap 'Set Device Owner'.\n" +
+                    "Reboot phone (only if 'Set Device Owner' option doesn't work)\n\n"
+                button.apply {
+                    text = "Check Accounts First"
+                    setOnClickListener { 
+                        showCheckAccountsDialog(shizuku)
+                        bottomSheet.dismiss()
+                    }
+                }
+
+                val setDeviceOwnerBtn = MaterialButton(ctx).apply {
+                    text = "Set Device Owner"
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = 8.dp }
+                    setOnClickListener { 
+                        showDeviceOwnerConfirmDialog(shizuku)
+                        bottomSheet.dismiss()
+                    }
+                }
+                container.addView(setDeviceOwnerBtn)
+            }
+        }
+
+        bottomSheet.setContentView(container)
+        bottomSheet.show()
+    }
+
+    private fun openShizukuGitHub() {
+        val url = "https://github.com/RikkaApps/Shizuku/releases/tag/v13.6.0"
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+
+    private fun showCheckAccountsDialog(shizuku: ShizukuManager) {
+        val checkingDialog = AlertDialog.Builder(requireContext())
+            .setTitle("Checking Accounts…")
+            .setMessage("Running dumpsys account list via Shizuku…")
+            .show()
+
+        Thread {
+            val result = shizuku.checkHiddenAccounts()
+            val act = activity ?: return@Thread
+            act.runOnUiThread {
+                if (!isAdded) return@runOnUiThread
+                checkingDialog.dismiss()  // Dismiss the "Checking..." dialog
+                AlertDialog.Builder(requireContext())
+                    .setTitle("Account Check Result")
+                    .setMessage(result)
+                    .setPositiveButton("OK") { _, _ ->
+                        if (result.contains("✓ No accounts")) {
+                            jumpToMainTab()
+                        }
+                    }
+                    .show()
+            }
+        }.start()
+    }
+
+    private fun showDeviceOwnerConfirmDialog(shizuku: ShizukuManager) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Set Device Owner — Full Factory Reset")
+            .setMessage(
+                "✓ This enables FULL data destruction capability.\n" +
+                "✓ This phone will format on trigger.\n\n" +
+                "Wasted will execute:\n" +
+                "  dpm set-device-owner me.lucky.wasted/.admin.DeviceAdminReceiver\n\n" +
+                "To undo later: disable Device Admin in Wasted settings."
+            )
+            .setPositiveButton("Set Device Owner") { _, _ -> doBecomeDeviceOwner(shizuku) }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun doBecomeDeviceOwner(shizuku: ShizukuManager) {
+        showMessage("Setting Device Owner…")
+        Thread {
+            val (success, message) = try {
+                val out = shizuku.setDeviceOwner()
+                Pair(true, out.ifBlank { "Wasted is now Device Owner.\nFull factory reset is armed." })
+            } catch (e: Exception) {
+                Pair(false, e.message ?: "Unknown error.")
+            }
+
+            val act = activity ?: return@Thread
+            act.runOnUiThread {
+                if (!isAdded) return@runOnUiThread
+                AlertDialog.Builder(requireContext())
+                    .setTitle(if (success) "✓ Device Owner Set" else "Failed")
+                    .setMessage(message)
+                    .setPositiveButton("OK") { _, _ ->
+                        if (success) {
+                            refreshP2pSetupCard()
+                        }
+                    }
+                    .show()
+            }
+        }.start()
     }
 
     private fun showScrollableInfoDialog(title: String, body: String) {
