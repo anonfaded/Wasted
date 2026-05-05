@@ -20,6 +20,7 @@ import com.google.android.material.textfield.TextInputLayout
 
 import me.lucky.wasted.databinding.ActivityMainBinding
 import me.lucky.wasted.fragment.*
+import me.lucky.wasted.p2p.P2PNetworkFragment
 import me.lucky.wasted.trigger.shared.NotificationManager
 
 open class MainActivity : AppCompatActivity() {
@@ -46,10 +47,10 @@ open class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        requestNotificationPermissionIfNeeded()
         init1()
         if (initBiometric()) return
         init2()
+        requestNotificationPermissionIfNeeded()
         setup()
     }
 
@@ -101,6 +102,7 @@ open class MainActivity : AppCompatActivity() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 super.onAuthenticationSucceeded(result)
                 init2()
+                requestNotificationPermissionIfNeeded()
                 setup()
             }
         })
@@ -172,6 +174,7 @@ open class MainActivity : AppCompatActivity() {
         R.id.nav_trigger_lock -> LockFragment()
         R.id.nav_trigger_application -> ApplicationFragment()
         R.id.nav_recast -> RecastFragment()
+        R.id.nav_p2p -> P2PNetworkFragment()
         else -> MainFragment()
     }
 

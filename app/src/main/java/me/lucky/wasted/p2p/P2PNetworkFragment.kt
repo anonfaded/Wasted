@@ -1,0 +1,1247 @@
+package me.lucky.wasted.p2p
+
+import android.app.Activity
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.Typeface
+import android.os.Bundle
+import android.text.InputType
+import android.util.TypedValue
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.slider.Slider
+import com.google.android.material.switchmaterial.SwitchMaterial
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import me.lucky.wasted.ApplicationOption
+import me.lucky.wasted.R
+import me.lucky.wasted.Trigger
+import me.lucky.wasted.Utils
+import me.lucky.wasted.admin.DeviceAdminManager
+import me.lucky.wasted.databinding.FragmentP2pNetworkBinding
+import me.lucky.wasted.p2p.models.DeviceSettingsSnapshot
+import me.lucky.wasted.p2p.models.PairingState
+import me.lucky.wasted.p2p.models.Peer
+import java.text.DateFormat
+import java.util.Date
+import java.util.regex.Pattern
+
+class P2PNetworkFragment : Fragment() {
+
+    companion object {
+        private const val MODIFIER_DAYS = 'd'
+        private const val MODIFIER_HOURS = 'h'
+        private const val MODIFIER_MINUTES = 'm'
+    }
+
+    private var _binding: FragmentP2pNetworkBinding? = null
+    private val binding get() = _binding!!
+
+    private lateinit var controller: P2PController
+    private lateinit var adminManager: DeviceAdminManager
+    private var remoteResetDialogVisible = false
+    private var remoteResetDialog: androidx.appcompat.app.AlertDialog? = null
+    private var renderedPeers: List<Peer> = emptyList()
+    private var peerSettingsSnapshots: Map<String, DeviceSettingsSnapshot> = emptyMap()
+    private val lockCountPattern by lazy {
+        Pattern.compile("^[1-9]\\d*[$MODIFIER_DAYS$MODIFIER_HOURS$MODIFIER_MINUTES]$")
+    }
+
+    private val deviceAdminLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        updateLocalDeviceActionsState()
+        controller.announceCurrentSettings()
+        if (it.resultCode == Activity.RESULT_OK && adminManager.isActive()) {
+            showMessage("Device Admin enabled for this phone")
+        } else if (!adminManager.isActive()) {
+            showMessage("Device Admin is still disabled on this phone")
+        }
+    }
+
+    private val scanQrLauncher = registerForActivityResult(ScanContract()) { result ->
+        val contents = result.contents ?: return@registerForActivityResult
+        viewLifecycleOwner.lifecycleScope.launch {
+            val actionResult = controller.pairFromQrPayload(contents)
+            showMessage(actionResult.message)
+        }
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentP2pNetworkBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        controller = P2PController.getInstance(requireContext())
+        adminManager = DeviceAdminManager(requireContext())
+        controller.start()
+        setupUi()
+        observeState()
+        updateLocalDeviceActionsState()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (this::adminManager.isInitialized) {
+            updateLocalDeviceActionsState()
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
+    private fun setupUi() = with(binding) {
+        helpButton.setOnClickListener { showHelpDialog() }
+        pairingHelpButton.setOnClickListener { showPairingHelpDialog() }
+        settingsInfoButton.setOnClickListener { showSettingsHelpDialog() }
+        localActionsInfoButton.setOnClickListener { showLocalActionsHelpDialog() }
+        enableAdminButton.setOnClickListener { requestDeviceAdmin() }
+
+        localTimeoutEditText.doAfterTextChanged {
+            validateLocalTimeoutInput()
+        }
+
+        localTileDelaySlider.addOnChangeListener { _, value, _ ->
+            localTileDelayValue.text = formatTileDelayLabel((value * 1000).toLong())
+        }
+
+        localWipeDataSwitch.setOnCheckedChangeListener { _, isChecked ->
+            localWipeEmbeddedSimSwitch.isEnabled = isChecked
+            if (!isChecked) {
+                localWipeEmbeddedSimSwitch.isChecked = false
+            }
+        }
+
+        localApplicationSwitch.setOnCheckedChangeListener { _, isChecked ->
+            updateLocalApplicationOptionsState(isChecked)
+        }
+
+        localRecastSwitch.setOnCheckedChangeListener { _, isChecked ->
+            updateLocalRecastInputsState(isChecked)
+        }
+
+        generatePinButton.setOnClickListener {
+            val pin = controller.generatePairingPin()
+            pairingPinValue.text = pin.chunked(3).joinToString(" ")
+            pairingStatusText.text = "Share this PIN or QR with a device you trust. It stays valid for 5 minutes."
+            showMessage("Pairing PIN ready")
+        }
+
+        showQrButton.setOnClickListener {
+            val pin = controller.getOrCreatePairingPin()
+            pairingPinValue.text = pin.chunked(3).joinToString(" ")
+            showQrDialog(controller.buildPairingQrPayload(pin))
+        }
+
+        scanQrButton.setOnClickListener {
+            val options = ScanOptions()
+                .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                .setPrompt("Scan the other device's pairing QR")
+                .setBeepEnabled(true)
+                .setOrientationLocked(true)
+                .setCaptureActivity(PortraitCaptureActivity::class.java)
+            scanQrLauncher.launch(options)
+        }
+
+        applySettingsButton.setOnClickListener {
+            val currentSnapshot = controller.localSettings.value
+            val updatedSettings = buildSettingsSnapshot(
+                baseSnapshot = currentSnapshot,
+                appEnabled = localAppEnabledSwitch.isChecked,
+                wipeDataEnabled = localWipeDataSwitch.isChecked,
+                wipeEmbeddedSimEnabled = localWipeEmbeddedSimSwitch.isChecked,
+                remoteResetConfirmationEnabled = localRemoteResetConfirmationSwitch.isChecked,
+                timeoutInput = localTimeoutEditText.text?.toString()?.trim().orEmpty(),
+                panicKitEnabled = localPanicKitSwitch.isChecked,
+                tileEnabled = localTileSwitch.isChecked,
+                tileDelayMs = (localTileDelaySlider.value * 1000).toLong(),
+                shortcutEnabled = localShortcutSwitch.isChecked,
+                broadcastEnabled = localBroadcastSwitch.isChecked,
+                notificationEnabled = localNotificationSwitch.isChecked,
+                usbEnabled = localUsbSwitch.isChecked,
+                inactivityEnabled = localLockSwitch.isChecked,
+                applicationEnabled = localApplicationSwitch.isChecked,
+                signalEnabled = localSignalSwitch.isChecked,
+                telegramEnabled = localTelegramSwitch.isChecked,
+                threemaEnabled = localThreemaSwitch.isChecked,
+                sessionEnabled = localSessionSwitch.isChecked,
+                recastEnabled = localRecastSwitch.isChecked,
+                recastAction = localRecastActionEditText.text?.toString()?.trim().orEmpty(),
+                recastReceiver = localRecastReceiverEditText.text?.toString()?.trim().orEmpty(),
+                recastExtraKey = localRecastExtraKeyEditText.text?.toString()?.trim().orEmpty(),
+                recastExtraValue = localRecastExtraValueEditText.text?.toString()?.trim().orEmpty(),
+            )
+            if (updatedSettings == null) {
+                localTimeoutInputLayout.error = getString(R.string.trigger_lock_time_error)
+                showMessage(getString(R.string.trigger_lock_time_error))
+                return@setOnClickListener
+            }
+
+            controller.saveLocalSettings(updatedSettings)
+            showMessage("This phone's Wasted settings were saved and shared with approved phones")
+        }
+
+        lockDeviceButton.setOnClickListener {
+            if (!adminManager.isActive()) {
+                showAdminRequiredDialog("Lock This Device")
+                return@setOnClickListener
+            }
+            val locked = controller.remoteControlManager.lockDeviceLocally()
+            showMessage(if (locked) "Device lock requested" else "Device Admin is not active")
+        }
+
+        localResetButton.setOnClickListener {
+            if (!adminManager.isActive()) {
+                showAdminRequiredDialog("Reset This Device")
+                return@setOnClickListener
+            }
+
+            val resetSupport = adminManager.getResetSupport()
+            if (!resetSupport.isSupported) {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Reset unavailable")
+                    .setMessage(resetSupport.userMessage)
+                    .setPositiveButton("OK", null)
+                    .show()
+                return@setOnClickListener
+            }
+
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Reset this device?")
+                .setMessage("This wipes device data and cannot be undone.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Reset") { _, _ ->
+                    val result = controller.remoteControlManager.executeLocalReset()
+                    showMessage(result.userMessage)
+                }
+                .show()
+        }
+    }
+
+    private fun observeState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.connectedPeers.collectLatest { peers ->
+                val approvedPeers = peers.filter { it.pairedAt > 0L }
+                binding.statusHeadline.text = when (approvedPeers.size) {
+                    0 -> "No approved device connected yet"
+                    1 -> "1 approved device connected"
+                    else -> "${approvedPeers.size} approved devices connected"
+                }
+                binding.statusDetail.text = when (approvedPeers.size) {
+                    0 -> "Keep both phones on the same Wi-Fi or hotspot. Pair a phone below before you change its settings or send a reset request."
+                    else -> "Approved phones show their own current settings here and can be updated one by one."
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.allPeers.collectLatest { peers ->
+                renderedPeers = peers
+                renderPeers(peers)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.peerSettings.collectLatest { snapshots ->
+                peerSettingsSnapshots = snapshots
+                renderPeers(renderedPeers)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.currentPin.collectLatest { pin ->
+                binding.pairingPinValue.text = pin?.chunked(3)?.joinToString(" ") ?: "PIN not generated yet"
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.pairingState.collectLatest { state ->
+                binding.pairingStatusText.text = when (state) {
+                    PairingState.UNPAIRED -> "Generate a PIN when you are ready to approve a new device."
+                    PairingState.PAIRING -> "A pairing PIN is active. Ask the other device to enter it or scan the QR."
+                    PairingState.PAIRED -> "Pairing complete. Approved devices can now sync settings and request reset confirmation."
+                    PairingState.PAIRING_FAILED -> "Pairing failed. Check the PIN, discovery status, or QR payload and try again."
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.pairingError.collectLatest { error ->
+                if (!error.isNullOrBlank()) {
+                    showMessage(error)
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.uiMessages.collectLatest { message ->
+                showMessage(message)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.localSettings.collectLatest { snapshot ->
+                controller.remoteControlManager.handleRemoteResetConfirmationSettingChanged(
+                    snapshot.remoteResetConfirmationEnabled,
+                )
+                renderLocalSettings(snapshot)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.settingsSyncManager.lastSyncTime.collectLatest { timestamp ->
+                binding.lastSyncText.text = if (timestamp == 0L) {
+                    "No device status shared yet"
+                } else {
+                    "Last local settings update shared at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(timestamp))}"
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            controller.pendingReset.collectLatest { pending ->
+                if (pending == null) {
+                    remoteResetDialog?.dismiss()
+                    remoteResetDialog = null
+                    remoteResetDialogVisible = false
+                    return@collectLatest
+                }
+
+                if (remoteResetDialogVisible) {
+                    return@collectLatest
+                }
+
+                remoteResetDialogVisible = true
+                remoteResetDialog = MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Remote reset approval")
+                    .setMessage("${pending.second} asked to reset this device. This action is irreversible.")
+                    .setNegativeButton("Decline") { _, _ ->
+                        controller.remoteControlManager.declineRemoteReset()
+                        remoteResetDialogVisible = false
+                    }
+                    .setPositiveButton("Confirm") { _, _ ->
+                        controller.remoteControlManager.confirmRemoteReset()
+                        remoteResetDialogVisible = false
+                    }
+                    .setOnDismissListener {
+                        remoteResetDialogVisible = false
+                        remoteResetDialog = null
+                    }
+                    .show()
+            }
+        }
+    }
+
+    private fun renderPeers(peers: List<Peer>) {
+        binding.peerContainer.removeAllViews()
+        binding.peerEmptyState.isVisible = peers.isEmpty()
+
+        peers.forEach { peer ->
+            val card = com.google.android.material.card.MaterialCardView(requireContext()).apply {
+                radius = 20f
+                cardElevation = 1f
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    bottomMargin = 12.dp
+                }
+            }
+
+            val content = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(18.dp, 18.dp, 18.dp, 18.dp)
+            }
+
+            val title = TextView(requireContext()).apply {
+                text = peer.deviceName
+                textSize = 18f
+                setTypeface(typeface, Typeface.BOLD)
+            }
+            content.addView(title)
+
+            val subtitle = TextView(requireContext()).apply {
+                val approved = if (peer.pairedAt > 0L) "Approved" else "Not paired"
+                val status = if (peer.isConnected) "Reachable" else "Offline"
+                text = "$approved • $status • ${peer.ipAddress}:${peer.port}"
+                textSize = 13f
+            }
+            content.addView(subtitle)
+
+            val detail = TextView(requireContext()).apply {
+                if (peer.pairedAt > 0L && peer.isConnected && peerSettingsSnapshots[peer.deviceId] == null) {
+                    controller.requestPeerSettings(peer)
+                }
+
+                text = if (peer.pairedAt > 0L) {
+                    buildPeerSettingsText(peer)
+                } else {
+                    "Pair this phone first before it can receive synced settings or reset requests."
+                }
+                textSize = 13f
+                setPadding(0, 10.dp, 0, 0)
+            }
+            content.addView(detail)
+
+            val buttonRow = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, 14.dp, 0, 0)
+                weightSum = 3f
+            }
+
+            if (peer.pairedAt <= 0L) {
+                val pairButton = createPeerActionButton("Enter Code").apply {
+                    text = "Enter Code"
+                    setOnClickListener { showManualPairDialog(peer) }
+                }
+                buttonRow.addView(pairButton)
+
+                val scanButton = createPeerActionButton("Scan QR").apply {
+                    text = "Scan QR"
+                    setOnClickListener { launchQrScanner() }
+                }
+                buttonRow.addView(scanButton)
+            } else {
+                val editSettingsButton = createPeerActionButton("Edit Settings").apply {
+                    setOnClickListener {
+                        val snapshot = peerSettingsSnapshots[peer.deviceId]
+                        if (snapshot == null) {
+                            controller.requestPeerSettings(peer, force = true)
+                            showMessage("Requesting current settings from ${peer.deviceName}")
+                        } else {
+                            showPeerSettingsDialog(peer, snapshot)
+                        }
+                    }
+                }
+                buttonRow.addView(editSettingsButton)
+
+                val refreshButton = createPeerActionButton("Refresh").apply {
+                    setOnClickListener {
+                        controller.requestPeerSettings(peer, force = true)
+                        showMessage("Refreshing settings from ${peer.deviceName}")
+                    }
+                }
+                buttonRow.addView(refreshButton)
+            }
+
+            val peerSnapshot = peerSettingsSnapshots[peer.deviceId]
+            val resetButton = createPeerActionButton("Remote Reset").apply {
+                text = "Remote Reset"
+                isEnabled = peer.pairedAt > 0L && peerSnapshot?.resetSupported != false
+                setOnClickListener {
+                    val resetMessage = when (peerSnapshot?.remoteResetConfirmationEnabled) {
+                        true -> "Send a protected reset request to ${peer.deviceName}. ${peer.deviceName} must still confirm before wiping."
+                        false -> "Send a reset request to ${peer.deviceName}. ${peer.deviceName} is currently set to execute remote resets immediately without showing a confirmation dialog there."
+                        null -> "Send a reset request to ${peer.deviceName}. If that phone requires confirmation for remote reset, it will ask there before wiping."
+                    }
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Reset ${peer.deviceName}?")
+                        .setMessage(resetMessage)
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Send") { _, _ ->
+                            controller.remoteControlManager.sendRemoteReset(peer)
+                            showMessage("Reset request queued for ${peer.deviceName}")
+                        }
+                        .show()
+                }
+            }
+            buttonRow.addView(resetButton)
+            normalizeButtonRow(buttonRow)
+
+            content.addView(buttonRow)
+
+            if (peer.pairedAt > 0L) {
+                val secondaryRow = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(0, 10.dp, 0, 0)
+                }
+                val unpairButton = createWideActionButton("Unpair ${peer.deviceName}").apply {
+                    setOnClickListener {
+                        MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("Unpair ${peer.deviceName}?")
+                            .setMessage("This removes approval for ${peer.deviceName}. It will stay visible on the network, but it must be paired again before its settings can be changed or it can receive reset requests.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Unpair") { _, _ ->
+                                controller.unpairPeer(peer)
+                            }
+                            .show()
+                    }
+                }
+                secondaryRow.addView(unpairButton)
+                content.addView(secondaryRow)
+            }
+
+            card.addView(content)
+            binding.peerContainer.addView(card)
+        }
+    }
+
+    private fun showPeerSettingsDialog(peer: Peer, snapshot: DeviceSettingsSnapshot) {
+        val header = TextView(requireContext()).apply {
+            text = "Changes apply only to ${peer.deviceName}. The target phone saves them locally and every approved phone updates its live view when that phone reports back."
+            textSize = 14f
+        }
+
+        val appEnabledSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable Wasted"
+            isChecked = snapshot.appEnabled
+        }
+
+        val wipeDataSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Wipe data on trigger"
+            isChecked = snapshot.wipeDataEnabled
+        }
+
+        val wipeEmbeddedSimSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Wipe eSIM with reset"
+            isChecked = snapshot.wipeEmbeddedSimEnabled
+            isEnabled = snapshot.wipeDataEnabled
+        }
+        val remoteResetConfirmationSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Require confirmation before remote reset"
+            isChecked = snapshot.remoteResetConfirmationEnabled
+        }
+        wipeDataSwitch.setOnCheckedChangeListener { _, isChecked ->
+            wipeEmbeddedSimSwitch.isEnabled = isChecked
+            if (!isChecked) {
+                wipeEmbeddedSimSwitch.isChecked = false
+            }
+        }
+
+        val timeoutInputLayout = TextInputLayout(requireContext()).apply {
+            helperText = getString(R.string.trigger_lock_time_helper_text)
+            isHelperTextEnabled = true
+            isErrorEnabled = true
+            setPadding(0, 8.dp, 0, 0)
+        }
+
+        val timeoutInput = TextInputEditText(timeoutInputLayout.context).apply {
+            hint = getString(R.string.trigger_lock_time_hint)
+            setText(formatTimeoutInput((snapshot.inactivityTimeout / 60_000L).toInt().coerceAtLeast(1)))
+        }
+        timeoutInputLayout.addView(timeoutInput)
+        timeoutInput.doAfterTextChanged {
+            timeoutInputLayout.error = if (isValidTimeoutInput(it?.toString().orEmpty())) null else getString(R.string.trigger_lock_time_error)
+        }
+
+        val usbSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable USB trigger"
+            isChecked = snapshot.usbDetectionEnabled
+        }
+
+        val lockSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable inactivity trigger"
+            isChecked = snapshot.autoLockEnabled
+        }
+
+        val panicKitSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable PanicKit trigger"
+            isChecked = hasFlag(snapshot.triggerMask, Trigger.PANIC_KIT.value)
+        }
+
+        val tileSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable tile trigger"
+            isChecked = hasFlag(snapshot.triggerMask, Trigger.TILE.value)
+        }
+
+        val tileDelayLabel = TextView(requireContext()).apply {
+            text = formatTileDelayLabel(snapshot.tileDelayMs)
+            setPadding(0, 8.dp, 0, 0)
+        }
+
+        val tileDelaySlider = Slider(requireContext()).apply {
+            valueFrom = 0f
+            valueTo = 3f
+            stepSize = 0.5f
+            value = (snapshot.tileDelayMs / 1000f).coerceIn(0f, 3f)
+            addOnChangeListener { _, value, _ ->
+                tileDelayLabel.text = formatTileDelayLabel((value * 1000).toLong())
+            }
+        }
+
+        val shortcutSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable shortcut trigger"
+            isChecked = hasFlag(snapshot.triggerMask, Trigger.SHORTCUT.value)
+        }
+
+        val broadcastSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable broadcast trigger"
+            isChecked = hasFlag(snapshot.triggerMask, Trigger.BROADCAST.value)
+        }
+
+        val notificationSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable notification trigger"
+            isChecked = hasFlag(snapshot.triggerMask, Trigger.NOTIFICATION.value)
+        }
+
+        val applicationSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable fake application trigger"
+            isChecked = hasFlag(snapshot.triggerMask, Trigger.APPLICATION.value)
+        }
+
+        val signalSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Signal"
+            isChecked = hasFlag(snapshot.applicationOptionsMask, ApplicationOption.SIGNAL.value)
+        }
+
+        val telegramSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Telegram"
+            isChecked = hasFlag(snapshot.applicationOptionsMask, ApplicationOption.TELEGRAM.value)
+        }
+
+        val threemaSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Threema"
+            isChecked = hasFlag(snapshot.applicationOptionsMask, ApplicationOption.THREEMA.value)
+        }
+
+        val sessionSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Session"
+            isChecked = hasFlag(snapshot.applicationOptionsMask, ApplicationOption.SESSION.value)
+        }
+
+        val appOptionSwitches = listOf(signalSwitch, telegramSwitch, threemaSwitch, sessionSwitch)
+        appOptionSwitches.forEach { it.isEnabled = applicationSwitch.isChecked }
+        applicationSwitch.setOnCheckedChangeListener { _, isChecked ->
+            appOptionSwitches.forEach { option -> option.isEnabled = isChecked }
+        }
+
+        val recastSwitch = SwitchMaterial(requireContext()).apply {
+            text = "Enable recast broadcast"
+            isChecked = snapshot.recastEnabled
+        }
+
+        val recastActionInput = EditText(requireContext()).apply {
+            hint = "Action"
+            setText(snapshot.recastAction)
+        }
+
+        val recastReceiverInput = EditText(requireContext()).apply {
+            hint = "Receiver"
+            setText(snapshot.recastReceiver)
+        }
+
+        val recastExtraKeyInput = EditText(requireContext()).apply {
+            hint = "Extra key"
+            setText(snapshot.recastExtraKey)
+        }
+
+        val recastExtraValueInput = EditText(requireContext()).apply {
+            hint = "Extra value"
+            setText(snapshot.recastExtraValue)
+        }
+
+        val recastInputs = listOf(recastActionInput, recastReceiverInput, recastExtraKeyInput, recastExtraValueInput)
+        recastInputs.forEach { it.isEnabled = recastSwitch.isChecked }
+        recastSwitch.setOnCheckedChangeListener { _, isChecked ->
+            recastInputs.forEach { input -> input.isEnabled = isChecked }
+        }
+
+        val adminState = TextView(requireContext()).apply {
+            text = if (snapshot.deviceAdminActive) {
+                "Device Admin active on ${peer.deviceName}"
+            } else {
+                "Device Admin inactive on ${peer.deviceName}; lock and local reset actions on that phone will not work until it is enabled there."
+            }
+            setPadding(0, 12.dp, 0, 0)
+        }
+
+        val content = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20.dp, 8.dp, 20.dp, 0)
+            addView(header)
+            addView(appEnabledSwitch)
+            addView(wipeDataSwitch)
+            addView(wipeEmbeddedSimSwitch)
+            addView(remoteResetConfirmationSwitch)
+            addView(createSectionLabel("Trigger Settings"))
+            addView(timeoutInputLayout)
+            addView(panicKitSwitch)
+            addView(tileSwitch)
+            addView(tileDelayLabel)
+            addView(tileDelaySlider)
+            addView(shortcutSwitch)
+            addView(broadcastSwitch)
+            addView(notificationSwitch)
+            addView(usbSwitch)
+            addView(lockSwitch)
+            addView(applicationSwitch)
+            addView(signalSwitch)
+            addView(telegramSwitch)
+            addView(threemaSwitch)
+            addView(sessionSwitch)
+            addView(createSectionLabel("Recast"))
+            addView(recastSwitch)
+            addView(recastActionInput)
+            addView(recastReceiverInput)
+            addView(recastExtraKeyInput)
+            addView(recastExtraValueInput)
+            addView(adminState)
+        }
+
+        val scrollView = ScrollView(requireContext()).apply {
+            addView(content)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Edit ${peer.deviceName} Settings")
+            .setView(scrollView)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save", null)
+            .show()
+
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val updatedSettings = buildSettingsSnapshot(
+                baseSnapshot = snapshot,
+                appEnabled = appEnabledSwitch.isChecked,
+                wipeDataEnabled = wipeDataSwitch.isChecked,
+                wipeEmbeddedSimEnabled = wipeEmbeddedSimSwitch.isChecked,
+                remoteResetConfirmationEnabled = remoteResetConfirmationSwitch.isChecked,
+                timeoutInput = timeoutInput.text?.toString()?.trim().orEmpty(),
+                panicKitEnabled = panicKitSwitch.isChecked,
+                tileEnabled = tileSwitch.isChecked,
+                tileDelayMs = (tileDelaySlider.value * 1000).toLong(),
+                shortcutEnabled = shortcutSwitch.isChecked,
+                broadcastEnabled = broadcastSwitch.isChecked,
+                notificationEnabled = notificationSwitch.isChecked,
+                usbEnabled = usbSwitch.isChecked,
+                inactivityEnabled = lockSwitch.isChecked,
+                applicationEnabled = applicationSwitch.isChecked,
+                signalEnabled = signalSwitch.isChecked,
+                telegramEnabled = telegramSwitch.isChecked,
+                threemaEnabled = threemaSwitch.isChecked,
+                sessionEnabled = sessionSwitch.isChecked,
+                recastEnabled = recastSwitch.isChecked,
+                recastAction = recastActionInput.text?.toString()?.trim().orEmpty(),
+                recastReceiver = recastReceiverInput.text?.toString()?.trim().orEmpty(),
+                recastExtraKey = recastExtraKeyInput.text?.toString()?.trim().orEmpty(),
+                recastExtraValue = recastExtraValueInput.text?.toString()?.trim().orEmpty(),
+            )
+            if (updatedSettings == null) {
+                timeoutInputLayout.error = getString(R.string.trigger_lock_time_error)
+                return@setOnClickListener
+            }
+
+            controller.updatePeerSettings(peer = peer, settings = updatedSettings)
+            dialog.dismiss()
+        }
+    }
+
+    private fun showManualPairDialog(peer: Peer) {
+        val copy = TextView(requireContext()).apply {
+            text = "Ask ${peer.deviceName} to generate a 6-digit code or QR on its Pair A Device section. You can type the code here or scan the QR instead."
+            textSize = 14f
+        }
+
+        val input = EditText(requireContext()).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            hint = "Enter 6-digit PIN"
+        }
+
+        val content = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20.dp, 8.dp, 20.dp, 0)
+            addView(copy)
+            addView(input)
+        }
+
+        val scrollView = ScrollView(requireContext()).apply {
+            addView(content)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Pair with ${peer.deviceName}")
+            .setView(scrollView)
+            .setNegativeButton("Cancel", null)
+            .setNeutralButton("Scan QR") { _, _ ->
+                launchQrScanner()
+            }
+            .setPositiveButton("Send Request", null)
+            .show()
+
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val pin = input.text?.toString()?.trim().orEmpty()
+            if (pin.length != 6) {
+                showMessage("PIN must be 6 digits")
+            } else {
+                controller.sendPairingRequest(peer, pin)
+                dialog.dismiss()
+            }
+        }
+    }
+
+    private fun showQrDialog(payload: String) {
+        val size = (resources.displayMetrics.widthPixels * 0.72f).toInt().coerceAtLeast(260.dp)
+        val imageView = ImageView(requireContext()).apply {
+            layoutParams = FrameLayout.LayoutParams(size, size)
+            setImageBitmap(renderQrCode(payload, size))
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+
+        val pinText = TextView(requireContext()).apply {
+            text = "Code: ${controller.getOrCreatePairingPin().chunked(3).joinToString(" ")}"
+            textSize = 18f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, 12.dp, 0, 0)
+        }
+
+        val bodyText = TextView(requireContext()).apply {
+            text = "Open Pair A Device on the other phone and scan this QR. If camera access is not convenient, type the code shown below instead."
+            textSize = 14f
+            setPadding(0, 12.dp, 0, 0)
+        }
+
+        val content = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20.dp, 20.dp, 20.dp, 28.dp)
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            addView(imageView)
+            addView(pinText)
+            addView(bodyText)
+        }
+
+        val dialog = BottomSheetDialog(requireContext())
+        dialog.setContentView(content)
+        dialog.show()
+    }
+
+    private fun renderQrCode(content: String, size: Int): Bitmap {
+        val matrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                bitmap.setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
+            }
+        }
+        return bitmap
+    }
+
+    private fun showHelpDialog() {
+        showScrollableInfoDialog(
+            title = "Peer Control Help",
+            body =
+                "Use this screen to pair trusted phones, view each phone's live Wasted settings, edit a specific phone's settings, and send reset requests that still require confirmation on the target phone.\n\n" +
+                    "Typical flow:\n" +
+                    "1. Open this screen on both phones.\n" +
+                    "2. Generate a code or QR on one phone.\n" +
+                    "3. Enter that code or scan that QR on the other phone.\n" +
+                    "4. Once the phone becomes Approved, refresh its settings, edit that phone if needed, or send a remote reset request.\n\n" +
+                    "Android 14+ full reset requirement:\n" +
+                    "• A normal personal phone is not enough for full remote wipe anymore.\n" +
+                    "• The target phone must be enrolled with Wasted as Device Owner during setup or after a factory reset.\n" +
+                    "• This build already includes the managed provisioning entry points needed for that enrollment.\n\n" +
+                    "Safety rules:\n" +
+                    "• Remote reset never wipes silently. The target phone must still confirm.\n" +
+                    "• Unapproved phones cannot receive settings changes or reset requests.\n" +
+                    "• Traffic stays on the local network and uses TLS."
+        )
+    }
+
+    private fun showPairingHelpDialog() {
+        showScrollableInfoDialog(
+            title = "How Pairing Works",
+            body =
+                "Each phone can approve another phone in two ways:\n\n" +
+                    "• Code: generate a 6-digit code here, then type it on the other phone.\n" +
+                    "• QR: show a QR here, then scan it on the other phone.\n\n" +
+                    "Codes stay valid for 5 minutes. If the wrong code is entered or the code expires, both phones should now show a visible message.\n\n" +
+                    "After approval, the device appears as Approved in the list and you can unpair it later from its card."
+        )
+    }
+
+    private fun showSettingsHelpDialog() {
+        showScrollableInfoDialog(
+            title = "This Device Settings",
+            body =
+                "This section edits only this phone.\n\n" +
+                    "It includes Wasted enable state, wipe options, trigger toggles, inactivity timeout, tile delay, fake application options, and recast fields.\n\n" +
+                        "Require confirmation before remote reset controls whether this phone asks for approval when another approved phone sends a reset request.\n\n" +
+                    "Use the same timeout format as the original settings screen: 7d, 48h, or 120m.\n\n" +
+                    "Save Settings stores the values on this phone and shares its latest state with approved phones so their device list stays current. To change a different phone, use that phone's card in the Devices section."
+        )
+    }
+
+    private fun showLocalActionsHelpDialog() {
+        showScrollableInfoDialog(
+            title = "This Device Actions",
+            body =
+                "These actions affect only the phone in your hand.\n\n" +
+                    "• Enable Device Admin: grants Wasted the system privilege it needs for lock and reset on this phone.\n\n" +
+                    "• Modern Android reset support: on Android 14+ a personal phone must be enrolled as Device Owner during setup or after a factory reset before Wasted can perform a full remote reset. This build now includes the managed provisioning entry points required for that enrollment.\n\n" +
+                    "• Lock This Device: immediately sends this phone back to its lock screen. It does not erase data.\n\n" +
+                    "• Reset This Device: runs Wasted's local reset path after confirmation. If wipe is enabled in the app, this can erase data on this phone."
+        )
+    }
+
+    private fun requestDeviceAdmin() {
+        deviceAdminLauncher.launch(adminManager.makeRequestIntent())
+    }
+
+    private fun showAdminRequiredDialog(actionLabel: String) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Enable Device Admin")
+            .setMessage("$actionLabel needs Device Admin on this phone. Enable it now so Wasted can lock or reset this device when asked.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Enable") { _, _ -> requestDeviceAdmin() }
+            .show()
+    }
+
+    private fun updateLocalDeviceActionsState() {
+        val active = adminManager.isActive()
+        val resetSupport = adminManager.getResetSupport()
+        binding.localAdminStatusText.text = adminManager.getManagementSummary()
+        binding.enableAdminButton.isVisible = !active
+        binding.localActionsDescription.text = if (active) {
+            if (resetSupport.isSupported) {
+                "Use these only for this phone. Reset always asks for confirmation before wiping."
+            } else {
+                "Lock works on this phone, but reset is unavailable here. ${resetSupport.userMessage}"
+            }
+        } else {
+            "Lock and reset on this phone need Device Admin first. Use Enable Device Admin below, then come back to these actions."
+        }
+    }
+
+    private fun renderLocalSettings(snapshot: DeviceSettingsSnapshot) = with(binding) {
+        localAppEnabledSwitch.isChecked = snapshot.appEnabled
+        localWipeDataSwitch.isChecked = snapshot.wipeDataEnabled
+        localWipeEmbeddedSimSwitch.isChecked = snapshot.wipeEmbeddedSimEnabled
+        localWipeEmbeddedSimSwitch.isEnabled = snapshot.wipeDataEnabled
+        localRemoteResetConfirmationSwitch.isChecked = snapshot.remoteResetConfirmationEnabled
+        localTimeoutEditText.setTextIfChanged(formatTimeoutInput((snapshot.inactivityTimeout / 60_000L).toInt().coerceAtLeast(1)))
+        localTimeoutInputLayout.error = null
+        localPanicKitSwitch.isChecked = hasFlag(snapshot.triggerMask, Trigger.PANIC_KIT.value)
+        localTileSwitch.isChecked = hasFlag(snapshot.triggerMask, Trigger.TILE.value)
+        localTileDelayValue.text = formatTileDelayLabel(snapshot.tileDelayMs)
+        val tileDelaySeconds = (snapshot.tileDelayMs / 1000f).coerceIn(0f, 3f)
+        if (localTileDelaySlider.value != tileDelaySeconds) {
+            localTileDelaySlider.value = tileDelaySeconds
+        }
+        localShortcutSwitch.isChecked = hasFlag(snapshot.triggerMask, Trigger.SHORTCUT.value)
+        localBroadcastSwitch.isChecked = hasFlag(snapshot.triggerMask, Trigger.BROADCAST.value)
+        localNotificationSwitch.isChecked = hasFlag(snapshot.triggerMask, Trigger.NOTIFICATION.value)
+        localUsbSwitch.isChecked = snapshot.usbDetectionEnabled
+        localLockSwitch.isChecked = snapshot.autoLockEnabled
+        localApplicationSwitch.isChecked = hasFlag(snapshot.triggerMask, Trigger.APPLICATION.value)
+        localSignalSwitch.isChecked = hasFlag(snapshot.applicationOptionsMask, ApplicationOption.SIGNAL.value)
+        localTelegramSwitch.isChecked = hasFlag(snapshot.applicationOptionsMask, ApplicationOption.TELEGRAM.value)
+        localThreemaSwitch.isChecked = hasFlag(snapshot.applicationOptionsMask, ApplicationOption.THREEMA.value)
+        localSessionSwitch.isChecked = hasFlag(snapshot.applicationOptionsMask, ApplicationOption.SESSION.value)
+        updateLocalApplicationOptionsState(localApplicationSwitch.isChecked)
+        localRecastSwitch.isChecked = snapshot.recastEnabled
+        updateLocalRecastInputsState(snapshot.recastEnabled)
+        localRecastActionEditText.setTextIfChanged(snapshot.recastAction)
+        localRecastReceiverEditText.setTextIfChanged(snapshot.recastReceiver)
+        localRecastExtraKeyEditText.setTextIfChanged(snapshot.recastExtraKey)
+        localRecastExtraValueEditText.setTextIfChanged(snapshot.recastExtraValue)
+    }
+
+    private fun updateLocalApplicationOptionsState(enabled: Boolean) = with(binding) {
+        localSignalSwitch.isEnabled = enabled
+        localTelegramSwitch.isEnabled = enabled
+        localThreemaSwitch.isEnabled = enabled
+        localSessionSwitch.isEnabled = enabled
+    }
+
+    private fun updateLocalRecastInputsState(enabled: Boolean) = with(binding) {
+        localRecastActionEditText.isEnabled = enabled
+        localRecastReceiverEditText.isEnabled = enabled
+        localRecastExtraKeyEditText.isEnabled = enabled
+        localRecastExtraValueEditText.isEnabled = enabled
+    }
+
+    private fun validateLocalTimeoutInput(): Boolean {
+        val input = binding.localTimeoutEditText.text?.toString().orEmpty()
+        val isValid = isValidTimeoutInput(input)
+        binding.localTimeoutInputLayout.error = if (isValid || input.isBlank()) null else getString(R.string.trigger_lock_time_error)
+        return isValid
+    }
+
+    private fun showScrollableInfoDialog(title: String, body: String) {
+        val messageView = TextView(requireContext()).apply {
+            text = body
+            textSize = 14f
+            setPadding(20.dp, 12.dp, 20.dp, 8.dp)
+        }
+
+        val scrollView = ScrollView(requireContext()).apply {
+            addView(messageView)
+        }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(title)
+            .setView(scrollView)
+            .setPositiveButton("Close", null)
+            .show()
+    }
+
+    private fun launchQrScanner() {
+        val options = ScanOptions()
+            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            .setPrompt("Scan the other phone's pairing QR")
+            .setBeepEnabled(true)
+            .setOrientationLocked(true)
+            .setCaptureActivity(PortraitCaptureActivity::class.java)
+        scanQrLauncher.launch(options)
+    }
+
+    private fun showMessage(message: String) {
+        val currentView = view ?: return
+        Snackbar.make(currentView, message, Snackbar.LENGTH_SHORT).show()
+    }
+
+    private fun createPeerActionButton(label: String): MaterialButton {
+        return MaterialButton(requireContext()).apply {
+            text = label
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            insetTop = 0
+            insetBottom = 0
+            setPadding(12.dp, 10.dp, 12.dp, 10.dp)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = 8.dp
+            }
+        }
+    }
+
+    private fun createWideActionButton(label: String): MaterialButton {
+        return MaterialButton(requireContext()).apply {
+            text = label
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            insetTop = 0
+            insetBottom = 0
+            setPadding(12.dp, 10.dp, 12.dp, 10.dp)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+        }
+    }
+
+    private fun createSectionLabel(label: String): TextView {
+        return TextView(requireContext()).apply {
+            text = label
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, 16.dp, 0, 6.dp)
+        }
+    }
+
+    private fun normalizeButtonRow(buttonRow: LinearLayout) {
+        val lastIndex = buttonRow.childCount - 1
+        for (index in 0..lastIndex) {
+            val params = buttonRow.getChildAt(index).layoutParams as? LinearLayout.LayoutParams ?: continue
+            params.marginEnd = if (index == lastIndex) 0 else 8.dp
+            buttonRow.getChildAt(index).layoutParams = params
+        }
+    }
+
+    private fun buildSettingsSnapshot(
+        baseSnapshot: DeviceSettingsSnapshot,
+        appEnabled: Boolean,
+        wipeDataEnabled: Boolean,
+        wipeEmbeddedSimEnabled: Boolean,
+        remoteResetConfirmationEnabled: Boolean,
+        timeoutInput: String,
+        panicKitEnabled: Boolean,
+        tileEnabled: Boolean,
+        tileDelayMs: Long,
+        shortcutEnabled: Boolean,
+        broadcastEnabled: Boolean,
+        notificationEnabled: Boolean,
+        usbEnabled: Boolean,
+        inactivityEnabled: Boolean,
+        applicationEnabled: Boolean,
+        signalEnabled: Boolean,
+        telegramEnabled: Boolean,
+        threemaEnabled: Boolean,
+        sessionEnabled: Boolean,
+        recastEnabled: Boolean,
+        recastAction: String,
+        recastReceiver: String,
+        recastExtraKey: String,
+        recastExtraValue: String,
+    ): DeviceSettingsSnapshot? {
+        val timeoutMinutes = parseTimeoutMinutes(timeoutInput) ?: return null
+
+        var triggerMask = 0
+        triggerMask = Utils.setFlag(triggerMask, Trigger.PANIC_KIT.value, panicKitEnabled)
+        triggerMask = Utils.setFlag(triggerMask, Trigger.TILE.value, tileEnabled)
+        triggerMask = Utils.setFlag(triggerMask, Trigger.SHORTCUT.value, shortcutEnabled)
+        triggerMask = Utils.setFlag(triggerMask, Trigger.BROADCAST.value, broadcastEnabled)
+        triggerMask = Utils.setFlag(triggerMask, Trigger.NOTIFICATION.value, notificationEnabled)
+        triggerMask = Utils.setFlag(triggerMask, Trigger.USB.value, usbEnabled)
+        triggerMask = Utils.setFlag(triggerMask, Trigger.LOCK.value, inactivityEnabled)
+        triggerMask = Utils.setFlag(triggerMask, Trigger.APPLICATION.value, applicationEnabled)
+
+        var applicationOptions = 0
+        applicationOptions = Utils.setFlag(applicationOptions, ApplicationOption.SIGNAL.value, signalEnabled && applicationEnabled)
+        applicationOptions = Utils.setFlag(applicationOptions, ApplicationOption.TELEGRAM.value, telegramEnabled && applicationEnabled)
+        applicationOptions = Utils.setFlag(applicationOptions, ApplicationOption.THREEMA.value, threemaEnabled && applicationEnabled)
+        applicationOptions = Utils.setFlag(applicationOptions, ApplicationOption.SESSION.value, sessionEnabled && applicationEnabled)
+
+        return baseSnapshot.copy(
+            appEnabled = appEnabled,
+            wipeDataEnabled = wipeDataEnabled,
+            wipeEmbeddedSimEnabled = wipeDataEnabled && wipeEmbeddedSimEnabled,
+            remoteResetConfirmationEnabled = remoteResetConfirmationEnabled,
+            triggerMask = triggerMask,
+            inactivityTimeout = timeoutMinutes * 60_000L,
+            tileDelayMs = tileDelayMs,
+            applicationOptionsMask = applicationOptions,
+            recastEnabled = recastEnabled,
+            recastAction = recastAction,
+            recastReceiver = recastReceiver,
+            recastExtraKey = recastExtraKey,
+            recastExtraValue = recastExtraValue,
+            usbDetectionEnabled = usbEnabled,
+            autoLockEnabled = inactivityEnabled,
+            updatedAt = System.currentTimeMillis(),
+        )
+    }
+
+    private fun buildPeerSettingsText(peer: Peer): String {
+        val snapshot = peerSettingsSnapshots[peer.deviceId]
+        if (snapshot == null) {
+            return if (peer.isConnected) {
+                "Current settings: waiting for ${peer.deviceName} to report back"
+            } else {
+                "Current settings: unavailable while ${peer.deviceName} is offline"
+            }
+        }
+
+        val updatedAt = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(snapshot.updatedAt))
+        val adminState = if (snapshot.deviceAdminActive) "Admin on" else "Admin off"
+        val resetState = if (snapshot.resetSupported) "Reset ready" else "Reset unavailable"
+        val supportLine = if (snapshot.resetSupported) {
+            null
+        } else {
+            snapshot.resetSupportMessage
+        }
+        val baseText = "Current settings: ${buildSettingsSummary(snapshot)}\n$adminState • $resetState • Last reported: $updatedAt"
+        return if (supportLine.isNullOrBlank()) baseText else "$baseText\n$supportLine"
+    }
+
+    private fun buildSettingsSummary(snapshot: DeviceSettingsSnapshot): String {
+        val triggerNames = buildList {
+            if (hasFlag(snapshot.triggerMask, Trigger.PANIC_KIT.value)) add("PanicKit")
+            if (hasFlag(snapshot.triggerMask, Trigger.TILE.value)) add("Tile")
+            if (hasFlag(snapshot.triggerMask, Trigger.SHORTCUT.value)) add("Shortcut")
+            if (hasFlag(snapshot.triggerMask, Trigger.BROADCAST.value)) add("Broadcast")
+            if (hasFlag(snapshot.triggerMask, Trigger.NOTIFICATION.value)) add("Notification")
+            if (hasFlag(snapshot.triggerMask, Trigger.LOCK.value)) add("Inactivity")
+            if (hasFlag(snapshot.triggerMask, Trigger.USB.value)) add("USB")
+            if (hasFlag(snapshot.triggerMask, Trigger.APPLICATION.value)) add("Application")
+        }.ifEmpty { listOf("None") }
+
+        val timeoutMinutes = (snapshot.inactivityTimeout / 60_000L).toInt().coerceAtLeast(1)
+        val wipeLabel = if (snapshot.wipeDataEnabled) {
+            if (snapshot.wipeEmbeddedSimEnabled) "Wipe+eSIM" else "Wipe on"
+        } else {
+            "Wipe off"
+        }
+        val tileLabel = formatTileDelaySummary(snapshot.tileDelayMs)
+        val recastLabel = if (snapshot.recastEnabled) "Recast on" else "Recast off"
+        val remoteResetLabel = if (snapshot.remoteResetConfirmationEnabled) "Remote confirm on" else "Remote confirm off"
+        val enabledLabel = if (snapshot.appEnabled) "Enabled" else "Disabled"
+        val resetLabel = if (snapshot.resetSupported) "Reset ready" else "Reset blocked"
+        return "$enabledLabel • ${formatTimeoutSummary(timeoutMinutes)} • $wipeLabel\nTriggers: ${triggerNames.joinToString(", ")}\nTile $tileLabel • $recastLabel • $remoteResetLabel • $resetLabel"
+    }
+
+    private fun formatTileDelayLabel(delayMs: Long): String {
+        return "Tile safe delay: ${formatTileDelaySummary(delayMs)}"
+    }
+
+    private fun formatTileDelaySummary(delayMs: Long): String {
+        return "${String.format("%.1f", delayMs / 1000f)}s"
+    }
+
+    private fun hasFlag(mask: Int, flag: Int): Boolean = mask.and(flag) != 0
+
+    private fun parseTimeoutMinutes(input: String): Int? {
+        val normalized = input.trim().lowercase()
+        if (!isValidTimeoutInput(normalized)) {
+            return null
+        }
+        val modifier = normalized.last()
+        val value = normalized.dropLast(1).toIntOrNull() ?: return null
+        return when (modifier) {
+            MODIFIER_DAYS -> value * 24 * 60
+            MODIFIER_HOURS -> value * 60
+            MODIFIER_MINUTES -> value
+            else -> null
+        }
+    }
+
+    private fun isValidTimeoutInput(input: String): Boolean {
+        return lockCountPattern.matcher(input.trim().lowercase()).matches()
+    }
+
+    private fun formatTimeoutInput(minutes: Int): String {
+        return when {
+            minutes % (24 * 60) == 0 -> "${minutes / 24 / 60}$MODIFIER_DAYS"
+            minutes % 60 == 0 -> "${minutes / 60}$MODIFIER_HOURS"
+            else -> "${minutes}$MODIFIER_MINUTES"
+        }
+    }
+
+    private fun formatTimeoutSummary(minutes: Int): String {
+        val days = minutes / (24 * 60)
+        val hours = (minutes % (24 * 60)) / 60
+        val mins = minutes % 60
+        return buildList {
+            if (days > 0) add("${days}d")
+            if (hours > 0) add("${hours}h")
+            if (mins > 0 || isEmpty()) add("${mins}m")
+        }.joinToString(" ")
+    }
+
+    private fun formatTimeoutLabel(minutes: Int): String {
+        val days = minutes / (24 * 60)
+        val hours = (minutes % (24 * 60)) / 60
+        val mins = minutes % 60
+        val parts = buildList {
+            if (days > 0) add("$days day${if (days == 1) "" else "s"}")
+            if (hours > 0) add("$hours hour${if (hours == 1) "" else "s"}")
+            if (mins > 0 || isEmpty()) add("$mins minute${if (mins == 1) "" else "s"}")
+        }
+        return "Inactivity timeout: ${parts.joinToString(" ")}"
+    }
+
+    private fun EditText.setTextIfChanged(value: String) {
+        if (text?.toString() != value) {
+            setText(value)
+        }
+    }
+
+    private val Int.dp: Int
+        get() = (this * resources.displayMetrics.density).toInt()
+}
