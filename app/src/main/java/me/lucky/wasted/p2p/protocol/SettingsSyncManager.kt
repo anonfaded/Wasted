@@ -109,6 +109,7 @@ class SettingsSyncManager(
 
     /**
      * Save local settings and announce the current device snapshot to approved peers.
+     * Dispatches all blocking prefs/IPC work to IO — safe to call from Main thread.
      */
     fun saveLocalSettings(
         inactivityTimeout: Long,
@@ -116,25 +117,23 @@ class SettingsSyncManager(
         autoLockEnabled: Boolean,
     ) {
         Log.d(TAG, "Saving local settings: inactivityTimeout=$inactivityTimeout usbDetection=$usbDetectionEnabled autoLock=$autoLockEnabled")
-        applyLocalSettings(
-            currentSettingsSnapshot().copy(
-                inactivityTimeout = inactivityTimeout,
-                usbDetectionEnabled = usbDetectionEnabled,
-                autoLockEnabled = autoLockEnabled,
-                updatedAt = System.currentTimeMillis(),
-            )
-        )
-
         scope.launch {
+            applyLocalSettings(
+                withContext(Dispatchers.IO) { currentSettingsSnapshot() }.copy(
+                    inactivityTimeout = inactivityTimeout,
+                    usbDetectionEnabled = usbDetectionEnabled,
+                    autoLockEnabled = autoLockEnabled,
+                    updatedAt = System.currentTimeMillis(),
+                )
+            )
             announceLocalSettings()
         }
     }
 
     fun saveLocalSettings(settings: DeviceSettingsSnapshot) {
         Log.d(TAG, "Saving full local settings snapshot")
-        applyLocalSettings(settings.copy(updatedAt = System.currentTimeMillis()))
-
         scope.launch {
+            applyLocalSettings(settings.copy(updatedAt = System.currentTimeMillis()))
             announceLocalSettings()
         }
     }
@@ -210,7 +209,8 @@ class SettingsSyncManager(
 
     suspend fun announceLocalSettings(targetPeer: Peer? = null) {
         try {
-            val snapshot = currentSettingsSnapshot()
+            // currentSettingsSnapshot does DPM + PackageManager IPC — must not run on Main
+            val snapshot = withContext(Dispatchers.IO) { currentSettingsSnapshot() }
             val message = Message(
                 fromDeviceId = getDeviceId(),
                 toDeviceId = targetPeer?.deviceId ?: "broadcast",
@@ -274,7 +274,7 @@ class SettingsSyncManager(
                 "Applying remote settings from ${payload.requestedByDeviceName}",
             )
             applyLocalSettings(
-                currentSettingsSnapshot().copy(
+                withContext(Dispatchers.IO) { currentSettingsSnapshot() }.copy(
                     appEnabled = payload.appEnabled,
                     wipeDataEnabled = payload.wipeDataEnabled,
                     wipeEmbeddedSimEnabled = payload.wipeEmbeddedSimEnabled,
@@ -309,29 +309,37 @@ class SettingsSyncManager(
         }
     }
 
-    private fun applyLocalSettings(settings: DeviceSettingsSnapshot) {
-        prefs.isEnabled = settings.appEnabled
-        prefs.isWipeData = settings.wipeDataEnabled
-        prefs.isWipeEmbeddedSim = settings.wipeEmbeddedSimEnabled && settings.wipeDataEnabled
-        prefs.remoteResetConfirmationEnabled = settings.remoteResetConfirmationEnabled
-        prefs.triggers = settings.triggerMask
-        prefs.triggerLockCount = (settings.inactivityTimeout / 60000L).toInt().coerceAtLeast(1)
-        prefs.triggerTileDelay = settings.tileDelayMs
-        prefs.triggerApplicationOptions = settings.applicationOptionsMask
-        prefs.isRecastEnabled = settings.recastEnabled
-        prefs.recastAction = settings.recastAction
-        prefs.recastReceiver = settings.recastReceiver
-        prefs.recastExtraKey = settings.recastExtraKey
-        prefs.recastExtraValue = settings.recastExtraValue
-
-        utils.setEnabled(settings.appEnabled)
-        utils.updateForegroundRequiredEnabled()
-        utils.updateApplicationEnabled()
-
+    /**
+     * Writes prefs + triggers component-enable IPC on Dispatchers.IO to avoid ANR.
+     * Tink crypto writes + PackageManager.setComponentEnabledSetting() are blocking IPC
+     * that can take 100-500ms each — must NEVER run on the main thread.
+     */
+    private suspend fun applyLocalSettings(settings: DeviceSettingsSnapshot) {
+        Log.d(TAG, "applyLocalSettings: writing prefs + component state (IO dispatch)")
+        withContext(Dispatchers.IO) {
+            prefs.isEnabled = settings.appEnabled
+            prefs.isWipeData = settings.wipeDataEnabled
+            prefs.isWipeEmbeddedSim = settings.wipeEmbeddedSimEnabled && settings.wipeDataEnabled
+            prefs.remoteResetConfirmationEnabled = settings.remoteResetConfirmationEnabled
+            prefs.triggers = settings.triggerMask
+            prefs.triggerLockCount = (settings.inactivityTimeout / 60000L).toInt().coerceAtLeast(1)
+            prefs.triggerTileDelay = settings.tileDelayMs
+            prefs.triggerApplicationOptions = settings.applicationOptionsMask
+            prefs.isRecastEnabled = settings.recastEnabled
+            prefs.recastAction = settings.recastAction
+            prefs.recastReceiver = settings.recastReceiver
+            prefs.recastExtraKey = settings.recastExtraKey
+            prefs.recastExtraValue = settings.recastExtraValue
+            utils.setEnabled(settings.appEnabled)
+            utils.updateForegroundRequiredEnabled()
+            utils.updateApplicationEnabled()
+        }
+        // StateFlow updates are thread-safe; emit after IO work is done
         _inactivityTimeout.value = settings.inactivityTimeout
         _usbDetectionEnabled.value = settings.usbDetectionEnabled
         _autoLockEnabled.value = settings.autoLockEnabled
-        _localSettings.value = currentSettingsSnapshot()
+        _localSettings.value = withContext(Dispatchers.IO) { currentSettingsSnapshot() }
+        Log.d(TAG, "applyLocalSettings: complete")
     }
 
     private fun currentSettingsSnapshot(): DeviceSettingsSnapshot {

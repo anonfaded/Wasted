@@ -38,7 +38,7 @@ class P2PNetwork(
         private const val COMMAND_MAX_ATTEMPTS = 3
     }
     
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     
     private val securityManager = SecurityManager(context)
     private val discovery = DeviceDiscovery(context, peerDao, securityManager)
@@ -64,8 +64,11 @@ class P2PNetwork(
     
     private var discoveryJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var messageDeliveryJob: Job? = null
+    private var peerFlowJob: Job? = null
+    private var startupJob: Job? = null
     private var isInitialized = false
-    
+
     /**
      * Initialize P2P network (start discovery, heartbeat, message delivery).
      */
@@ -76,22 +79,22 @@ class P2PNetwork(
         isInitialized = true
         Log.d(TAG, "Initializing P2P network")
 
-        scope.launch {
+        peerFlowJob = scope.launch {
             peerDao.getConnectedPeersFlow().collectLatest { peers ->
                 _connectedPeers.value = peers
             }
         }
-        
+
         messageServer.start()  // Start listening for peer connections
 
-        scope.launch {
+        startupJob = scope.launch {
             delay(SERVER_STARTUP_GRACE_MS)
             startDiscovery()
             startHeartbeat()
             startMessageDelivery()
             Log.i(TAG, "P2P network initialized")
         }
-        
+
         Log.d(TAG, "Waiting for message server startup before discovery")
     }
     
@@ -131,6 +134,7 @@ class P2PNetwork(
                         Log.d(TAG, "Wi-Fi not connected, skipping discovery")
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.e(TAG, "Discovery error: ${e.message}", e)
                 }
                 
@@ -146,7 +150,7 @@ class P2PNetwork(
         heartbeatJob = scope.launch {
             while (isActive) {
                 try {
-                    val connectedPeers = peerDao.getConnectedPeers()
+                    val connectedPeers = peerDao.getConnectedPeers().filter { it.pairedAt > 0L }
                     if (connectedPeers.isNotEmpty()) {
                         Log.d(TAG, "Sending heartbeat to ${connectedPeers.size} peer(s)")
                     }
@@ -163,12 +167,14 @@ class P2PNetwork(
                             
                             sendToPeer(peer, heartbeat)
                         } catch (e: Exception) {
+                            if (e is CancellationException) throw e
                             Log.e(TAG, "Heartbeat failed for ${peer.deviceName}: ${e.message}")
                             // Mark peer as disconnected if heartbeat fails
                             peerDao.updateConnectionStatus(peer.deviceId, false, System.currentTimeMillis())
                         }
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.e(TAG, "Heartbeat cycle error: ${e.message}", e)
                 }
                 
@@ -181,11 +187,12 @@ class P2PNetwork(
      * Start message delivery worker.
      */
     private fun startMessageDelivery() {
-        scope.launch {
+        messageDeliveryJob = scope.launch {
             while (isActive) {
                 try {
                     messageQueue.checkAndRetryFailedMessages()
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.e(TAG, "Message delivery error: ${e.message}", e)
                 }
                 
@@ -207,7 +214,7 @@ class P2PNetwork(
                 val startTime = System.currentTimeMillis()
                 val socketFactory = securityManager.createSecureTlsClientSocketFactory()
                 socket = socketFactory.createSocket(peer.ipAddress, peer.port) as javax.net.ssl.SSLSocket
-                socket.soTimeout = 3000
+                socket.soTimeout = 10000  // Match server's MESSAGE_READ_TIMEOUT_MS
                 socket.startHandshake()
 
                 val writer = socket.outputStream.bufferedWriter()
@@ -238,6 +245,7 @@ class P2PNetwork(
                     Log.i(TAG, "${message.type} delivered to ${peer.deviceName} (${latency}ms)")
                 }
                 messageQueue.acknowledgeMessage(message.messageId)
+                messageQueue.removeFromQueue(message.messageId)
                 peerDao.updateConnectionStatus(peer.deviceId, true, System.currentTimeMillis())
                 true
             } catch (e: IOException) {
@@ -331,11 +339,23 @@ class P2PNetwork(
      */
     fun shutdown() {
         Log.d(TAG, "Shutting down P2P network")
-        messageServer.stop()  // Stop listening for peer connections
+        messageServer.stop()
+        startupJob?.cancel()
         discoveryJob?.cancel()
         heartbeatJob?.cancel()
+        messageDeliveryJob?.cancel()
+        peerFlowJob?.cancel()
+        startupJob = null
+        discoveryJob = null
+        heartbeatJob = null
+        messageDeliveryJob = null
+        peerFlowJob = null
         discovery.stopDiscovery()
         messageQueue.shutdown()
         scope.cancel()
+        // Recreate scope so the next initialize() call can launch new coroutines
+        scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        isInitialized = false
+        Log.i(TAG, "P2P network shut down")
     }
 }

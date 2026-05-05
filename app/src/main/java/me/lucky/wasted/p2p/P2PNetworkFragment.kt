@@ -2,6 +2,7 @@ package me.lucky.wasted.p2p
 
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
@@ -25,7 +26,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -38,10 +41,13 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.lucky.wasted.Application as WastedApp
 import me.lucky.wasted.ApplicationOption
+import me.lucky.wasted.Preferences
 import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
@@ -59,6 +65,7 @@ import java.util.regex.Pattern
 class P2PNetworkFragment : Fragment() {
 
     companion object {
+        private const val TAG = "P2PNetworkFragment"
         private const val MODIFIER_DAYS = 'd'
         private const val MODIFIER_HOURS = 'h'
         private const val MODIFIER_MINUTES = 'm'
@@ -110,7 +117,10 @@ class P2PNetworkFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         controller = P2PController.getInstance(requireContext())
         adminManager = DeviceAdminManager(requireContext())
-        controller.start()
+        // Only start P2P network if the user has explicitly enabled it
+        if (Preferences.new(requireContext()).p2pEnabled) {
+            controller.start()
+        }
         setupUi()
         observeState()
         updateLocalDeviceActionsState()
@@ -130,6 +140,23 @@ class P2PNetworkFragment : Fragment() {
     }
 
     private fun setupUi() = with(binding) {
+        // ── P2P enabled toggle ──────────────────────────────────────────────────
+        val prefs = Preferences.new(requireContext())
+        p2pEnabledSwitch.isChecked = prefs.p2pEnabled
+        setP2pContentEnabled(prefs.p2pEnabled)
+        p2pEnabledSwitch.setOnCheckedChangeListener { _, isChecked ->
+            // Update visual state immediately on main thread
+            setP2pContentEnabled(isChecked)
+            // Dispatch I/O work off main thread to avoid ANR
+            viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                Preferences.new(requireContext()).p2pEnabled = isChecked
+                Utils(requireContext()).updateForegroundRequiredEnabled()
+                withContext(Dispatchers.Main) {
+                    if (isChecked) controller.start() else controller.stop()
+                }
+            }
+        }
+        // ───────────────────────────────────────────────────────────────────────
         helpButton.setOnClickListener { showHelpDialog() }
         pairingHelpButton.setOnClickListener { showPairingHelpDialog() }
         settingsInfoButton.setOnClickListener { showSettingsHelpDialog() }
@@ -258,116 +285,134 @@ class P2PNetworkFragment : Fragment() {
         }
     }
 
+    /**
+     * Enables or disables all P2P content cards (everything below the header toggle card).
+     * Uses recursive alpha + isEnabled so every leaf view responds correctly.
+     */
+    private fun setP2pContentEnabled(enabled: Boolean) {
+        val cards = binding.p2pContentCards
+        for (i in 1 until cards.childCount) { // index 0 = header card (always active)
+            setViewTreeEnabled(cards.getChildAt(i), enabled)
+        }
+    }
+
+    private fun setViewTreeEnabled(view: View, enabled: Boolean) {
+        view.alpha = if (enabled) 1.0f else 0.38f
+        view.isEnabled = enabled
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                setViewTreeEnabled(view.getChildAt(i), enabled)
+            }
+        }
+    }
+
     private fun observeState() {
+        // repeatOnLifecycle(STARTED): all collectors pause when the fragment is not visible
+        // (app backgrounded / screen off). This stops the 5-second heartbeat DB updates
+        // from triggering renderPeers() on the main thread in the background, which was
+        // a primary cause of the ANR.
         viewLifecycleOwner.lifecycleScope.launch {
-            controller.connectedPeers.collectLatest { peers ->
-                val approvedPeers = peers.filter { it.pairedAt > 0L }
-                binding.statusHeadline.text = when (approvedPeers.size) {
-                    0 -> "No approved device connected yet"
-                    1 -> "1 approved device connected"
-                    else -> "${approvedPeers.size} approved devices connected"
-                }
-                binding.statusDetail.text = when (approvedPeers.size) {
-                    0 -> "Keep both phones on the same Wi-Fi or hotspot. Pair a phone below before you change its settings or send a reset request."
-                    else -> "Approved phones show their own current settings here and can be updated one by one."
-                }
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.allPeers.collectLatest { peers ->
-                renderedPeers = peers
-                renderPeers(peers)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.peerSettings.collectLatest { snapshots ->
-                peerSettingsSnapshots = snapshots
-                renderPeers(renderedPeers)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.currentPin.collectLatest { pin ->
-                binding.pairingPinValue.text = pin?.chunked(3)?.joinToString(" ") ?: "PIN not generated yet"
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.pairingState.collectLatest { state ->
-                binding.pairingStatusText.text = when (state) {
-                    PairingState.UNPAIRED -> "🔓 Ready to pair. Tap 'Generate PIN' or 'Show QR' to start. Tap ❓ for full setup guide."
-                    PairingState.PAIRING -> "⏳ Pairing active. Ask the other device to enter this PIN or scan the QR. Valid for 5 minutes."
-                    PairingState.PAIRED -> "✓ Paired! Both phones can now sync settings. To enable full factory reset: set Device Owner on BOTH phones (see setup guide)."
-                    PairingState.PAIRING_FAILED -> "❌ Pairing failed. Check the PIN/QR and network connection, then try again."
-                }
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.pairingError.collectLatest { error ->
-                if (!error.isNullOrBlank()) {
-                    showMessage(error)
-                }
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.uiMessages.collectLatest { message ->
-                showMessage(message)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.localSettings.collectLatest { snapshot ->
-                controller.remoteControlManager.handleRemoteResetConfirmationSettingChanged(
-                    snapshot.remoteResetConfirmationEnabled,
-                )
-                renderLocalSettings(snapshot)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.settingsSyncManager.lastSyncTime.collectLatest { timestamp ->
-                binding.lastSyncText.text = if (timestamp == 0L) {
-                    "No device status shared yet"
-                } else {
-                    "Last local settings update shared at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(timestamp))}"
-                }
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            controller.pendingReset.collectLatest { pending ->
-                if (pending == null) {
-                    remoteResetDialog?.dismiss()
-                    remoteResetDialog = null
-                    remoteResetDialogVisible = false
-                    return@collectLatest
-                }
-
-                if (remoteResetDialogVisible) {
-                    return@collectLatest
-                }
-
-                remoteResetDialogVisible = true
-                remoteResetDialog = MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("Remote reset approval")
-                    .setMessage("${pending.second} asked to reset this device. This action is irreversible.")
-                    .setNegativeButton("Decline") { _, _ ->
-                        controller.remoteControlManager.declineRemoteReset()
-                        remoteResetDialogVisible = false
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    controller.connectedPeers.collectLatest { peers ->
+                        val approvedPeers = peers.filter { it.pairedAt > 0L }
+                        binding.statusHeadline.text = when (approvedPeers.size) {
+                            0 -> "No approved device connected yet"
+                            1 -> "1 approved device connected"
+                            else -> "${approvedPeers.size} approved devices connected"
+                        }
+                        binding.statusDetail.text = when (approvedPeers.size) {
+                            0 -> "Keep both phones on the same Wi-Fi or hotspot. Pair a phone below before you change its settings or send a reset request."
+                            else -> "Approved phones show their own current settings here and can be updated one by one."
+                        }
                     }
-                    .setPositiveButton("Confirm") { _, _ ->
-                        controller.remoteControlManager.confirmRemoteReset()
-                        remoteResetDialogVisible = false
+                }
+                launch {
+                    controller.allPeers.collectLatest { peers ->
+                        renderedPeers = peers
+                        renderPeers(peers)
                     }
-                    .setOnDismissListener {
-                        remoteResetDialogVisible = false
-                        remoteResetDialog = null
+                }
+                launch {
+                    controller.peerSettings.collectLatest { snapshots ->
+                        peerSettingsSnapshots = snapshots
+                        renderPeers(renderedPeers)
                     }
-                    .show()
+                }
+                launch {
+                    controller.currentPin.collectLatest { pin ->
+                        binding.pairingPinValue.text = pin?.chunked(3)?.joinToString(" ") ?: "PIN not generated yet"
+                    }
+                }
+                launch {
+                    controller.pairingState.collectLatest { state ->
+                        binding.pairingStatusText.text = when (state) {
+                            PairingState.UNPAIRED -> "🔓 Ready to pair. Tap 'Generate PIN' or 'Show QR' to start. Tap on info icon for full setup guide."
+                            PairingState.PAIRING -> "⏳ Pairing active. Ask the other device to enter this PIN or scan the QR. Valid for 5 minutes."
+                            PairingState.PAIRED -> "✓ Paired! Both phones can now sync settings. To enable full factory reset: set Device Owner on BOTH phones (see setup guide)."
+                            PairingState.PAIRING_FAILED -> "❌ Pairing failed. Check the PIN/QR and network connection, then try again."
+                        }
+                    }
+                }
+                launch {
+                    controller.pairingError.collectLatest { error ->
+                        if (!error.isNullOrBlank()) {
+                            showMessage(error)
+                        }
+                    }
+                }
+                launch {
+                    controller.uiMessages.collectLatest { message ->
+                        showMessage(message)
+                    }
+                }
+                launch {
+                    controller.localSettings.collectLatest { snapshot ->
+                        controller.remoteControlManager.handleRemoteResetConfirmationSettingChanged(
+                            snapshot.remoteResetConfirmationEnabled,
+                        )
+                        renderLocalSettings(snapshot)
+                    }
+                }
+                launch {
+                    controller.settingsSyncManager.lastSyncTime.collectLatest { timestamp ->
+                        binding.lastSyncText.text = if (timestamp == 0L) {
+                            "No device status shared yet"
+                        } else {
+                            "Last local settings update shared at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(timestamp))}"
+                        }
+                    }
+                }
+                launch {
+                    controller.pendingReset.collectLatest { pending ->
+                        if (pending == null) {
+                            remoteResetDialog?.dismiss()
+                            remoteResetDialog = null
+                            remoteResetDialogVisible = false
+                            return@collectLatest
+                        }
+                        if (remoteResetDialogVisible) {
+                            return@collectLatest
+                        }
+                        remoteResetDialogVisible = true
+                        remoteResetDialog = MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("Remote reset approval")
+                            .setMessage("${pending.second} asked to reset this device. This action is irreversible.")
+                            .setNegativeButton("Decline") { _, _ ->
+                                controller.remoteControlManager.declineRemoteReset()
+                                remoteResetDialogVisible = false
+                            }
+                            .setPositiveButton("Confirm") { _, _ ->
+                                controller.remoteControlManager.confirmRemoteReset()
+                                remoteResetDialogVisible = false
+                            }
+                            .setOnDismissListener {
+                                remoteResetDialogVisible = false
+                                remoteResetDialog = null
+                            }
+                            .show()
+                    }
+                }
             }
         }
     }
@@ -949,18 +994,28 @@ class P2PNetworkFragment : Fragment() {
     }
 
     private fun updateLocalDeviceActionsState() {
-        val active = adminManager.isActive()
-        val resetSupport = adminManager.getResetSupport()
-        binding.localAdminStatusText.text = adminManager.getManagementSummary()
-        binding.enableAdminButton.isVisible = !active
-        binding.localActionsDescription.text = if (active) {
-            if (resetSupport.isSupported) {
-                "Use these only for this phone. Reset always asks for confirmation before wiping."
-            } else {
-                "Lock works on this phone, but reset is unavailable here. ${resetSupport.userMessage}"
+        // isActive/getResetSupport/getManagementSummary all do DPM + PackageManager IPC;
+        // each call can take 100-500ms on slow devices — MUST NOT run on Main thread.
+        viewLifecycleOwner.lifecycleScope.launch {
+            val (active, resetSupport, summary) = withContext(Dispatchers.IO) {
+                Log.d(TAG, "updateLocalDeviceActionsState: querying DPM/PM on IO")
+                Triple(
+                    adminManager.isActive(),
+                    adminManager.getResetSupport(),
+                    adminManager.getManagementSummary(),
+                )
             }
-        } else {
-            "Lock and reset on this phone need Device Admin first. Use Enable Device Admin below, then come back to these actions."
+            binding.localAdminStatusText.text = summary
+            binding.enableAdminButton.isVisible = !active
+            binding.localActionsDescription.text = if (active) {
+                if (resetSupport.isSupported) {
+                    "Use these only for this phone. Reset always asks for confirmation before wiping."
+                } else {
+                    "Lock works on this phone, but reset is unavailable here. ${resetSupport.userMessage}"
+                }
+            } else {
+                "Lock and reset on this phone need Device Admin first. Use Enable Device Admin below, then come back to these actions."
+            }
         }
     }
 
@@ -1028,20 +1083,24 @@ class P2PNetworkFragment : Fragment() {
             binding.p2pSetupCard.visibility = View.GONE
             return
         }
-
-        if (adminManager.isDeviceOwner() || adminManager.isOrgOwnedProfileOwner()) {
-            binding.p2pSetupCard.visibility = View.VISIBLE
-            binding.p2pSetupTitle.text = "✓ Device Owner Active"
-            binding.p2pSetupBody.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone and all paired peers.\n\nShizuku is no longer needed — Wasted will work reliably with factory reset capability enabled."
-            binding.p2pSetupAction.text = "Setup Complete"
-            binding.p2pSetupAction.isEnabled = false
-        } else {
-            binding.p2pSetupCard.visibility = View.VISIBLE
-            binding.p2pSetupTitle.text = "⚠️ Setup Required"
-            binding.p2pSetupBody.text = "Tap 'Setup Device Owner' to complete setup steps.\n\nThis enables full factory reset capability."
-            binding.p2pSetupAction.apply {
-                text = "Setup Device Owner"
-                isEnabled = true
+        viewLifecycleOwner.lifecycleScope.launch {
+            val (isDeviceOwner, isOrgOwned) = withContext(Dispatchers.IO) {
+                Pair(adminManager.isDeviceOwner(), adminManager.isOrgOwnedProfileOwner())
+            }
+            if (isDeviceOwner || isOrgOwned) {
+                binding.p2pSetupCard.visibility = View.VISIBLE
+                binding.p2pSetupTitle.text = "✓ Device Owner Active"
+                binding.p2pSetupBody.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone and all paired peers.\n\nShizuku is no longer needed — Wasted will work reliably with factory reset capability enabled."
+                binding.p2pSetupAction.text = "Setup Complete"
+                binding.p2pSetupAction.isEnabled = false
+            } else {
+                binding.p2pSetupCard.visibility = View.VISIBLE
+                binding.p2pSetupTitle.text = "⚠️ Setup Required"
+                binding.p2pSetupBody.text = "Tap 'Setup Device Owner' to complete setup steps.\n\nThis enables full factory reset capability."
+                binding.p2pSetupAction.apply {
+                    text = "Setup Device Owner"
+                    isEnabled = true
+                }
             }
         }
     }

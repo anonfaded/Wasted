@@ -33,7 +33,7 @@ class DeviceDiscovery(
         private const val MAX_PARALLEL_SCANS = 16
     }
     
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     
     /**
      * Start discovering peers on local network.
@@ -248,10 +248,12 @@ class DeviceDiscovery(
     }
     
     /**
-     * Stop discovery.
+     * Stop discovery and cancel internal scope.
+     * A fresh scope is created so this instance can be reused after re-initialize().
      */
     fun stopDiscovery() {
         Log.d(TAG, "Stopping discovery")
         scope.cancel()
+        scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     }
 }

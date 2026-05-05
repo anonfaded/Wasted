@@ -36,7 +36,7 @@ class DeviceAdminManager(private val ctx: Context) {
             isDeviceOwner() -> "Wasted is enrolled as Device Owner on this phone"
             isOrgOwnedProfileOwner() -> "Wasted manages this phone as an organization-owned profile owner"
             isProfileOwner() -> "Wasted is enrolled as a profile owner on this phone"
-            isActive() -> "Wasted has legacy Device Admin on this phone"
+            isActive() -> "Device Admin is active on this phone"
             else -> "Wasted is not enrolled on this phone"
         }
     }

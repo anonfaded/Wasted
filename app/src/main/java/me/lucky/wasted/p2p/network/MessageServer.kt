@@ -108,6 +108,9 @@ class MessageServer(
     private suspend fun handlePeerConnection(clientSocket: java.net.Socket) {
         try {
             clientSocket.use { socket ->
+                // Set socket timeout to ensure blocking I/O respects timeouts
+                socket.soTimeout = HANDSHAKE_TIMEOUT_MS.toInt()
+                
                 // Read handshake with timeout
                 val handshakeData = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) {
                     socket.inputStream.bufferedReader().readLine()
@@ -163,6 +166,9 @@ class MessageServer(
                 if (existingPeer?.isConnected != true) {
                     Log.i(TAG, "Peer reachable: $remotePeerName")
                 }
+
+                // Update socket timeout for message reads (longer than handshake timeout)
+                socket.soTimeout = MESSAGE_READ_TIMEOUT_MS.toInt()
 
                 // Read and process messages from peer
                 val reader = socket.inputStream.bufferedReader()

@@ -47,10 +47,14 @@ class P2PController private constructor(context: Context) {
                 instance ?: P2PController(context.applicationContext).also { instance = it }
             }
         }
+
+        /** Returns existing singleton without creating a new one. */
+        fun instanceOrNull(): P2PController? = instance
     }
 
     private val appContext = context.applicationContext
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // Default dispatcher — network/DB ops inside launched coroutines run off the main thread
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val gson = Gson()
     private val peerDao = WastedP2PDatabase.getInstance(appContext).peerDao()
 
@@ -82,6 +86,14 @@ class P2PController private constructor(context: Context) {
         if (started) return
         started = true
         network.initialize()
+        Log.i(TAG, "P2PController started")
+    }
+
+    fun stop() {
+        if (!started) return
+        started = false
+        network.shutdown()
+        Log.i(TAG, "P2PController stopped")
     }
 
     fun generatePairingPin(): String = pairingManager.generatePairingPin()

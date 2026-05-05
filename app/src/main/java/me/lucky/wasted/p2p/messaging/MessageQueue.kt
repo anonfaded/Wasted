@@ -71,21 +71,12 @@ class MessageQueue {
     
     /**
      * Broadcast message to all connected peers.
+     * Actual TLS delivery is handled by P2PNetwork.broadcastToPeers().
+     * This method just logs — do not enqueue here; callers should use enqueueMessage() directly.
      */
     suspend fun broadcastMessage(message: Message, connectedPeerCount: Int) {
         if (message.type != MessageType.HEARTBEAT) {
             Log.d(TAG, "Broadcasting ${message.type} ${message.messageId} to $connectedPeerCount peer(s)")
-        }
-        
-        val startTime = System.currentTimeMillis()
-        messageQueue.add(message)
-        
-        // Simulate broadcast (actual TLS delivery happens in P2PNetwork)
-        delay(100)  // Placeholder delay
-        
-        val latency = System.currentTimeMillis() - startTime
-        if (message.type != MessageType.HEARTBEAT) {
-            Log.i(TAG, "Broadcast completed (${latency}ms)")
         }
     }
     

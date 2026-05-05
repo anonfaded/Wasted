@@ -26,6 +26,8 @@ class Preferences(ctx: Context, encrypted: Boolean = true) {
         private const val RECAST_EXTRA_VALUE = "recast_extra_value"
         private const val REMOTE_RESET_CONFIRMATION = "remote_reset_confirmation"
 
+        private const val P2P_ACTIVE = "p2p_enabled"
+
         private const val TRIGGERS = "triggers"
         private const val TRIGGER_LOCK_COUNT = "trigger_lock_count"
         private const val TRIGGER_TILE_DELAY = "trigger_tile_delay"
@@ -115,6 +117,10 @@ class Preferences(ctx: Context, encrypted: Boolean = true) {
     var recastExtraValue: String
         get() = prefs.getString(RECAST_EXTRA_VALUE, "") ?: ""
         set(value) = prefs.edit { putString(RECAST_EXTRA_VALUE, value) }
+
+    var p2pEnabled: Boolean
+        get() = prefs.getBoolean(P2P_ACTIVE, false)
+        set(value) = prefs.edit { putBoolean(P2P_ACTIVE, value) }
 
     var remoteResetConfirmationEnabled: Boolean
         get() = prefs.getBoolean(REMOTE_RESET_CONFIRMATION, false)

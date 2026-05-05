@@ -46,4 +46,7 @@ interface PeerDao {
     
     @Query("SELECT * FROM peers WHERE deviceName LIKE '%' || :searchQuery || '%'")
     fun searchPeers(searchQuery: String): Flow<List<Peer>>
+
+    @Query("SELECT COUNT(*) FROM peers WHERE pairedAt > 0")
+    suspend fun getActivePairCount(): Int
 }
