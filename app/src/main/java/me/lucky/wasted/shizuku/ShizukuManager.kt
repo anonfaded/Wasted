@@ -345,6 +345,74 @@ class ShizukuManager(private val ctx: Context) {
     }
 
     /**
+     * Check for managed profiles (Work Profile, etc.) that would block Device Owner enrollment.
+     * Returns a list of managed profile user IDs and names, or empty list if none exist.
+     * Wasted cannot be Device Owner if ANY managed profile exists.
+     */
+    fun getManagedProfiles(): List<Pair<Int, String>> {
+        if (!isRunning()) throw Exception("Shizuku is not running.")
+        if (!hasPermission()) throw Exception("Shizuku permission not granted.")
+        val s = shell ?: throw Exception("Shell not connected yet.")
+
+        Log.i(TAG, "Running: dumpsys user")
+        val output = s.executeNow("dumpsys user")
+        Log.d(TAG, "dumpsys user output length: ${output.length}")
+
+        val profiles = mutableListOf<Pair<Int, String>>()
+        
+        // Parse output looking for managed profiles
+        // Format: UserInfo{id:name:flags}
+        val lines = output.split("\n")
+        for (line in lines) {
+            val trimmed = line.trim()
+            // Look for UserInfo lines with MANAGED flag (0x20)
+            if (trimmed.contains("UserInfo{") && trimmed.contains("}")) {
+                // Example: UserInfo{10:Work Profile:48}
+                // Flag 48 = 0x30 = TYPE_PROFILE (0x10) | FLAG_MANAGED (0x20)
+                try {
+                    val start = trimmed.indexOf("{") + 1
+                    val end = trimmed.indexOf("}")
+                    if (start > 0 && end > start) {
+                        val content = trimmed.substring(start, end)
+                        val parts = content.split(":")
+                        if (parts.size >= 3) {
+                            val userId = parts[0].toIntOrNull() ?: continue
+                            val userName = parts[1]
+                            val flags = parts[2].toIntOrNull() ?: 0
+                            
+                            // Flag 0x20 = MANAGED_PROFILE, 0x30 = managed profile type
+                            if ((flags and 0x20) != 0 || (flags and 0x30) == 0x30) {
+                                Log.w(TAG, "Found managed profile: userId=$userId name=$userName flags=$flags")
+                                profiles.add(Pair(userId, userName))
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Error parsing UserInfo line: $line")
+                }
+            }
+        }
+
+        return profiles
+    }
+
+    /**
+     * Remove a managed profile by user ID.
+     * After removal, device can become Device Owner.
+     */
+    fun removeManagedProfile(userId: Int): Boolean {
+        if (!isRunning()) throw Exception("Shizuku is not running.")
+        if (!hasPermission()) throw Exception("Shizuku permission not granted.")
+        val s = shell ?: throw Exception("Shell not connected yet.")
+
+        Log.i(TAG, "Running: pm remove-user $userId")
+        val output = s.executeNow("pm remove-user $userId")
+        Log.d(TAG, "pm remove-user output: $output")
+
+        return output.isBlank() || output.contains("Success", ignoreCase = true)
+    }
+
+    /**
      * Check for hidden or synced accounts on the device via `dumpsys account list`.
      * Returns a user-readable string: either "No accounts detected" or a list of found accounts.
      * Requires Shizuku to be running and shell to be connected.

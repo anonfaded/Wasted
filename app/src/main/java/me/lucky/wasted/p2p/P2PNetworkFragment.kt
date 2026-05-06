@@ -1327,37 +1327,136 @@ class P2PNetworkFragment : Fragment() {
     }
 
     private fun doBecomeDeviceOwner(shizuku: ShizukuManager) {
-        showMessage("Setting Device Owner…")
+        showMessage("Checking device configuration…")
         Thread {
-            val (success, message) = try {
-                val out = shizuku.setDeviceOwner()
-                Pair(true, out.ifBlank { "Wasted is now Device Owner.\nFull factory reset is armed." })
+            var checkError: String? = null
+            var managedProfiles: List<Pair<Int, String>>? = null
+            
+            // First check for managed profiles (Work Profile blocks Device Owner)
+            try {
+                managedProfiles = shizuku.getManagedProfiles()
+                if (managedProfiles.isNotEmpty()) {
+                    checkError = "MANAGED_PROFILES"
+                }
             } catch (e: Exception) {
-                Pair(false, e.message ?: "Unknown error.")
+                Log.w("P2PNetworkFragment", "Could not check managed profiles: ${e.message}")
+            }
+
+            if (checkError == null) {
+                // No managed profiles, proceed with Device Owner setup
+                val (success, message) = try {
+                    val out = shizuku.setDeviceOwner()
+                    Pair(true, out.ifBlank { "Wasted is now Device Owner.\nFull factory reset is armed." })
+                } catch (e: Exception) {
+                    Pair(false, e.message ?: "Unknown error.")
+                }
+
+                val act = activity ?: return@Thread
+                act.runOnUiThread {
+                    if (!isAdded) return@runOnUiThread
+                    
+                    val hasAccountError = message?.contains("account", ignoreCase = true) == true
+                    val builder = AlertDialog.Builder(requireContext())
+                        .setTitle(if (success) "✓ Device Owner Set" else "Failed")
+                        .setMessage(message)
+                        .setPositiveButton("OK") { _, _ ->
+                            if (success) {
+                                refreshP2pSetupCard()
+                            }
+                        }
+                    
+                    // Show "Fix Accounts" button if account error
+                    if (hasAccountError) {
+                        builder.setNegativeButton("Fix Accounts") { _, _ ->
+                            showAccountFixDialog(shizuku)
+                        }
+                    }
+                    
+                    builder.show()
+                }
+            } else {
+                // Managed profile detected
+                val act = activity ?: return@Thread
+                act.runOnUiThread {
+                    if (!isAdded) return@runOnUiThread
+                    
+                    val profiles = managedProfiles ?: emptyList()
+                    val profileList = profiles.joinToString("\n") { (id, name) -> "• $name (User ID: $id)" }
+                    
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Work Profile Detected")
+                        .setMessage(
+                            "Wasted cannot be Device Owner because a Work Profile (managed profile) exists.\n\n" +
+                            "Profiles found:\n$profileList\n\n" +
+                            "You must remove this profile to proceed.\n\n" +
+                            "Tap \"Remove Profile\" to delete it, or manually remove it from Settings → Apps → Special App Access"
+                        )
+                        .setPositiveButton("Remove Profile") { _, _ ->
+                            showRemoveProfileConfirmDialog(shizuku, profiles)
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            }
+        }.start()
+    }
+
+    private fun showRemoveProfileConfirmDialog(shizuku: ShizukuManager, profiles: List<Pair<Int, String>>) {
+        val profileNames = profiles.map { it.second }.joinToString(", ")
+        AlertDialog.Builder(requireContext())
+            .setTitle("Remove Profile?")
+            .setMessage(
+                "This will remove the managed profile:\n$profileNames\n\n" +
+                "All apps and data in the profile will be deleted.\n\n" +
+                "After removal, you can set Wasted as Device Owner."
+            )
+            .setPositiveButton("Remove") { _, _ ->
+                removeProfileAndRetry(shizuku, profiles)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun removeProfileAndRetry(shizuku: ShizukuManager, profiles: List<Pair<Int, String>>) {
+        showMessage("Removing managed profile…")
+        Thread {
+            var success = false
+            var errorMsg: String? = null
+
+            for ((userId, _) in profiles) {
+                try {
+                    success = shizuku.removeManagedProfile(userId)
+                    if (success) {
+                        Log.i("P2PNetworkFragment", "Profile $userId removed successfully")
+                        break
+                    } else {
+                        errorMsg = "Failed to remove profile $userId"
+                    }
+                } catch (e: Exception) {
+                    errorMsg = e.message ?: "Unknown error"
+                    Log.e("P2PNetworkFragment", "Remove profile failed: ${e.message}")
+                }
             }
 
             val act = activity ?: return@Thread
             act.runOnUiThread {
                 if (!isAdded) return@runOnUiThread
-                
-                val hasAccountError = message?.contains("account", ignoreCase = true) == true
-                val builder = AlertDialog.Builder(requireContext())
-                    .setTitle(if (success) "✓ Device Owner Set" else "Failed")
-                    .setMessage(message)
-                    .setPositiveButton("OK") { _, _ ->
-                        if (success) {
-                            refreshP2pSetupCard()
+
+                if (success) {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("✓ Profile Removed")
+                        .setMessage("Managed profile has been removed.\n\nNow you can tap 'Become Device Owner' to proceed.")
+                        .setPositiveButton("OK") { _, _ ->
+                            // Don't auto-retry; let user do it manually
                         }
-                    }
-                
-                // Show "Fix Accounts" button if account error
-                if (hasAccountError) {
-                    builder.setNegativeButton("Fix Accounts") { _, _ ->
-                        showAccountFixDialog(shizuku)
-                    }
+                        .show()
+                } else {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Removal Failed")
+                        .setMessage(errorMsg ?: "Could not remove managed profile.")
+                        .setPositiveButton("OK", null)
+                        .show()
                 }
-                
-                builder.show()
             }
         }.start()
     }
