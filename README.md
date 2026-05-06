@@ -1,9 +1,19 @@
-# Wasted
+# Wasted (Modded v2.0.0)
+
+**This is a modded version of [Wasted](https://github.com/x13a/Wasted)** — the original open-source emergency lock & factory reset app by [@x13a](https://github.com/x13a).
+
+## What's New in This Fork
+
+- **P2P Network**: Remote factory reset via encrypted local Wi-Fi (TLS encrypted messaging on port 9876)
+- **Android 14+ Device Owner Setup**: Interactive Shizuku-based setup to make Wasted Device Owner for full factory reset capability
+- **Fixed Android 14+ Reset**: Reset now uses proper `wipeDevice()` API instead of deprecated `wipeData()`
+
+All original features remain unchanged and fully compatible with Android 6+.
+
+---
 
 > [!WARNING]
-> Because Google has already shifted the DevicePolicyManager API, the app architecture will be 
-redesigned. The Device Policy features will become a standalone app acting as the Device Owner 
-core, and the other apps will request the required functionality from it.
+> This is a modded version. For the original app, see [x13a/Wasted](https://github.com/x13a/Wasted).
 
 Lock a device and wipe its data on emergency.
 
