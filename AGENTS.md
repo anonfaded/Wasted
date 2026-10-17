@@ -1,4 +1,4 @@
-# Developer & Agent Guide: Fadocx Optimization
+# Developer & Agent Guide: Wasted (Modded)
 
 ## Workflow Orchestration
 
@@ -15,14 +15,16 @@
 - One tack per subagent for focused execution
 
 ### 3. Self-Improvement Loop
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern
--Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+- After ANY correction from the user: write a rule that prevents the same mistake
+- Ruthlessly iterate on those rules until the mistake rate drops
+- Review them at session start
+- Before freezing an architecture plan, reconcile it against the latest client decision; remove rejected services and speculative infrastructure, and turn uncertain delivery claims into explicit real-device test gates.
+- Once `plan.md` exists, update it incrementally and preserve prior decisions/evidence; do not delete and regenerate it unless the user explicitly requests a full rewrite.
+- For Supabase work, inspect and validate the real linked project through Supabase MCP before and after every change; never assume schema, configuration, capability, migration state, advisor status, or quota headroom.
 
 ### 4. Verification Before Done
 - Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
+- Diff behavior between `mod` and your changes when relevant
 - Ask yourself: "Would a staff engineer approve this?"
 - Run tests, check logs, demonstrate correctness
   
@@ -39,12 +41,11 @@
 - Go fix failing CI tests without being told how
 
 ## Task Management
-1. **Plan First**: Write plan to `tasks/todo.md` with checkable items
+1. **Plan First**: Build a checkable todo list before starting
 2. **Verify Plan**: Check in before starting implementation
 3. **Track Progress**: Mark items complete as you go
 4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review section to `tasks/todo.md`
-6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
+5. **Document Results**: Summarize the outcome when the work is done
 
 ## Core Principles
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
@@ -58,14 +59,14 @@
 ### Backward Compatibility Guarantee
 - **NEVER remove features**. Deprecated ≠ broken.
 - Device Admin API stays. If fixing Android 13+ issues, ADD permissions, don't replace.
-- minSdk 23 (Android 6) support MUST be maintained.
-- Old devices (Android 6-12): Device Admin only, no P2P.
+- minSdk 24 (Android 7) support MUST be maintained.
+- Old devices (Android 7-12): Device Admin only, no P2P.
 - New devices (Android 13+): Device Admin + P2P both available.
 
 ### Execution Discipline
 - **Phase order is SACRED**. Do not parallelize or skip.
   - Phase 1: API update + permissions (build foundation first)
-  - Phase 2: P2P networking (core system)
+  - Phase 2: Supabase remote networking and synchronization; preserve and regression-test existing P2P
   - Phase 3: UI + control (user-facing)
   - Phase 4: Testing (integration + compat)
 - Each phase must PASS testing before next begins.
@@ -78,23 +79,28 @@
 - No HTTP for control commands (TLS only).
 - No plain text device secrets.
 
+### Supabase Public-Release and Free-Tier Rules
+- Ship one public APK; Remote Management defaults OFF/unconfigured and makes zero Supabase requests until explicitly configured, enrolled, and enabled.
+- Never commit or embed the client Supabase URL/key or any privileged secret. Store runtime URL/publishable-key inputs encrypted; a publishable key is not a secret, so RLS/RPC authorization must remain secure if it becomes known.
+- Owner email/password Create Account and Sign In must match `wasted update.txt`; device anonymous Auth is internal only and supplies the required unique per-device identity. Limit anonymous signup to 10/hour/IP and owner signup/sign-in to 10/5 minutes/IP; enrollment tokens, forced RLS, denied direct writes, cleanup, and cross-account/device tests are mandatory.
+- Free-plan budget: 500 MB database, 5 GB egress, 50,000 MAU, 2 million Realtime messages/month, 200 peak connections. Review at 1 million messages, 160 connections, 350 MB, or 3.5 GB egress.
+- Optimize with one status-row upsert/device, scoped Realtime subscriptions, indexed RLS predicates, coalesced refetches, and no per-second timer writes. Check usage during soak and monthly. The implementation must remain within every Free-plan quota; do not assume a paid upgrade.
+
 ### Library Selection Principle
-- **Support maximum span**: Pick libs that work Android 6-16.
+- **Support maximum span**: Pick libs that work Android 7-16.
 - Prefer: OkHttp (API 21+), Gson (pure Java), Room (AndroidX), Tink (API 19+).
 - Avoid: Jetpack Compose (API 21+), experimental/alpha libs.
 - If adding a lib, verify minSdk support in official docs.
 
 ### Testing Before Commit
 - Phase 1: Build + ForegroundService notification check.
-- Phase 2: Two real devices discover + pairing works.
+- Phase 2: Supabase RLS/RPC tests pass; two real devices enroll, reconcile, receive commands, and existing P2P pairing still works.
 - Phase 3: Settings sync in < 500ms.
-- Phase 4: Full matrix tested (Android 6, 13, 15 minimum).
+- Phase 4: Full matrix tested (Android 7, 13, 15 minimum).
 - No feature commit without passing test on target API.
 
 ### Documentation Requirements
-- Keep ROADMAP_2026_REVIVAL.md updated with actual progress.
-- If changing timeline, update roadmap with reason.
-- Lessons learned → /memories/session/lessons.md (for next session).
+- Keep README.md in sync with user-facing changes.
 - No silent pivots; document deviations.
 
 ### Deprecation Handling (Critical)
