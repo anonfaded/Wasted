@@ -82,7 +82,7 @@
 ### Supabase Public-Release and Free-Tier Rules
 - Ship one public APK; Remote Management defaults OFF/unconfigured and makes zero Supabase requests until explicitly configured, enrolled, and enabled.
 - Never commit or embed the client Supabase URL/key or any privileged secret. Store runtime URL/publishable-key inputs encrypted; a publishable key is not a secret, so RLS/RPC authorization must remain secure if it becomes known.
-- Owner email/password Create Account and Sign In must match `wasted update.txt`; device anonymous Auth is internal only and supplies the required unique per-device identity. Limit anonymous signup to 10/hour/IP and owner signup/sign-in to 10/5 minutes/IP; enrollment tokens, forced RLS, denied direct writes, cleanup, and cross-account/device tests are mandatory.
+- Owner email/password Create Account and Sign In must match the archived client specification at `archive/wasted update.txt`; device anonymous Auth is internal only and supplies the required unique per-device identity. Limit anonymous signup to 10/hour/IP and owner signup/sign-in to 10/5 minutes/IP; enrollment tokens, forced RLS, denied direct writes, cleanup, and cross-account/device tests are mandatory.
 - Free-plan budget: 500 MB database, 5 GB egress, 50,000 MAU, 2 million Realtime messages/month, 200 peak connections. Review at 1 million messages, 160 connections, 350 MB, or 3.5 GB egress.
 - Optimize with one status-row upsert/device, scoped Realtime subscriptions, indexed RLS predicates, coalesced refetches, and no per-second timer writes. Check usage during soak and monthly. The implementation must remain within every Free-plan quota; do not assume a paid upgrade.
 

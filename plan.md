@@ -2,7 +2,7 @@
 
 ## 0. How to execute this plan
 
-This is the implementation source of truth for `wasted update.txt` and the two supplied control-panel guides. Firebase in the guides is intentionally replaced by Supabase Auth, Postgres, RLS, RPCs, and Realtime. There is no FCM, Firebase, Edge Function, queue service, custom backend server, PWA, or custom-domain requirement.
+This is the implementation source of truth for the local archived client materials: `archive/wasted update.txt`, `archive/portable_android_control_panel_simple_guide.pdf`, and `archive/portable_android_control_panel_technical_guide.pdf`. These source materials are intentionally Git-ignored; this plan is the tracked implementation record. Firebase in the guides is intentionally replaced by Supabase Auth, Postgres, RLS, RPCs, and Realtime. There is no FCM, Firebase, Edge Function, queue service, custom backend server, PWA, or custom-domain requirement.
 
 Rules for the implementing agent:
 
@@ -22,7 +22,7 @@ Rules for the implementing agent:
 - The existing `ForegroundService` owns one Supabase Realtime connection when Remote Management is enabled and the user is unlocked. Do not create a second permanent service.
 - Supabase Postgres is authoritative. Realtime events are only `sync required` signals; Android and the dashboard always refetch durable state. Never execute a Realtime payload directly.
 - The dashboard is a lightweight static build (semantic HTML, CSS, ES modules, no UI framework/server runtime). `dist/` must be copy-deployable to any HTTPS static host.
-- Owner identity is a normal non-anonymous Supabase Auth email/password user. The dashboard provides explicit **Sign In** and **Create Account** flows as required by `wasted update.txt`; a failed sign-in never silently creates an account. `handle` is the account display identifier, not a substitute for the Auth identity.
+- Owner identity is a normal non-anonymous Supabase Auth email/password user. The dashboard provides explicit **Sign In** and **Create Account** flows as required by the archived client specification; a failed sign-in never silently creates an account. `handle` is the account display identifier, not a substitute for the Auth identity.
 - The client did not request anonymous sign-in as a user-facing feature. Internally, each Android installation uses a separate Supabase anonymous Auth identity solely to satisfy the requirement for a unique per-device credential without storing the owner's password. An anonymous identity has no account/device access until an authenticated owner creates a one-time enrollment token and the claim RPC binds it; all unbound access is denied.
 - Debug Mode is a device-local, fail-closed safety boundary. The website may display it but cannot disable it.
 - Account-wide remote settings initially cover only the existing Lock Timer and USB Trigger. Do not expose wipe flags, P2P, Recast, Debug Mode, or unrelated preferences remotely.
@@ -30,7 +30,7 @@ Rules for the implementing agent:
 
 ### Requirements boundary
 
-- Implement exactly the client-facing scope from `wasted update.txt`: configurable website access, Sign In/Create Account, multi-device registration/status, Lock Timer and USB Trigger sync, Reset Timer, Force Reset, local Debug Mode, optional notifications, offline-safe reconciliation, and a portable static website.
+- Implement exactly the client-facing scope from the archived client specification (`archive/wasted update.txt`): configurable website access, Sign In/Create Account, multi-device registration/status, Lock Timer and USB Trigger sync, Reset Timer, Force Reset, local Debug Mode, optional notifications, offline-safe reconciliation, and a portable static website.
 - Supabase Auth/Postgres/RLS/RPC/Realtime, per-device anonymous Auth identities, enrollment tokens, encryption, idempotency, and retry journals are implementation/security mechanisms required to deliver that scope; they are not extra user-facing products.
 - Out of scope unless later requested: Firebase/FCM, custom backend/Edge Functions, PWA/custom domain, billing/organization UI, production SMTP/password recovery, production-data backup service, or live-data migration tooling.
 - Do not add, remove, or restrict client-facing behavior from assumptions. Validate all Supabase facts and linked-project state with Supabase MCP; if a product decision is genuinely unresolved, stop and ask instead of choosing it silently.

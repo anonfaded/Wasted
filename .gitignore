@@ -14,3 +14,6 @@
 .cxx
 local.properties
 .idea/*
+.env
+.commandcode/
+archive/
