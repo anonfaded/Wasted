@@ -292,12 +292,15 @@
         <!--
             ShizukuShell UserService — Shizuku loads this class in the ADB shell process.
             Must be in a separate process (:shizuku) and NOT exported to other apps.
+            Shizuku instantiates it via app_process (never ActivityManager), so the
+            Instantiatable lint check does not apply.
         -->
         <service
             android:name=".shizuku.ShizukuShell"
             android:enabled="true"
             android:exported="false"
-            android:process=":shizuku" />
+            android:process=":shizuku"
+            tools:ignore="Instantiatable" />
 
     </application>
 </manifest>

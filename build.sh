@@ -17,8 +17,9 @@ NC='\033[0m' # No Color
 
 # Paths
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APK_DEBUG="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
-APK_RELEASE="$PROJECT_DIR/app/build/outputs/apk/release/app-release-unsigned.apk"
+APP_VERSION=$(grep -oE 'versionName = "[^"]+"' "$PROJECT_DIR/app/build.gradle" | head -1 | cut -d'"' -f2)
+APK_DEBUG="$PROJECT_DIR/app/build/outputs/apk/debug/Wasted-v${APP_VERSION}-debug.apk"
+APK_RELEASE="$PROJECT_DIR/app/build/outputs/apk/release/Wasted-v${APP_VERSION}.apk"
 
 # ============================================================================
 # Helper Functions
