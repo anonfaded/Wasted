@@ -8,7 +8,7 @@
 - **Android 14+ Device Owner Setup**: Interactive Shizuku-based setup to make Wasted Device Owner for full factory reset capability
 - **Fixed Android 14+ Reset**: Reset now uses proper `wipeDevice()` API instead of deprecated `wipeData()`
 
-All original features remain unchanged and fully compatible with Android 6+.
+All original features remain unchanged and fully compatible with Android 7+.
 
 ---
 

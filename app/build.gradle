@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "me.lucky.wasted"
-        minSdk = 23
+        minSdk = 24
         targetSdk = 36
         versionCode = 41
         versionName = "2.0.0"
