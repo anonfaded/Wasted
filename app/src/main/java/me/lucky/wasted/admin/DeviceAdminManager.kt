@@ -191,7 +191,7 @@ class DeviceAdminManager(private val ctx: Context) {
     }
 
     private fun deleteUserFiles() {
-        val dirs = listOf(
+        val dirs = mutableListOf(
             Environment.DIRECTORY_DOWNLOADS,
             Environment.DIRECTORY_DCIM,
             Environment.DIRECTORY_DOCUMENTS,
@@ -202,8 +202,10 @@ class DeviceAdminManager(private val ctx: Context) {
             Environment.DIRECTORY_NOTIFICATIONS,
             Environment.DIRECTORY_PODCASTS,
             Environment.DIRECTORY_RINGTONES,
-            Environment.DIRECTORY_SCREENSHOTS,
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            dirs.add(Environment.DIRECTORY_SCREENSHOTS)
+        }
         for (dirName in dirs) {
             try {
                 Environment.getExternalStoragePublicDirectory(dirName)

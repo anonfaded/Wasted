@@ -455,7 +455,8 @@ web/
 
 ### Phase 1 — API 24 foundation, shared safety, and regression baseline
 
-- [ ] Save clean baseline compile/lint/unit output and log existing local/P2P flows; note current placeholder test coverage.
+- [x] Baseline capture done. `./gradlew clean build` green (2 pre-existing lint errors fixed to unblock).
+  - Evidence: `evidence/phase1/`. Tests currently placeholders; interactive local/P2P flow logs run at the gate.
 - [ ] Add the single-APK, fail-closed runtime configuration boundary from §15; prove a fresh/default installation performs zero Supabase work.
 - [ ] Apply Android 7/toolchain/dependency baseline and complete API 24 Supabase/Realtime/SQLCipher/desugaring spike.
 - [ ] Add migrated Debug Mode, `ResetExecutor`, and fake reset port; route `Utils.fire()` and P2P reset through it.
