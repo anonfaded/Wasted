@@ -464,10 +464,14 @@ web/
   - API 24 emulator + R8/minify proof skipped by client decision (min version not a blocker); revisit at Phase 4 rollout.
 - [x] Debug Mode (default ON, fail-closed, explicit init on first unlock) + `ResetExecutor`/`ResetPort`; `Utils.fire()` and P2P reset routed; `wipeData()` only reachable through `admin/ResetExecutor.kt`.
   - 6 executor tests green (blocked/corrupt/race/unsupported/failure) — `evidence/phase1/debug-mode-reset-executor-tests.log`.
-- [ ] Extract `LocalSettingsApplier` and `TimerCoordinator`; switch existing local/P2P code to them before adding Supabase.
-- [ ] Add idempotent ForegroundService `ACTION_RECONFIGURE` and independent subsystem state tracking.
-- [ ] Add secure credential store and encrypted RemoteDatabase/journal/outbox, but no remote behavior yet.
+- [x] `LocalSettingsApplier` (single settings write path for UI + P2P) and `TimerCoordinator` (lock-job adapter, restart-safe metadata) extracted; existing code rewired.
+  - 8 coordinator tests green, zero warnings (`evidence/phase1/settings-timer-refactor.log`).
+- [x] Idempotent `ForegroundService.ACTION_RECONFIGURE` + per-subsystem diffing; FGS type masks per API level; conditions single-sourced in `ForegroundSubsystems`.
+  - 5 truth-table/mask tests + audit vs original (`evidence/phase1/fgs-audit.log`).
+- [x] Secure credential store + encrypted `RemoteDatabase`/journal/outbox added (`RemoteCredentialStore`, SQLCipher); no remote behavior wired.
+  - 6 credential tests green (`evidence/phase1/credential-store-database.log`).
 - [ ] Gate: Android 7 build/install; all existing triggers, timer schedule/cancel, Device Admin tiers, P2P pairing/TLS/settings/reset, Shizuku, encrypted preference migration, foreground notification, reboot/package replacement pass. Debug Mode blocks every wipe path with zero calls.
+  - Client decision: no device testing during development. This gate runs in one final acceptance round before delivery, merged with the Phase 4 real-device matrix. Until then: unit tests + static audits + build checks.
 
 ### Phase 2 — Supabase core networking and durable synchronization
 
