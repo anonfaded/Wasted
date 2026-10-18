@@ -56,7 +56,9 @@ android {
     buildFeatures {
         viewBinding = true
         aidl = true
-        buildConfig = true
+    }
+    testOptions {
+        unitTests.returnDefaultValues = true
     }
     lint {
         disable 'MissingTranslation'

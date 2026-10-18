@@ -2,7 +2,6 @@ package me.lucky.wasted.remote.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import me.lucky.wasted.BuildConfig
 import me.lucky.wasted.remote.domain.RemoteConfig
 import me.lucky.wasted.remote.domain.RemoteConfigValidator
 import me.lucky.wasted.security.TinkEncryptedSharedPreferences
@@ -12,10 +11,7 @@ import me.lucky.wasted.security.TinkEncryptedSharedPreferences
  * Values live in encrypted preferences; defaults are unconfigured and OFF.
  * Missing, partial, invalid, or corrupt state always reads as "not configured".
  */
-class RemoteConfigStore(
-    private val prefs: SharedPreferences,
-    private val allowLoopbackHttp: Boolean,
-) {
+class RemoteConfigStore(private val prefs: SharedPreferences) {
     companion object {
         private const val FILE_NAME = "remote_config_secure_prefs"
         private const val KEY_PROJECT_URL = "project_url"
@@ -25,7 +21,6 @@ class RemoteConfigStore(
 
         fun new(ctx: Context): RemoteConfigStore = RemoteConfigStore(
             TinkEncryptedSharedPreferences.create(ctx.applicationContext, FILE_NAME),
-            allowLoopbackHttp = BuildConfig.DEBUG,
         )
     }
 
@@ -43,7 +38,7 @@ class RemoteConfigStore(
         val publishableKey = prefs.getString(KEY_PUBLISHABLE_KEY, null) ?: return@runCatching null
         val websiteUrl = prefs.getString(KEY_WEBSITE_URL, null) ?: return@runCatching null
 
-        val errors = RemoteConfigValidator.validate(projectUrl, publishableKey, websiteUrl, allowLoopbackHttp)
+        val errors = RemoteConfigValidator.validate(projectUrl, publishableKey, websiteUrl)
         if (errors.isNotEmpty()) return@runCatching null
 
         RemoteConfig(projectUrl.trim(), publishableKey.trim(), websiteUrl.trim())
@@ -59,7 +54,6 @@ class RemoteConfigStore(
             normalized.projectUrl,
             normalized.publishableKey,
             normalized.websiteUrl,
-            allowLoopbackHttp,
         )
         if (errors.isNotEmpty()) return@runCatching false
 

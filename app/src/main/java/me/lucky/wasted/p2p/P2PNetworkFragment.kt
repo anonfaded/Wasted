@@ -1355,7 +1355,7 @@ class P2PNetworkFragment : Fragment() {
                 act.runOnUiThread {
                     if (!isAdded) return@runOnUiThread
                     
-                    val hasAccountError = message?.contains("account", ignoreCase = true) == true
+                    val hasAccountError = message.contains("account", ignoreCase = true)
                     val builder = AlertDialog.Builder(requireContext())
                         .setTitle(if (success) "✓ Device Owner Set" else "Failed")
                         .setMessage(message)

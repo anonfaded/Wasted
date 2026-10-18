@@ -6,9 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
 
 import me.lucky.wasted.admin.DeviceAdminManager
+import me.lucky.wasted.admin.ResetExecutor
+import me.lucky.wasted.admin.ResetResult
 import me.lucky.wasted.trigger.notification.NotificationListenerService
 import me.lucky.wasted.trigger.panic.PanicConnectionActivity
 import me.lucky.wasted.trigger.panic.PanicResponderActivity
@@ -21,6 +24,8 @@ import me.lucky.wasted.trigger.usb.UsbReceiver
 
 class Utils(private val ctx: Context) {
     companion object {
+        private const val TAG = "Utils"
+
         fun setFlag(key: Int, value: Int, enabled: Boolean) =
             when(enabled) {
                 true -> key.or(value)
@@ -126,7 +131,17 @@ class Utils(private val ctx: Context) {
         val admin = DeviceAdminManager(ctx)
         try {
             admin.lockNow()
-            if (prefs.isWipeData && safe) admin.wipeData()
+            if (prefs.isWipeData && safe) {
+                when (val result = ResetExecutor.create(ctx).execute()) {
+                    is ResetResult.DebugBlocked ->
+                        Log.i(TAG, "Debug Mode ON — wipe blocked (trigger=$trigger)")
+                    is ResetResult.NotSupported ->
+                        Log.e(TAG, "Wipe not supported: ${result.message}")
+                    is ResetResult.Failed ->
+                        Log.e(TAG, "Wipe failed: ${result.message}")
+                    is ResetResult.Initiated -> Unit
+                }
+            }
         } catch (exc: SecurityException) {}
         if (prefs.isRecastEnabled && safe) recast()
     }

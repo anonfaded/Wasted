@@ -13,33 +13,26 @@ class RemoteConfigValidatorTest {
         projectUrl: String = this.projectUrl,
         publishableKey: String = this.publishableKey,
         websiteUrl: String = this.websiteUrl,
-        allowLoopbackHttp: Boolean = false,
-    ) = RemoteConfigValidator.validate(projectUrl, publishableKey, websiteUrl, allowLoopbackHttp)
+    ) = RemoteConfigValidator.validate(projectUrl, publishableKey, websiteUrl)
 
     @Test
-    fun `valid https config passes in release mode`() {
+    fun `valid https config passes`() {
         assertTrue(errors().isEmpty())
     }
 
     @Test
-    fun `http url rejected when loopback not allowed`() {
+    fun `http urls rejected`() {
         assertTrue(
             errors(projectUrl = "http://127.0.0.1:54321")
                 .any { it.field == RemoteConfigField.PROJECT_URL },
         )
-    }
-
-    @Test
-    fun `loopback http allowed in debug mode`() {
-        assertTrue(errors(projectUrl = "http://127.0.0.1:54321", allowLoopbackHttp = true).isEmpty())
-        assertTrue(errors(projectUrl = "http://localhost:54321", allowLoopbackHttp = true).isEmpty())
-    }
-
-    @Test
-    fun `non-loopback http rejected even in debug mode`() {
         assertTrue(
-            errors(projectUrl = "http://192.168.1.50:54321", allowLoopbackHttp = true)
+            errors(projectUrl = "http://localhost:54321")
                 .any { it.field == RemoteConfigField.PROJECT_URL },
+        )
+        assertTrue(
+            errors(websiteUrl = "http://wasted.example.com")
+                .any { it.field == RemoteConfigField.WEBSITE_URL },
         )
     }
 

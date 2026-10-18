@@ -1,6 +1,7 @@
 package me.lucky.wasted
 
 import android.app.Application
+import android.os.UserManager
 import com.google.android.material.color.DynamicColors
 
 import me.lucky.wasted.shizuku.ShizukuManager
@@ -21,5 +22,8 @@ class Application : Application() {
         DynamicColors.applyToActivitiesIfAvailable(this)
         shizuku = ShizukuManager(this)
         shizuku.init() // registers Shizuku listeners; binds shell if already running
+        if (getSystemService(UserManager::class.java).isUserUnlocked) {
+            Preferences.new(this).initializeDebugModeIfMissing()
+        }
     }
 }

@@ -29,8 +29,6 @@ object RemoteConfigValidator {
     private const val SECRET_KEY_PREFIX = "sb_secret_"
     private const val JWT_PREFIX = "eyJ"
 
-    private val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "[::1]")
-
     private const val BASE64URL_ALPHABET =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
@@ -38,20 +36,19 @@ object RemoteConfigValidator {
         projectUrl: String,
         publishableKey: String,
         websiteUrl: String,
-        allowLoopbackHttp: Boolean,
     ): List<RemoteConfigError> = buildList {
-        validateWebUrl(projectUrl, allowLoopbackHttp, MAX_URL_LENGTH)?.let {
+        validateWebUrl(projectUrl, MAX_URL_LENGTH)?.let {
             add(RemoteConfigError(RemoteConfigField.PROJECT_URL, it))
         }
         validatePublishableKey(publishableKey)?.let {
             add(RemoteConfigError(RemoteConfigField.PUBLISHABLE_KEY, it))
         }
-        validateWebUrl(websiteUrl, allowLoopbackHttp, MAX_URL_LENGTH)?.let {
+        validateWebUrl(websiteUrl, MAX_URL_LENGTH)?.let {
             add(RemoteConfigError(RemoteConfigField.WEBSITE_URL, it))
         }
     }
 
-    private fun validateWebUrl(value: String, allowLoopbackHttp: Boolean, maxLength: Int): String? {
+    private fun validateWebUrl(value: String, maxLength: Int): String? {
         val trimmed = value.trim()
         if (trimmed.isEmpty()) return "Required"
         if (trimmed.length > maxLength) return "Must be at most $maxLength characters"
@@ -62,16 +59,7 @@ object RemoteConfigValidator {
             return "Not a valid URL"
         }
 
-        when (uri.scheme?.lowercase()) {
-            "https" -> Unit
-            "http" -> {
-                if (!allowLoopbackHttp || uri.host?.lowercase() !in LOOPBACK_HOSTS) {
-                    return "Must be an https:// URL"
-                }
-            }
-            else -> return "Must be an https:// URL"
-        }
-
+        if (uri.scheme?.lowercase() != "https") return "Must be an https:// URL"
         if (uri.host.isNullOrEmpty()) return "Must include a host"
         if (uri.userInfo != null) return "Must not contain credentials"
         if (uri.rawQuery != null || uri.rawFragment != null) return "Must not contain a query or fragment"

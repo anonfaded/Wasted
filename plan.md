@@ -399,7 +399,7 @@ app/src/main/java/me/lucky/wasted/
 - Revocation or an irrecoverably lost device session never reactivates/rebinds the old device row. An explicit local **Reset Remote Enrollment** action stops sync, clears only the Supabase session and encrypted remote journal/outbox, rotates the installation UUID, creates a new anonymous Auth identity, and requires a fresh owner enrollment token. Preserve the revoked server row and audit history. Never run this automatically after an auth/network error.
 - New `RemoteDatabase` uses SQLCipher and a random database passphrase wrapped by Android Keystore/Tink. Do not place remote state in the existing plaintext P2P Room database.
 - Room entities: `remote_command_journal(command_id PK, type, state, received_at, executing_at, terminal_at)` and `remote_outbox(id PK, kind, command_id nullable, payload, created_at, attempt_count, next_attempt_at)`. Unique command IDs prevent replay; outbox retries acknowledgements/status without retrying destructive execution.
-- Store validated Supabase URL, publishable key, and `remoteWebsiteUrl` in encrypted preferences with no client defaults embedded in the APK. Open the website through an external browser intent. Production accepts HTTPS only; debug builds may additionally allow loopback HTTP for local testing. Reject malformed, credential-bearing, privileged-key, or non-web values.
+- Store validated Supabase URL, publishable key, and `remoteWebsiteUrl` in encrypted preferences with no client defaults embedded in the APK. Open the website through an external browser intent. Production accepts HTTPS only (no loopback exception; client decision). Reject malformed, credential-bearing, privileged-key, or non-web values.
 
 ### Sync/retry constants
 
@@ -457,12 +457,13 @@ web/
 
 - [x] Baseline capture done. `./gradlew clean build` green (2 pre-existing lint errors fixed to unblock).
   - Evidence: `evidence/phase1/`. Tests currently placeholders; interactive local/P2P flow logs run at the gate.
-- [x] Fail-closed config boundary added (`RemoteConfigStore`, `RemoteConfigValidator`): encrypted prefs, defaults unconfigured/OFF, partial/corrupt reads fail closed, https-only (+debug loopback), secret key formats rejected.
+- [x] Fail-closed config boundary added (`RemoteConfigStore`, `RemoteConfigValidator`): encrypted prefs, defaults unconfigured/OFF, partial/corrupt reads fail closed, https-only, secret key formats rejected.
   - 22 unit tests green + lint clean (`evidence/phase1/config-boundary-tests.log`); no Supabase client or caller exists — `canStartRemoteWork()` gates all future work.
-- [ ] Apply Android 7/toolchain/dependency baseline and complete API 24 Supabase/Realtime/SQLCipher/desugaring spike.
-  - Applied: Kotlin 2.4.21 / KSP 2.3.12 / serialization plugin, JDK 17 + desugaring, Supabase BOM 3.8.0 (auth/postgrest/realtime), Ktor 3.5.1 OkHttp+WebSockets, WorkManager 2.12.0, SQLCipher 4.19.1 (4 ABIs in APK); debug+release+23 unit tests green; 16KB zipalign passes. Log: `evidence/phase1/dependency-spike-build.log`.
-  - Remaining: R8/minify keep-rule proof, API 24 emulator install + Auth/PostgREST/Realtime instantiation smoke.
-- [ ] Add migrated Debug Mode, `ResetExecutor`, and fake reset port; route `Utils.fire()` and P2P reset through it.
+- [x] Apply Android 7/toolchain/dependency baseline and complete API 24 Supabase/Realtime/SQLCipher/desugaring spike.
+  - Applied: Kotlin 2.4.21 / KSP 2.3.12 / serialization plugin, JDK 17 + desugaring, Supabase BOM 3.8.0 (auth/postgrest/realtime), Ktor 3.5.1 OkHttp+WebSockets, WorkManager 2.12.0, SQLCipher 4.19.1 (4 ABIs in APK); debug+release green; 16KB zipalign passes; Gradle 8.14.4; zero Kotlin compiler warnings. Log: `evidence/phase1/dependency-spike-build.log`.
+  - API 24 emulator + R8/minify proof skipped by client decision (min version not a blocker); revisit at Phase 4 rollout.
+- [x] Debug Mode (default ON, fail-closed, explicit init on first unlock) + `ResetExecutor`/`ResetPort`; `Utils.fire()` and P2P reset routed; `wipeData()` only reachable through `admin/ResetExecutor.kt`.
+  - 6 executor tests green (blocked/corrupt/race/unsupported/failure) — `evidence/phase1/debug-mode-reset-executor-tests.log`.
 - [ ] Extract `LocalSettingsApplier` and `TimerCoordinator`; switch existing local/P2P code to them before adding Supabase.
 - [ ] Add idempotent ForegroundService `ACTION_RECONFIGURE` and independent subsystem state tracking.
 - [ ] Add secure credential store and encrypted RemoteDatabase/journal/outbox, but no remote behavior yet.

@@ -4,7 +4,6 @@ import me.lucky.wasted.remote.domain.RemoteConfig
 import me.lucky.wasted.testing.InMemorySharedPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,8 +15,7 @@ class RemoteConfigStoreTest {
         websiteUrl = "https://wasted.example.com",
     )
 
-    private fun store(allowLoopbackHttp: Boolean = false) =
-        RemoteConfigStore(InMemorySharedPreferences(), allowLoopbackHttp)
+    private fun store() = RemoteConfigStore(InMemorySharedPreferences())
 
     @Test
     fun `fresh store defaults to unconfigured and off`() {
@@ -45,6 +43,13 @@ class RemoteConfigStoreTest {
     }
 
     @Test
+    fun `http config rejected`() {
+        val store = store()
+        assertFalse(store.save(validConfig.copy(projectUrl = "http://127.0.0.1:54321")))
+        assertNull(store.load())
+    }
+
+    @Test
     fun `remote work requires enabled and valid config`() {
         val store = store()
         assertTrue(store.save(validConfig))
@@ -60,7 +65,7 @@ class RemoteConfigStoreTest {
             .putString("project_url", validConfig.projectUrl)
             .putString("publishable_key", validConfig.publishableKey)
             .commit()
-        val store = RemoteConfigStore(prefs, allowLoopbackHttp = false)
+        val store = RemoteConfigStore(prefs)
         assertNull(store.load())
         assertFalse(store.isConfigured)
     }
@@ -74,19 +79,9 @@ class RemoteConfigStoreTest {
             .putString("website_url", "junk")
             .putBoolean("remote_enabled", true)
             .commit()
-        val store = RemoteConfigStore(prefs, allowLoopbackHttp = false)
+        val store = RemoteConfigStore(prefs)
         assertNull(store.load())
         assertFalse(store.canStartRemoteWork())
-    }
-
-    @Test
-    fun `loopback http config rejected unless allowed`() {
-        val strict = store(allowLoopbackHttp = false)
-        assertFalse(strict.save(validConfig.copy(projectUrl = "http://127.0.0.1:54321")))
-
-        val debug = store(allowLoopbackHttp = true)
-        assertTrue(debug.save(validConfig.copy(projectUrl = "http://127.0.0.1:54321")))
-        assertNotNull(debug.load())
     }
 
     @Test

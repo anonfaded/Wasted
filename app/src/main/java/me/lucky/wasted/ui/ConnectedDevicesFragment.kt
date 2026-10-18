@@ -155,17 +155,17 @@ class DeviceListAdapter(
  * ViewHolder for individual device item.
  */
 class DeviceViewHolder(
-    private val itemView: LinearLayout,
+    private val rootView: LinearLayout,
     private val onDeviceClick: (Peer) -> Unit,
     private val onResetClick: (Peer) -> Unit
-) : RecyclerView.ViewHolder(itemView) {
+) : RecyclerView.ViewHolder(rootView) {
     
-    private lateinit var deviceName: TextView
-    private lateinit var connectionStatus: TextView
-    private lateinit var resetButton: Button
+    private val deviceName: TextView
+    private val connectionStatus: TextView
+    private val resetButton: Button
     
     init {
-        deviceName = TextView(itemView.context).apply {
+        deviceName = TextView(rootView.context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -174,7 +174,7 @@ class DeviceViewHolder(
             textSize = 16f
         }
         
-        connectionStatus = TextView(itemView.context).apply {
+        connectionStatus = TextView(rootView.context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -182,7 +182,7 @@ class DeviceViewHolder(
             textSize = 12f
         }
         
-        resetButton = Button(itemView.context).apply {
+        resetButton = Button(rootView.context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -190,9 +190,9 @@ class DeviceViewHolder(
             text = "Reset"
         }
         
-        itemView.addView(deviceName)
-        itemView.addView(connectionStatus)
-        itemView.addView(resetButton)
+        rootView.addView(deviceName)
+        rootView.addView(connectionStatus)
+        rootView.addView(resetButton)
     }
     
     fun bind(peer: Peer) {
@@ -202,7 +202,7 @@ class DeviceViewHolder(
             if (peer.isConnected) Color.GREEN else Color.RED
         )
         
-        itemView.setOnClickListener { onDeviceClick(peer) }
+        rootView.setOnClickListener { onDeviceClick(peer) }
         resetButton.setOnClickListener { onResetClick(peer) }
     }
 }
