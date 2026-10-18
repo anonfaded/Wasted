@@ -19,8 +19,8 @@ import java.util.*
 import me.lucky.wasted.Application as WastedApp
 import me.lucky.wasted.Preferences
 import me.lucky.wasted.R
-import me.lucky.wasted.Utils
 import me.lucky.wasted.admin.DeviceAdminManager
+import me.lucky.wasted.settings.LocalSettingsApplier
 import me.lucky.wasted.databinding.FragmentMainBinding
 import me.lucky.wasted.shizuku.ShizukuManager
 
@@ -30,6 +30,7 @@ class MainFragment : Fragment() {
     private lateinit var prefs: Preferences
     private lateinit var prefsdb: Preferences
     private val admin by lazy { DeviceAdminManager(ctx) }
+    private val applier by lazy { LocalSettingsApplier.create(ctx) }
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         prefs.copyTo(prefsdb, key)
@@ -82,12 +83,12 @@ class MainFragment : Fragment() {
 
     private fun setup() = binding.apply {
         wipeData.setOnCheckedChangeListener { _, isChecked ->
-            prefs.isWipeData = isChecked
+            applier.setWipeData(isChecked)
             wipeEmbeddedSim.isEnabled = isChecked
             refreshProtectionUI()
         }
         wipeEmbeddedSim.setOnCheckedChangeListener { _, isChecked ->
-            prefs.isWipeEmbeddedSim = isChecked
+            applier.setWipeEmbeddedSim(isChecked)
         }
         toggle.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) requestAdmin() else setOff()
@@ -95,8 +96,7 @@ class MainFragment : Fragment() {
     }
 
     private fun setOn() {
-        prefs.isEnabled = true
-        Utils(ctx).setEnabled(true)
+        applier.setMasterEnabled(true)
         binding.toggle.isChecked = true
         // Prompt for All Files Access right after enabling — needed for Tier 3 (file deletion)
         if (!admin.hasManageExternalStoragePermission() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -107,8 +107,7 @@ class MainFragment : Fragment() {
     }
 
     private fun setOff() {
-        prefs.isEnabled = false
-        Utils(ctx).setEnabled(false)
+        applier.setMasterEnabled(false)
         try { admin.remove() } catch (exc: SecurityException) {}
         binding.toggle.isChecked = false
         refreshProtectionUI()

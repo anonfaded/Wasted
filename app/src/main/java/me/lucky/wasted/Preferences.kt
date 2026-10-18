@@ -26,6 +26,8 @@ class Preferences(ctx: Context, encrypted: Boolean = true) {
         private const val RECAST_EXTRA_VALUE = "recast_extra_value"
         private const val REMOTE_RESET_CONFIRMATION = "remote_reset_confirmation"
         private const val DEBUG_MODE = "debug_mode"
+        private const val TIMER_SCHEDULED_AT = "timer_scheduled_at"
+        private const val TIMER_DURATION_MINUTES = "timer_duration_minutes"
 
         private const val P2P_ACTIVE = "p2p_enabled"
 
@@ -138,6 +140,14 @@ class Preferences(ctx: Context, encrypted: Boolean = true) {
         if (runCatching { prefs.contains(DEBUG_MODE) }.getOrDefault(false)) return
         runCatching { prefs.edit { putBoolean(DEBUG_MODE, true) } }
     }
+
+    var timerScheduledAtMs: Long
+        get() = prefs.getLong(TIMER_SCHEDULED_AT, 0L)
+        set(value) = prefs.edit { putLong(TIMER_SCHEDULED_AT, value) }
+
+    var timerDurationMinutes: Int
+        get() = prefs.getInt(TIMER_DURATION_MINUTES, 0)
+        set(value) = prefs.edit { putInt(TIMER_DURATION_MINUTES, value) }
 
     fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) =
         prefs.registerOnSharedPreferenceChangeListener(listener)

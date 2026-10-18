@@ -7,8 +7,8 @@ import com.google.gson.Gson
 import kotlinx.coroutines.*
 import me.lucky.wasted.Preferences
 import me.lucky.wasted.Trigger
-import me.lucky.wasted.Utils
 import me.lucky.wasted.admin.DeviceAdminManager
+import me.lucky.wasted.settings.LocalSettingsApplier
 import me.lucky.wasted.p2p.database.WastedP2PDatabase
 import me.lucky.wasted.p2p.models.DeviceSettingsSnapshot
 import me.lucky.wasted.p2p.models.Message
@@ -49,7 +49,7 @@ class SettingsSyncManager(
 
     private val gson = Gson()
     private val prefs = Preferences.new(context)
-    private val utils = Utils(context)
+    private val applier by lazy { LocalSettingsApplier.create(context.applicationContext) }
     private val adminManager = DeviceAdminManager(context)
     private val peerDao = WastedP2PDatabase.getInstance(context).peerDao()
 
@@ -315,24 +315,9 @@ class SettingsSyncManager(
      * that can take 100-500ms each — must NEVER run on the main thread.
      */
     private suspend fun applyLocalSettings(settings: DeviceSettingsSnapshot) {
-        Log.d(TAG, "applyLocalSettings: writing prefs + component state (IO dispatch)")
+        Log.d(TAG, "applyLocalSettings: applying via LocalSettingsApplier (IO dispatch)")
         withContext(Dispatchers.IO) {
-            prefs.isEnabled = settings.appEnabled
-            prefs.isWipeData = settings.wipeDataEnabled
-            prefs.isWipeEmbeddedSim = settings.wipeEmbeddedSimEnabled && settings.wipeDataEnabled
-            prefs.remoteResetConfirmationEnabled = settings.remoteResetConfirmationEnabled
-            prefs.triggers = settings.triggerMask
-            prefs.triggerLockCount = (settings.inactivityTimeout / 60000L).toInt().coerceAtLeast(1)
-            prefs.triggerTileDelay = settings.tileDelayMs
-            prefs.triggerApplicationOptions = settings.applicationOptionsMask
-            prefs.isRecastEnabled = settings.recastEnabled
-            prefs.recastAction = settings.recastAction
-            prefs.recastReceiver = settings.recastReceiver
-            prefs.recastExtraKey = settings.recastExtraKey
-            prefs.recastExtraValue = settings.recastExtraValue
-            utils.setEnabled(settings.appEnabled)
-            utils.updateForegroundRequiredEnabled()
-            utils.updateApplicationEnabled()
+            applier.applySnapshot(settings)
         }
         // StateFlow updates are thread-safe; emit after IO work is done
         _inactivityTimeout.value = settings.inactivityTimeout

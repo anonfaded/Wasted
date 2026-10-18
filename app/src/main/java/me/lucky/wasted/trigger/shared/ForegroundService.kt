@@ -2,7 +2,6 @@ package me.lucky.wasted.trigger.shared
 
 import android.app.KeyguardManager
 import android.app.Service
-import android.app.job.JobScheduler
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -17,7 +16,7 @@ import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
 import me.lucky.wasted.p2p.P2PController
-import me.lucky.wasted.trigger.lock.LockJobManager
+import me.lucky.wasted.trigger.lock.TimerCoordinator
 
 class ForegroundService : Service() {
     companion object {
@@ -99,7 +98,7 @@ class ForegroundService : Service() {
             when (intent?.action) {
                 Intent.ACTION_USER_PRESENT -> {
                     locked = false
-                    LockJobManager(context).cancel()
+                    TimerCoordinator.create(context).cancel()
                 }
                 Intent.ACTION_SCREEN_OFF -> {
                     if (locked) return
@@ -114,9 +113,9 @@ class ForegroundService : Service() {
             private val pendingResult: PendingResult,
         ) : Runnable {
             override fun run() {
-                val job = LockJobManager(ctx)
+                val timer = TimerCoordinator.create(ctx)
                 var delay = 1000L
-                while (job.schedule() != JobScheduler.RESULT_SUCCESS) {
+                while (!timer.schedule()) {
                     Thread.sleep(delay)
                     delay = delay.shl(1)
                 }

@@ -11,15 +11,15 @@ import androidx.fragment.app.Fragment
 
 import me.lucky.wasted.Preferences
 import me.lucky.wasted.Trigger
-import me.lucky.wasted.Utils
 import me.lucky.wasted.databinding.FragmentSettingsBinding
+import me.lucky.wasted.settings.LocalSettingsApplier
 
 class SettingsFragment : Fragment() {
     private lateinit var binding: FragmentSettingsBinding
     private lateinit var ctx: Context
     private lateinit var prefs: Preferences
     private lateinit var prefsdb: Preferences
-    private val utils by lazy { Utils(ctx) }
+    private val applier by lazy { LocalSettingsApplier.create(ctx) }
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         prefs.copyTo(prefsdb, key)
@@ -66,37 +66,28 @@ class SettingsFragment : Fragment() {
 
     private fun setup() = binding.apply {
         panicKit.setOnCheckedChangeListener { _, isChecked ->
-            prefs.triggers = Utils.setFlag(prefs.triggers, Trigger.PANIC_KIT.value, isChecked)
-            utils.setPanicKitEnabled(isChecked && prefs.isEnabled)
+            applier.setTrigger(Trigger.PANIC_KIT, isChecked)
         }
         tile.setOnCheckedChangeListener { _, isChecked ->
-            prefs.triggers = Utils.setFlag(prefs.triggers, Trigger.TILE.value, isChecked)
-            utils.setTileEnabled(isChecked && prefs.isEnabled)
+            applier.setTrigger(Trigger.TILE, isChecked)
         }
         shortcut.setOnCheckedChangeListener { _, isChecked ->
-            prefs.triggers = Utils.setFlag(prefs.triggers, Trigger.SHORTCUT.value, isChecked)
-            utils.setShortcutEnabled(isChecked && prefs.isEnabled)
+            applier.setTrigger(Trigger.SHORTCUT, isChecked)
         }
         broadcast.setOnCheckedChangeListener { _, isChecked ->
-            prefs.triggers = Utils.setFlag(prefs.triggers, Trigger.BROADCAST.value, isChecked)
-            utils.setBroadcastEnabled(isChecked && prefs.isEnabled)
+            applier.setTrigger(Trigger.BROADCAST, isChecked)
         }
         notification.setOnCheckedChangeListener { _, isChecked ->
-            prefs.triggers =
-                Utils.setFlag(prefs.triggers, Trigger.NOTIFICATION.value, isChecked)
-            utils.setNotificationEnabled(isChecked && prefs.isEnabled)
+            applier.setTrigger(Trigger.NOTIFICATION, isChecked)
         }
         lock.setOnCheckedChangeListener { _, isChecked ->
-            prefs.triggers = Utils.setFlag(prefs.triggers, Trigger.LOCK.value, isChecked)
-            utils.updateForegroundRequiredEnabled()
+            applier.setTrigger(Trigger.LOCK, isChecked)
         }
         usb.setOnCheckedChangeListener { _, isChecked ->
-            prefs.triggers = Utils.setFlag(prefs.triggers, Trigger.USB.value, isChecked)
-            utils.updateForegroundRequiredEnabled()
+            applier.setTrigger(Trigger.USB, isChecked)
         }
         application.setOnCheckedChangeListener { _, isChecked ->
-            prefs.triggers = Utils.setFlag(prefs.triggers, Trigger.APPLICATION.value, isChecked)
-            utils.updateApplicationEnabled()
+            applier.setTrigger(Trigger.APPLICATION, isChecked)
         }
     }
 }

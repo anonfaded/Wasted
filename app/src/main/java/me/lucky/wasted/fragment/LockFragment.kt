@@ -13,6 +13,7 @@ import java.util.regex.Pattern
 import me.lucky.wasted.Preferences
 import me.lucky.wasted.R
 import me.lucky.wasted.databinding.FragmentLockBinding
+import me.lucky.wasted.settings.LocalSettingsApplier
 
 class LockFragment : Fragment() {
     companion object {
@@ -25,6 +26,7 @@ class LockFragment : Fragment() {
     private lateinit var ctx: Context
     private lateinit var prefs: Preferences
     private lateinit var prefsdb: Preferences
+    private val applier by lazy { LocalSettingsApplier.create(ctx) }
     private val lockCountPattern by lazy {
         Pattern.compile("^[1-9]\\d*[$MODIFIER_DAYS$MODIFIER_HOURS$MODIFIER_MINUTES]$") }
 
@@ -80,12 +82,13 @@ class LockFragment : Fragment() {
             try {
                 i = str.dropLast(1).toInt()
             } catch (exc: NumberFormatException) { return@doAfterTextChanged }
-            prefs.triggerLockCount = when (modifier) {
+            val minutes = when (modifier) {
                 MODIFIER_DAYS -> i * 24 * 60
                 MODIFIER_HOURS -> i * 60
                 MODIFIER_MINUTES -> i
                 else -> return@doAfterTextChanged
             }
+            applier.setLockTimerMinutes(minutes)
             time.error = null
         }
     }
