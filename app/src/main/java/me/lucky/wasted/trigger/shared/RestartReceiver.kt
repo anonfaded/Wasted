@@ -6,7 +6,6 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 
 import me.lucky.wasted.Preferences
-import me.lucky.wasted.Trigger
 import me.lucky.wasted.remote.data.RemoteConfigStore
 
 class RestartReceiver : BroadcastReceiver() {
@@ -16,13 +15,14 @@ class RestartReceiver : BroadcastReceiver() {
             intent?.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val ctx = context ?: return
         val prefs = Preferences.new(ctx)
-        val triggers = prefs.triggers
         val remoteConfigStore = RemoteConfigStore.new(ctx)
-        val needsForeground = prefs.p2pEnabled ||
-            (remoteConfigStore.remoteEnabled && remoteConfigStore.isConfigured) ||
-            (prefs.isEnabled && (
-                triggers.and(Trigger.LOCK.value) != 0 ||
-                triggers.and(Trigger.USB.value) != 0))
+        val remoteActive = remoteConfigStore.remoteEnabled && remoteConfigStore.isConfigured
+        val needsForeground = ForegroundRequirement.isRequired(
+            enabled = prefs.isEnabled,
+            triggers = prefs.triggers,
+            p2pEnabled = prefs.p2pEnabled,
+            remoteActive = remoteActive,
+        )
         if (!needsForeground) return
         ContextCompat.startForegroundService(
             ctx.applicationContext,

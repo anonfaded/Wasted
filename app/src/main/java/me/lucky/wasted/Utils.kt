@@ -16,6 +16,7 @@ import me.lucky.wasted.remote.data.RemoteConfigStore
 import me.lucky.wasted.trigger.notification.NotificationListenerService
 import me.lucky.wasted.trigger.panic.PanicConnectionActivity
 import me.lucky.wasted.trigger.panic.PanicResponderActivity
+import me.lucky.wasted.trigger.shared.ForegroundRequirement
 import me.lucky.wasted.trigger.shared.ForegroundService
 import me.lucky.wasted.trigger.shared.RestartReceiver
 import me.lucky.wasted.trigger.shortcut.ShortcutActivity
@@ -99,8 +100,8 @@ class Utils(private val ctx: Context) {
         val isUSB = triggers.and(Trigger.USB.value) != 0
         val p2pEnabled = prefs.p2pEnabled
         val remoteEnabled = remoteConfigStore.remoteEnabled && remoteConfigStore.isConfigured
-        val foregroundEnabled = (enabled && (triggers.and(Trigger.LOCK.value) != 0 || isUSB)) ||
-            p2pEnabled || remoteEnabled
+        val foregroundEnabled =
+            ForegroundRequirement.isRequired(enabled, triggers, p2pEnabled, remoteEnabled)
         setForegroundEnabled(foregroundEnabled)
         setComponentEnabled(RestartReceiver::class.java, foregroundEnabled)
         setComponentEnabled(UsbReceiver::class.java, enabled && isUSB)

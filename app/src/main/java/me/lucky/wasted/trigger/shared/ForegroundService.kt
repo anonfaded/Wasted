@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -49,20 +48,27 @@ class ForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         reconfigure()
-        startForegroundWithTypes()
-        if (!hasActiveSubsystem()) stopSelf()
         return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? { return null }
 
-    /** Idempotent: diffs desired vs actual state per subsystem — one subsystem never affects another. */
+    /**
+     * Idempotent. startForeground runs before any subsystem side effect;
+     * each subsystem is then diffed independently of the others.
+     */
     private fun reconfigure() {
-        val triggers = prefs.triggers
-        syncLockReceiver(triggers.and(Trigger.LOCK.value) != 0)
-        syncUsbReceiver(triggers.and(Trigger.USB.value) != 0)
-        syncP2p(prefs.p2pEnabled)
-        syncRemote(remoteConfigStore.remoteEnabled && remoteConfigStore.isConfigured)
+        val desired = SubsystemDesired.from(
+            triggers = prefs.triggers,
+            p2pEnabled = prefs.p2pEnabled,
+            remoteActive = remoteConfigStore.remoteEnabled && remoteConfigStore.isConfigured,
+        )
+        startForegroundWithTypes(desired)
+        syncLockReceiver(desired.lockReceiver)
+        syncUsbReceiver(desired.usbReceiver)
+        syncP2p(desired.p2p)
+        syncRemote(desired.remote)
+        if (!desired.hasActiveSubsystem()) stopSelf()
     }
 
     private fun syncLockReceiver(wanted: Boolean) {
@@ -117,9 +123,6 @@ class ForegroundService : Service() {
         remoteStarted = false
     }
 
-    private fun hasActiveSubsystem() =
-        lockReceiver != null || usbReceiver != null || p2pStarted || remoteStarted
-
     private fun unregisterSubsystemReceivers() {
         lockReceiver?.let { runCatching { unregisterReceiver(it) } }
         lockReceiver = null
@@ -127,32 +130,16 @@ class ForegroundService : Service() {
         usbReceiver = null
     }
 
-    private fun startForegroundWithTypes() {
+    private fun startForegroundWithTypes(desired: SubsystemDesired) {
         val notification = NotificationCompat.Builder(this, NotificationManager.CHANNEL_DEFAULT_ID)
                 .setContentTitle(getString(R.string.foreground_service_notification_title))
                 .setSmallIcon(android.R.drawable.ic_delete)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            var mask = 0
-            if (p2pStarted) mask = mask or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-            if (remoteStarted) mask = mask or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            if (mask != 0) {
-                startForeground(NOTIFICATION_ID, notification, mask)
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
-            }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (p2pStarted) {
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
-                )
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
-            }
+        val mask = ForegroundTypes.runtimeMask(Build.VERSION.SDK_INT, desired.p2p, desired.remote)
+        if (mask != 0) {
+            startForeground(NOTIFICATION_ID, notification, mask)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
