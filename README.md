@@ -7,6 +7,7 @@
 - **P2P Network**: Remote factory reset via encrypted local Wi-Fi (TLS encrypted messaging on port 9876)
 - **Android 14+ Device Owner Setup**: Interactive Shizuku-based setup to make Wasted Device Owner for full factory reset capability
 - **Fixed Android 14+ Reset**: Reset now uses proper `wipeDevice()` API instead of deprecated `wipeData()`
+- **Debug Mode**: Enabled by default. While enabled, dangerous commands never execute — they are logged locally, and remote commands are shown as a notification stating they were received but not executed. Disable it locally with a danger confirmation to allow real wipes.
 
 All original features remain unchanged and fully compatible with Android 7+.
 

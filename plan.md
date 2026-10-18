@@ -460,6 +460,8 @@ web/
 - [x] Fail-closed config boundary added (`RemoteConfigStore`, `RemoteConfigValidator`): encrypted prefs, defaults unconfigured/OFF, partial/corrupt reads fail closed, https-only (+debug loopback), secret key formats rejected.
   - 22 unit tests green + lint clean (`evidence/phase1/config-boundary-tests.log`); no Supabase client or caller exists — `canStartRemoteWork()` gates all future work.
 - [ ] Apply Android 7/toolchain/dependency baseline and complete API 24 Supabase/Realtime/SQLCipher/desugaring spike.
+  - Applied: Kotlin 2.4.21 / KSP 2.3.12 / serialization plugin, JDK 17 + desugaring, Supabase BOM 3.8.0 (auth/postgrest/realtime), Ktor 3.5.1 OkHttp+WebSockets, WorkManager 2.12.0, SQLCipher 4.19.1 (4 ABIs in APK); debug+release+23 unit tests green; 16KB zipalign passes. Log: `evidence/phase1/dependency-spike-build.log`.
+  - Remaining: R8/minify keep-rule proof, API 24 emulator install + Auth/PostgREST/Realtime instantiation smoke.
 - [ ] Add migrated Debug Mode, `ResetExecutor`, and fake reset port; route `Utils.fire()` and P2P reset through it.
 - [ ] Extract `LocalSettingsApplier` and `TimerCoordinator`; switch existing local/P2P code to them before adding Supabase.
 - [ ] Add idempotent ForegroundService `ACTION_RECONFIGURE` and independent subsystem state tracking.
