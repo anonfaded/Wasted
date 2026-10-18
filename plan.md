@@ -102,8 +102,8 @@ Phase 1 must prove dependency resolution, debug/release compilation, R8 rules, A
 ### Safe defaults and first synchronization
 
 - Remote Management defaults OFF and does not start networking, change settings, or alter existing service decisions.
-- Upgrade migration writes an explicit Debug Mode value preserving existing behavior; enabling Remote Management for the first time locally forces Debug Mode ON before enrollment.
-- Debug builds/new test enrollments default Debug Mode ON. Missing, corrupt, unreadable, or racing Debug Mode state is treated as ON.
+- Upgrade migration writes an explicit Debug Mode ON value before any destructive operation; enabling Remote Management for the first time locally forces Debug Mode ON before enrollment.
+- Debug Mode defaults ON for every install; missing, corrupt, unreadable, or racing state is treated as ON. While ON, a dangerous command is never executed — it is logged, and a local notification states it was received but not executed in Debug Mode.
 - First enrollment sends the device's current Lock Timer and USB Trigger to `claim_device_enrollment`. If account settings were never initialized, the RPC seeds them from that device. If the owner already set desired values, the device receives them. Enrollment must never silently overwrite an already initialized account.
 - Disabling or revoking Remote Management stops cloud sync but leaves local settings, timer, Device Admin, and P2P unchanged.
 
@@ -457,7 +457,8 @@ web/
 
 - [x] Baseline capture done. `./gradlew clean build` green (2 pre-existing lint errors fixed to unblock).
   - Evidence: `evidence/phase1/`. Tests currently placeholders; interactive local/P2P flow logs run at the gate.
-- [ ] Add the single-APK, fail-closed runtime configuration boundary from §15; prove a fresh/default installation performs zero Supabase work.
+- [x] Fail-closed config boundary added (`RemoteConfigStore`, `RemoteConfigValidator`): encrypted prefs, defaults unconfigured/OFF, partial/corrupt reads fail closed, https-only (+debug loopback), secret key formats rejected.
+  - 22 unit tests green + lint clean (`evidence/phase1/config-boundary-tests.log`); no Supabase client or caller exists — `canStartRemoteWork()` gates all future work.
 - [ ] Apply Android 7/toolchain/dependency baseline and complete API 24 Supabase/Realtime/SQLCipher/desugaring spike.
 - [ ] Add migrated Debug Mode, `ResetExecutor`, and fake reset port; route `Utils.fire()` and P2P reset through it.
 - [ ] Extract `LocalSettingsApplier` and `TimerCoordinator`; switch existing local/P2P code to them before adding Supabase.
