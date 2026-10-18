@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import me.lucky.wasted.admin.DeviceAdminManager
 import me.lucky.wasted.admin.ResetExecutor
 import me.lucky.wasted.admin.ResetResult
+import me.lucky.wasted.remote.data.RemoteConfigStore
 import me.lucky.wasted.trigger.notification.NotificationListenerService
 import me.lucky.wasted.trigger.panic.PanicConnectionActivity
 import me.lucky.wasted.trigger.panic.PanicResponderActivity
@@ -34,6 +35,7 @@ class Utils(private val ctx: Context) {
     }
 
     private val prefs by lazy { Preferences.new(ctx) }
+    private val remoteConfigStore by lazy { RemoteConfigStore.new(ctx) }
 
     fun setEnabled(enabled: Boolean) {
         val triggers = prefs.triggers
@@ -96,7 +98,9 @@ class Utils(private val ctx: Context) {
         val triggers = prefs.triggers
         val isUSB = triggers.and(Trigger.USB.value) != 0
         val p2pEnabled = prefs.p2pEnabled
-        val foregroundEnabled = (enabled && (triggers.and(Trigger.LOCK.value) != 0 || isUSB)) || p2pEnabled
+        val remoteEnabled = remoteConfigStore.remoteEnabled && remoteConfigStore.isConfigured
+        val foregroundEnabled = (enabled && (triggers.and(Trigger.LOCK.value) != 0 || isUSB)) ||
+            p2pEnabled || remoteEnabled
         setForegroundEnabled(foregroundEnabled)
         setComponentEnabled(RestartReceiver::class.java, foregroundEnabled)
         setComponentEnabled(UsbReceiver::class.java, enabled && isUSB)
@@ -108,7 +112,10 @@ class Utils(private val ctx: Context) {
 
     private fun setForegroundEnabled(enabled: Boolean) =
         Intent(ctx.applicationContext, ForegroundService::class.java).also {
-            if (enabled) ContextCompat.startForegroundService(ctx.applicationContext, it)
+            if (enabled) ContextCompat.startForegroundService(
+                ctx.applicationContext,
+                it.setAction(ForegroundService.ACTION_RECONFIGURE),
+            )
             else ctx.stopService(it)
         }
 

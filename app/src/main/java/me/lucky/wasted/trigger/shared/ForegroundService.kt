@@ -16,80 +16,147 @@ import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
 import me.lucky.wasted.p2p.P2PController
+import me.lucky.wasted.remote.data.RemoteConfigStore
 import me.lucky.wasted.trigger.lock.TimerCoordinator
 
 class ForegroundService : Service() {
     companion object {
+        const val ACTION_RECONFIGURE = "me.lucky.wasted.action.RECONFIGURE"
         private const val NOTIFICATION_ID = 1000
         private const val ACTION_USB_STATE = "android.hardware.usb.action.USB_STATE"
     }
 
     private lateinit var prefs: Preferences
-    private lateinit var lockReceiver: LockReceiver
-    private val usbReceiver = UsbReceiver()
+    private val remoteConfigStore by lazy { RemoteConfigStore.new(this) }
+
+    private var lockReceiver: LockReceiver? = null
+    private var usbReceiver: UsbReceiver? = null
     private var p2pStarted = false
+    private var remoteStarted = false
 
     override fun onCreate() {
         super.onCreate()
-        init()
+        prefs = Preferences.new(this)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        deinit()
-    }
-
-    private fun init() {
-        prefs = Preferences.new(this)
-        // Start P2P network if the user has enabled it — keeps P2P alive regardless of app foreground state
-        if (prefs.p2pEnabled) {
-            P2PController.getInstance(this).start()
-            p2pStarted = true
-        }
-        lockReceiver = LockReceiver(getSystemService(KeyguardManager::class.java).isDeviceLocked)
-        val triggers = prefs.triggers
-        if (triggers.and(Trigger.LOCK.value) != 0)
-            registerReceiver(lockReceiver, IntentFilter().apply {
-                addAction(Intent.ACTION_USER_PRESENT)
-                addAction(Intent.ACTION_SCREEN_OFF)
-            })
-        if (triggers.and(Trigger.USB.value) != 0)
-            registerReceiver(usbReceiver, IntentFilter(ACTION_USB_STATE))
-    }
-
-    private fun deinit() {
-        // Stop P2P network cleanly when service is destroyed
-        if (p2pStarted) {
-            P2PController.instanceOrNull()?.stop()
-            p2pStarted = false
-        }
-        val unregister: (BroadcastReceiver) -> Unit = {
-            try { unregisterReceiver(it) } catch (exc: IllegalArgumentException) {}
-        }
-        unregister(lockReceiver)
-        unregister(usbReceiver)
+        unregisterSubsystemReceivers()
+        stopP2p()
+        stopRemote()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        reconfigure()
+        startForegroundWithTypes()
+        if (!hasActiveSubsystem()) stopSelf()
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? { return null }
+
+    /** Idempotent: diffs desired vs actual state per subsystem — one subsystem never affects another. */
+    private fun reconfigure() {
+        val triggers = prefs.triggers
+        syncLockReceiver(triggers.and(Trigger.LOCK.value) != 0)
+        syncUsbReceiver(triggers.and(Trigger.USB.value) != 0)
+        syncP2p(prefs.p2pEnabled)
+        syncRemote(remoteConfigStore.remoteEnabled && remoteConfigStore.isConfigured)
+    }
+
+    private fun syncLockReceiver(wanted: Boolean) {
+        if (wanted == (lockReceiver != null)) return
+        if (wanted) {
+            val receiver = LockReceiver(getSystemService(KeyguardManager::class.java).isDeviceLocked)
+            registerReceiver(receiver, IntentFilter().apply {
+                addAction(Intent.ACTION_USER_PRESENT)
+                addAction(Intent.ACTION_SCREEN_OFF)
+            })
+            lockReceiver = receiver
+        } else {
+            lockReceiver?.let { runCatching { unregisterReceiver(it) } }
+            lockReceiver = null
+        }
+    }
+
+    private fun syncUsbReceiver(wanted: Boolean) {
+        if (wanted == (usbReceiver != null)) return
+        if (wanted) {
+            val receiver = UsbReceiver()
+            registerReceiver(receiver, IntentFilter(ACTION_USB_STATE))
+            usbReceiver = receiver
+        } else {
+            usbReceiver?.let { runCatching { unregisterReceiver(it) } }
+            usbReceiver = null
+        }
+    }
+
+    private fun syncP2p(wanted: Boolean) {
+        if (wanted == p2pStarted) return
+        if (wanted) {
+            P2PController.getInstance(this).start()
+            p2pStarted = true
+        } else {
+            stopP2p()
+        }
+    }
+
+    private fun stopP2p() {
+        if (!p2pStarted) return
+        P2PController.instanceOrNull()?.stop()
+        p2pStarted = false
+    }
+
+    private fun syncRemote(wanted: Boolean) {
+        // Phase 2 wires RemoteSyncCoordinator here; state tracking keeps the service alive meanwhile.
+        remoteStarted = wanted
+    }
+
+    private fun stopRemote() {
+        remoteStarted = false
+    }
+
+    private fun hasActiveSubsystem() =
+        lockReceiver != null || usbReceiver != null || p2pStarted || remoteStarted
+
+    private fun unregisterSubsystemReceivers() {
+        lockReceiver?.let { runCatching { unregisterReceiver(it) } }
+        lockReceiver = null
+        usbReceiver?.let { runCatching { unregisterReceiver(it) } }
+        usbReceiver = null
+    }
+
+    private fun startForegroundWithTypes() {
         val notification = NotificationCompat.Builder(this, NotificationManager.CHANNEL_DEFAULT_ID)
                 .setContentTitle(getString(R.string.foreground_service_notification_title))
                 .setSmallIcon(android.R.drawable.ic_delete)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-            )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            var mask = 0
+            if (p2pStarted) mask = mask or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            if (remoteStarted) mask = mask or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            if (mask != 0) {
+                startForeground(NOTIFICATION_ID, notification, mask)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (p2pStarted) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        return START_STICKY
     }
-
-    override fun onBind(intent: Intent?): IBinder? { return null }
 
     private class LockReceiver(private var locked: Boolean) : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
