@@ -12,6 +12,7 @@ import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.exception.PostgrestRestException
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.realtime.Realtime
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
@@ -81,6 +82,9 @@ class SupabaseRemoteRepository(
 
     suspend fun currentUserId(): String? = clientOrNull()?.auth?.currentUserOrNull()?.id
 
+    /** Shared client for the single Realtime channel owned by the foreground service. */
+    internal fun clientForRealtime(): SupabaseClient? = clientOrNull()
+
     fun close() {
         synchronized(this) {
             client = null
@@ -104,6 +108,7 @@ class SupabaseRemoteRepository(
                     autoLoadFromStorage = true
                 }
                 install(Postgrest)
+                install(Realtime)
             }.also { client = it }
         }
     }

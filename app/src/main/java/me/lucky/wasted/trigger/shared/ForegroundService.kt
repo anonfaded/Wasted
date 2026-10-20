@@ -6,23 +6,43 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
 import android.os.IBinder
+import android.os.UserManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 import me.lucky.wasted.Preferences
 import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
 import me.lucky.wasted.p2p.P2PController
+import me.lucky.wasted.remote.data.LocalRemoteStatusProvider
 import me.lucky.wasted.remote.data.RemoteConfigStore
+import me.lucky.wasted.remote.data.RemoteCredentialStore
+import me.lucky.wasted.remote.data.RemoteDatabase
+import me.lucky.wasted.remote.data.RemoteRealtimeClient
+import me.lucky.wasted.remote.data.SupabaseRemoteRepository
+import me.lucky.wasted.remote.domain.RemoteSyncCoordinator
 import me.lucky.wasted.trigger.lock.TimerCoordinator
 
 class ForegroundService : Service() {
     companion object {
         const val ACTION_RECONFIGURE = "me.lucky.wasted.action.RECONFIGURE"
+        private const val TAG = "ForegroundService"
         private const val NOTIFICATION_ID = 1000
         private const val ACTION_USB_STATE = "android.hardware.usb.action.USB_STATE"
+        private const val REMOTE_HEARTBEAT_MS = 60_000L
     }
 
     private lateinit var prefs: Preferences
@@ -31,7 +51,11 @@ class ForegroundService : Service() {
     private var lockReceiver: LockReceiver? = null
     private var usbReceiver: UsbReceiver? = null
     private var p2pStarted = false
+
     private var remoteStarted = false
+    private var remoteScope: CoroutineScope? = null
+    private var remoteRealtime: RemoteRealtimeClient? = null
+    private var remoteNetworkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -115,13 +139,102 @@ class ForegroundService : Service() {
     }
 
     private fun syncRemote(wanted: Boolean) {
-        // Phase 2 wires RemoteSyncCoordinator here; state tracking keeps the service alive meanwhile.
-        remoteStarted = wanted
+        val unlocked = getSystemService(UserManager::class.java).isUserUnlocked
+        val active = wanted && unlocked
+        if (active == remoteStarted) return
+        if (active) startRemote() else stopRemote()
+    }
+
+    private fun startRemote() {
+        try {
+            val credentials = RemoteCredentialStore.new(this)
+            val repository = SupabaseRemoteRepository(remoteConfigStore, credentials)
+            val coordinator = RemoteSyncCoordinator(
+                api = repository,
+                dao = RemoteDatabase.getInstance(this).remoteCommandDao(),
+                credentials = credentials,
+                statusProvider = LocalRemoteStatusProvider(this),
+                isRemoteAvailable = { repository.isAvailable },
+            )
+            val realtime = RemoteRealtimeClient { repository.clientForRealtime() }
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+            remoteStarted = true
+            remoteScope = scope
+            remoteRealtime = realtime
+
+            scope.launch {
+                runCatching {
+                    val deviceId = credentials.deviceId
+                    if (credentials.enrolled && deviceId != null) {
+                        realtime.start(scope, deviceId, credentials.accountId) {
+                            scope.launch { runCatching { coordinator.syncNow() } }
+                        }
+                    }
+                }.onFailure { Log.w(TAG, "Realtime start failed: ${it.message}") }
+            }
+
+            // Heartbeat: reconcile every 60s while enabled, enrolled, unlocked, and connected.
+            scope.launch {
+                while (isActive) {
+                    val unlocked = getSystemService(UserManager::class.java).isUserUnlocked
+                    if (unlocked && hasNetwork()) {
+                        runCatching { coordinator.syncNow() }
+                    }
+                    delay(REMOTE_HEARTBEAT_MS)
+                }
+            }
+
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    scope.launch { runCatching { coordinator.syncNow() } }
+                }
+            }
+            runCatching {
+                getSystemService(ConnectivityManager::class.java)
+                    .registerDefaultNetworkCallback(callback)
+            }.onFailure { Log.w(TAG, "Network callback registration failed: ${it.message}") }
+            remoteNetworkCallback = callback
+
+            Log.i(TAG, "Remote subsystem started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Remote subsystem failed to start: ${e.message}")
+            remoteStarted = false
+            remoteScope?.cancel()
+            remoteScope = null
+            remoteRealtime = null
+        }
     }
 
     private fun stopRemote() {
+        if (!remoteStarted) return
         remoteStarted = false
+
+        remoteNetworkCallback?.let { callback ->
+            runCatching {
+                getSystemService(ConnectivityManager::class.java)
+                    .unregisterNetworkCallback(callback)
+            }
+        }
+        remoteNetworkCallback = null
+
+        val scope = remoteScope
+        val realtime = remoteRealtime
+        remoteScope = null
+        remoteRealtime = null
+        if (scope == null) return
+
+        // Unsubscribe Realtime and remove its channel, then cancel the remote scope.
+        scope.launch {
+            runCatching { realtime?.stop() }
+            scope.cancel()
+        }
+        Log.i(TAG, "Remote subsystem stopped")
     }
+
+    private fun hasNetwork(): Boolean = runCatching {
+        getSystemService(ConnectivityManager::class.java).activeNetwork != null
+    }.getOrDefault(false)
 
     private fun unregisterSubsystemReceivers() {
         lockReceiver?.let { runCatching { unregisterReceiver(it) } }

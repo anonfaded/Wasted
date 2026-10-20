@@ -12,6 +12,7 @@ class RestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         if (intent?.action != Intent.ACTION_LOCKED_BOOT_COMPLETED &&
             intent?.action != Intent.ACTION_BOOT_COMPLETED &&
+            intent?.action != Intent.ACTION_USER_UNLOCKED &&
             intent?.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val ctx = context ?: return
         val prefs = Preferences.new(ctx)

@@ -477,12 +477,12 @@ web/
 
 - [x] Migrations created/applied/tested via the §7 MCP procedure: 7 migrations live on the linked project (schema, RPCs, RLS/grants, realtime, maintenance, private-enrollments RLS, FK indexes); schema/RLS/RPC/concurrency suites all pass; advisors triaged; types generated. Evidence: `evidence/phase2/remote-deployment-notes.md`.
   - Open: Auth platform settings (anonymous sign-ins, rate limits, auto-expose) have no MCP surface — apply on dashboard, local `config.toml` mirrors them; local Docker replay of migrations/seed pending (Docker not running); Realtime cross-identity delivery verified at the final acceptance round.
-- [ ] Implement owner/device enrollment and generated models/types.
-  - Website types already generated: `web/src/database.types.ts`. Android-side enrollment/reconcile wiring is the remaining work.
-- [ ] Implement Supabase repository, custom session persistence, Realtime lifecycle, reconcile/transition RPC mapping, Room journal/outbox, retry classification, and secret-safe logs.
-  - Done: `SupabaseRemoteRepository` (lazy fail-closed client, sanitized error mapping), `EncryptedSessionManager`, wire models, `RemoteRetryPolicy`, single-flight `RemoteSyncCoordinator` with encrypted journal + retrying outbox; 12 new tests (63 total green).
-  - Remaining: Realtime client lifecycle (lands with the service integration in the next item).
-- [ ] Integrate RemoteSyncCoordinator into the existing service and reconfigure/boot/unlock/network/auth lifecycle.
+- [x] Implement owner/device enrollment and generated models/types.
+  - Website types generated (`web/src/database.types.ts`); Android wire models + typed claim/reconcile/transition adapters ready. User-facing claim flow lands with the Phase 3 screen.
+- [x] Implement Supabase repository, custom session persistence, Realtime lifecycle, reconcile/transition RPC mapping, Room journal/outbox, retry classification, and secret-safe logs.
+  - `SupabaseRemoteRepository` (lazy fail-closed client, sanitized errors), `EncryptedSessionManager`, wire models, `RemoteRetryPolicy`, single-flight `RemoteSyncCoordinator` with encrypted journal + retrying outbox, `RemoteRealtimeClient` invalidation channel; 12 new tests (63 total green).
+- [x] Integrate RemoteSyncCoordinator into the existing service and reconfigure/boot/unlock/network/auth lifecycle.
+  - Remote subsystem diffed inside `ForegroundService` (unlock-gated, one Realtime connection, 60s heartbeat, network-available signals, USER_UNLOCKED/boot reconfigure, ordered teardown). SDK manages reconnect backoff; every (re)subscribe triggers a full authoritative reconcile.
 - [ ] Implement account revision sync through LocalSettingsApplier, timer/status reporting through TimerCoordinator, Reset Timer idempotency, and Force Reset execution order.
 - [ ] Implement WorkManager recovery without treating it as immediate delivery.
 - [ ] Gate: all schema/RLS/RPC tests pass; two accounts/four devices cannot cross access; settings/commands survive missed Realtime, socket drop, process/service restart, network loss, auth refresh, and reboot. Existing P2P/local tests still pass.

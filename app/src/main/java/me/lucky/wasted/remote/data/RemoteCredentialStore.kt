@@ -22,6 +22,7 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
         private const val KEY_NOTIFICATIONS_ENABLED = "remote_notifications_enabled"
         private const val KEY_SESSION = "session"
         private const val KEY_DB_PASSPHRASE = "database_passphrase"
+        private const val KEY_APPLIED_REVISION = "applied_settings_revision"
         private const val PASSPHRASE_BYTES = 32
 
         fun new(ctx: Context): RemoteCredentialStore = RemoteCredentialStore(
@@ -73,6 +74,13 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
             val generated = ByteArray(PASSPHRASE_BYTES).also { SecureRandom().nextBytes(it) }
             write(KEY_DB_PASSPHRASE, generated.toHex())
             generated
+        }
+
+    /** Last server settings revision this device applied locally. */
+    var appliedSettingsRevision: Long
+        get() = runCatching { prefs.getLong(KEY_APPLIED_REVISION, 0L) }.getOrDefault(0L)
+        set(value) {
+            runCatching { prefs.edit().putLong(KEY_APPLIED_REVISION, value).commit() }
         }
 
     /**
