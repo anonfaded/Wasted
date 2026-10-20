@@ -26,6 +26,8 @@ import me.lucky.wasted.Preferences
 import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
+import me.lucky.wasted.admin.DeviceAdminManager
+import me.lucky.wasted.admin.ResetExecutor
 import me.lucky.wasted.p2p.P2PController
 import me.lucky.wasted.remote.data.LocalRemoteStatusProvider
 import me.lucky.wasted.remote.data.RemoteConfigStore
@@ -33,7 +35,11 @@ import me.lucky.wasted.remote.data.RemoteCredentialStore
 import me.lucky.wasted.remote.data.RemoteDatabase
 import me.lucky.wasted.remote.data.RemoteRealtimeClient
 import me.lucky.wasted.remote.data.SupabaseRemoteRepository
+import me.lucky.wasted.remote.domain.RemoteCommandProcessor
+import me.lucky.wasted.remote.domain.RemoteSettingsApplierPort
 import me.lucky.wasted.remote.domain.RemoteSyncCoordinator
+import me.lucky.wasted.remote.domain.RemoteTimerPort
+import me.lucky.wasted.settings.LocalSettingsApplier
 import me.lucky.wasted.trigger.lock.TimerCoordinator
 
 class ForegroundService : Service() {
@@ -149,13 +155,40 @@ class ForegroundService : Service() {
         try {
             val credentials = RemoteCredentialStore.new(this)
             val repository = SupabaseRemoteRepository(remoteConfigStore, credentials)
+            val dao = RemoteDatabase.getInstance(this).remoteCommandDao()
+            val applier = LocalSettingsApplier.create(this)
             val coordinator = RemoteSyncCoordinator(
                 api = repository,
-                dao = RemoteDatabase.getInstance(this).remoteCommandDao(),
+                dao = dao,
                 credentials = credentials,
                 statusProvider = LocalRemoteStatusProvider(this),
+                settingsApplier = object : RemoteSettingsApplierPort {
+                    override fun applyLockTimerMinutes(minutes: Int) =
+                        applier.setLockTimerMinutes(minutes)
+
+                    override fun applyUsbTrigger(enabled: Boolean) =
+                        applier.setTrigger(Trigger.USB, enabled)
+                },
                 isRemoteAvailable = { repository.isAvailable },
             )
+            val processor = RemoteCommandProcessor(
+                api = repository,
+                dao = dao,
+                credentials = credentials,
+                timer = object : RemoteTimerPort {
+                    override fun restartIfActive(): Boolean =
+                        TimerCoordinator.create(this@ForegroundService).restartIfActive()
+                },
+                resetSupported = {
+                    DeviceAdminManager(this@ForegroundService).getResetSupport().isSupported
+                },
+                debugMode = { Preferences.new(this@ForegroundService).isDebugMode },
+                reset = { ResetExecutor.create(this@ForegroundService).execute() },
+            )
+            val runSync: suspend () -> Unit = {
+                runCatching { coordinator.syncNow() }
+                runCatching { processor.processPending() }
+            }
             val realtime = RemoteRealtimeClient { repository.clientForRealtime() }
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -168,7 +201,7 @@ class ForegroundService : Service() {
                     val deviceId = credentials.deviceId
                     if (credentials.enrolled && deviceId != null) {
                         realtime.start(scope, deviceId, credentials.accountId) {
-                            scope.launch { runCatching { coordinator.syncNow() } }
+                            scope.launch { runSync() }
                         }
                     }
                 }.onFailure { Log.w(TAG, "Realtime start failed: ${it.message}") }
@@ -179,7 +212,7 @@ class ForegroundService : Service() {
                 while (isActive) {
                     val unlocked = getSystemService(UserManager::class.java).isUserUnlocked
                     if (unlocked && hasNetwork()) {
-                        runCatching { coordinator.syncNow() }
+                        runSync()
                     }
                     delay(REMOTE_HEARTBEAT_MS)
                 }
@@ -187,7 +220,7 @@ class ForegroundService : Service() {
 
             val callback = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    scope.launch { runCatching { coordinator.syncNow() } }
+                    scope.launch { runSync() }
                 }
             }
             runCatching {

@@ -1,0 +1,236 @@
+package me.lucky.wasted.remote.domain
+
+import android.util.Log
+
+import me.lucky.wasted.admin.ResetResult
+import me.lucky.wasted.remote.data.RemoteCommandDao
+import me.lucky.wasted.remote.data.RemoteCommandJournalEntity
+import me.lucky.wasted.remote.data.RemoteCredentialStore
+
+/**
+ * Executes remote commands with the plan's ordering and safety rules.
+ *
+ * Reset Timer is idempotent and may safely rerun after a crash.
+ * Force Reset is never resumed destructively: an interrupted `executing` row is failed with
+ * `interrupted_before_reset`, and Debug Mode is re-read immediately before every destructive step.
+ */
+class RemoteCommandProcessor(
+    private val api: RemoteApi,
+    private val dao: RemoteCommandDao,
+    private val credentials: RemoteCredentialStore,
+    private val timer: RemoteTimerPort,
+    private val resetSupported: () -> Boolean,
+    private val debugMode: () -> Boolean,
+    private val reset: () -> ResetResult,
+    private val clock: () -> Long = System::currentTimeMillis,
+) {
+    companion object {
+        private const val TAG = "RemoteCommands"
+
+        private const val STATE_QUEUED = "queued"
+        private const val STATE_RECEIVED = "received"
+        private const val STATE_EXECUTING = "executing"
+        private const val STATE_APPLIED = "applied"
+        private const val STATE_RESET_INITIATED = "reset_initiated"
+        private const val STATE_DEBUG_BLOCKED = "debug_blocked"
+        private const val STATE_REJECTED = "rejected"
+        private const val STATE_FAILED = "failed"
+
+        private const val TYPE_RESET_TIMER = "reset_timer"
+        private const val TYPE_FORCE_RESET = "force_reset"
+    }
+
+    data class ProcessOutcome(val processed: Int, val failed: Int)
+
+    suspend fun processPending(): ProcessOutcome {
+        val deviceId = credentials.deviceId
+        if (!credentials.enrolled || deviceId == null) return ProcessOutcome(0, 0)
+
+        recoverInterrupted(deviceId)
+
+        var processed = 0
+        var failed = 0
+        val pending = dao.commandsInStates(listOf(STATE_QUEUED, STATE_RECEIVED))
+        for (row in pending.sortedBy { it.receivedAt }) {
+            if (processOne(deviceId, row)) processed++ else failed++
+        }
+        return ProcessOutcome(processed, failed)
+    }
+
+    /** Force Reset rows interrupted before `reset_initiated` are never resumed destructively. */
+    private suspend fun recoverInterrupted(deviceId: String) {
+        for (row in dao.commandsInStates(listOf(STATE_EXECUTING))) {
+            if (row.type == TYPE_FORCE_RESET) {
+                sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_FAILED, "interrupted_before_reset")
+                dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+                Log.w(TAG, "Interrupted Force Reset ${row.commandId} failed safely")
+            } else {
+                val restarted = safeRestartTimer()
+                sendTransition(
+                    deviceId,
+                    row.commandId,
+                    STATE_EXECUTING,
+                    STATE_APPLIED,
+                    if (restarted) "restarted" else "inactive",
+                )
+                dao.updateCommandState(row.commandId, STATE_APPLIED, row.executingAt, clock())
+                Log.i(TAG, "Interrupted Reset Timer ${row.commandId} completed idempotently")
+            }
+        }
+    }
+
+    private suspend fun processOne(deviceId: String, row: RemoteCommandJournalEntity): Boolean {
+        if (row.state == STATE_QUEUED) {
+            when (sendTransition(deviceId, row.commandId, STATE_QUEUED, STATE_RECEIVED)) {
+                SendResult.OK -> dao.updateCommandState(row.commandId, STATE_RECEIVED, row.receivedAt, null)
+                SendResult.RETRYABLE -> return false
+                SendResult.FATAL -> {
+                    dao.updateCommandState(row.commandId, STATE_FAILED, row.receivedAt, clock())
+                    return false
+                }
+            }
+        }
+
+        val current = dao.commandById(row.commandId) ?: return false
+        return when (current.type) {
+            TYPE_RESET_TIMER -> executeResetTimer(deviceId, current)
+            TYPE_FORCE_RESET -> executeForceReset(deviceId, current)
+            else -> {
+                dao.updateCommandState(current.commandId, STATE_FAILED, current.receivedAt, clock())
+                false
+            }
+        }
+    }
+
+    private suspend fun executeResetTimer(deviceId: String, row: RemoteCommandJournalEntity): Boolean {
+        when (sendTransition(deviceId, row.commandId, STATE_RECEIVED, STATE_EXECUTING)) {
+            SendResult.OK -> Unit
+            SendResult.RETRYABLE -> return false
+            SendResult.FATAL -> {
+                dao.updateCommandState(row.commandId, STATE_FAILED, row.receivedAt, clock())
+                return false
+            }
+        }
+        dao.updateCommandState(row.commandId, STATE_EXECUTING, clock(), null)
+
+        val restarted = safeRestartTimer()
+
+        when (
+            sendTransition(
+                deviceId,
+                row.commandId,
+                STATE_EXECUTING,
+                STATE_APPLIED,
+                if (restarted) "restarted" else "inactive",
+            )
+        ) {
+            SendResult.OK -> dao.updateCommandState(row.commandId, STATE_APPLIED, row.executingAt, clock())
+            SendResult.RETRYABLE -> return false
+            SendResult.FATAL -> {
+                dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+                return false
+            }
+        }
+        Log.i(TAG, "Reset Timer ${row.commandId} applied (restarted=$restarted)")
+        return true
+    }
+
+    private suspend fun executeForceReset(deviceId: String, row: RemoteCommandJournalEntity): Boolean {
+        // 4. Debug Mode is re-read before anything else; it can never be bypassed remotely.
+        if (readDebugMode()) {
+            sendTransition(deviceId, row.commandId, STATE_RECEIVED, STATE_DEBUG_BLOCKED, "debug_mode")
+            dao.updateCommandState(row.commandId, STATE_DEBUG_BLOCKED, null, clock())
+            Log.i(TAG, "Force Reset ${row.commandId} blocked by Debug Mode")
+            return true
+        }
+
+        // 5. Validate Device Admin/reset support.
+        val supported = runCatching { resetSupported() }.getOrDefault(false)
+        if (!supported) {
+            sendTransition(deviceId, row.commandId, STATE_RECEIVED, STATE_REJECTED, "reset_unsupported")
+            dao.updateCommandState(row.commandId, STATE_REJECTED, null, clock())
+            Log.i(TAG, "Force Reset ${row.commandId} rejected: reset unsupported")
+            return true
+        }
+
+        // 6. Persist local executing, then require the server transition to succeed.
+        dao.updateCommandState(row.commandId, STATE_EXECUTING, clock(), null)
+        when (sendTransition(deviceId, row.commandId, STATE_RECEIVED, STATE_EXECUTING)) {
+            SendResult.OK -> Unit
+            SendResult.RETRYABLE -> return false
+            SendResult.FATAL -> {
+                dao.updateCommandState(row.commandId, STATE_FAILED, row.receivedAt, clock())
+                return false
+            }
+        }
+
+        // 7./8. Re-read Debug Mode immediately before the destructive boundary.
+        if (readDebugMode()) {
+            sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_DEBUG_BLOCKED, "debug_mode")
+            dao.updateCommandState(row.commandId, STATE_DEBUG_BLOCKED, clock(), clock())
+            Log.i(TAG, "Force Reset ${row.commandId} blocked by Debug Mode at the boundary")
+            return true
+        }
+
+        // 9. Record reset_initiated on the server before touching the destructive boundary.
+        when (sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_RESET_INITIATED)) {
+            SendResult.OK -> Unit
+            SendResult.RETRYABLE -> return false
+            SendResult.FATAL -> {
+                dao.updateCommandState(row.commandId, STATE_FAILED, clock(), clock())
+                return false
+            }
+        }
+        dao.updateCommandState(row.commandId, STATE_RESET_INITIATED, row.executingAt, clock())
+
+        // 10. Execute exactly once. ResetExecutor re-reads Debug Mode at its own boundary.
+        val result = runCatching { reset() }.getOrElse { ResetResult.Failed("reset failed") }
+        Log.i(TAG, "Force Reset ${row.commandId} executed once: ${result::class.simpleName}")
+        return true
+    }
+
+    private fun safeRestartTimer(): Boolean =
+        runCatching { timer.restartIfActive() }.getOrDefault(false)
+
+    private fun readDebugMode(): Boolean =
+        runCatching { debugMode() }.getOrDefault(true)
+
+    private enum class SendResult { OK, RETRYABLE, FATAL }
+
+    private suspend fun sendTransition(
+        deviceId: String,
+        commandId: String,
+        expected: String,
+        newState: String,
+        resultCode: String? = null,
+    ): SendResult {
+        val expectedState = stateOf(expected) ?: return SendResult.FATAL
+        val targetState = stateOf(newState) ?: return SendResult.FATAL
+        return try {
+            api.transitionCommand(
+                TransitionCommandParams(
+                    deviceId = deviceId,
+                    commandId = commandId,
+                    expectedState = expectedState,
+                    newState = targetState,
+                    resultCode = resultCode,
+                ),
+            )
+            SendResult.OK
+        } catch (e: RemoteException) {
+            if (retryable(e.error)) SendResult.RETRYABLE else SendResult.FATAL
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            SendResult.RETRYABLE
+        }
+    }
+
+    private fun retryable(error: RemoteError): Boolean = when (error) {
+        is RemoteError.Network, is RemoteError.RateLimited, is RemoteError.Server -> true
+        else -> false
+    }
+
+    private fun stateOf(wire: String): RemoteCommandState? =
+        RemoteCommandState.entries.firstOrNull { it.name.lowercase() == wire }
+}

@@ -30,6 +30,7 @@ class RemoteSyncCoordinator(
     private val dao: RemoteCommandDao,
     private val credentials: RemoteCredentialStore,
     private val statusProvider: RemoteStatusProvider,
+    private val settingsApplier: RemoteSettingsApplierPort,
     private val isRemoteAvailable: () -> Boolean,
     private val retryPolicy: RemoteRetryPolicy = RemoteRetryPolicy(),
     private val clock: () -> Long = System::currentTimeMillis,
@@ -125,6 +126,17 @@ class RemoteSyncCoordinator(
         return sent
     }
 
+    /** Applies only newer account settings revisions; failures leave the revision pending. */
+    private fun applyAccountSettings(settings: RemoteSettingsDto) {
+        if (!settings.initialized) return
+        if (settings.revision <= credentials.appliedSettingsRevision) return
+        runCatching {
+            settingsApplier.applyLockTimerMinutes(settings.lockTimerMinutes)
+            settingsApplier.applyUsbTrigger(settings.usbTriggerEnabled)
+            credentials.appliedSettingsRevision = settings.revision
+        }
+    }
+
     private suspend fun runReconcile(deviceId: String): SyncOutcome {
         drainOutbox()
 
@@ -160,6 +172,7 @@ class RemoteSyncCoordinator(
                         ),
                     )
                 }
+                applyAccountSettings(response.settings)
                 return SyncOutcome.Success(response.commands.size)
             } catch (e: RemoteException) {
                 if (!retryPolicy.shouldRetry(e.error) || attempt + 1 >= retryPolicy.maxAttempts) {

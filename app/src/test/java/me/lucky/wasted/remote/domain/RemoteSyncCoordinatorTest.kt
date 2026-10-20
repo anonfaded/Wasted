@@ -15,6 +15,22 @@ import org.junit.Test
 
 class RemoteSyncCoordinatorTest {
 
+    private class RecordingSettingsApplier : RemoteSettingsApplierPort {
+        var lockTimerMinutes: Int? = null
+        var usbTriggerEnabled: Boolean? = null
+        var calls = 0
+
+        override fun applyLockTimerMinutes(minutes: Int) {
+            lockTimerMinutes = minutes
+            calls++
+        }
+
+        override fun applyUsbTrigger(enabled: Boolean) {
+            usbTriggerEnabled = enabled
+            calls++
+        }
+    }
+
     private class FakeRemoteApi : RemoteApi {
         var ensureCalls = 0
         var reconcileCalls = 0
@@ -62,6 +78,7 @@ class RemoteSyncCoordinatorTest {
         deviceId = "device-1"
     }
     private val api = FakeRemoteApi()
+    private val settings = RecordingSettingsApplier()
     private val sleeps = mutableListOf<Long>()
 
     private fun coordinator() = RemoteSyncCoordinator(
@@ -83,6 +100,7 @@ class RemoteSyncCoordinatorTest {
             )
         },
         isRemoteAvailable = { available },
+        settingsApplier = settings,
         clock = { now },
         sleep = { sleeps.add(it) },
     )
@@ -96,7 +114,12 @@ class RemoteSyncCoordinatorTest {
         expiresAt = "t",
     )
 
-    private fun response(commands: List<RemoteCommandDto>) = RemoteReconcileResponse(
+    private fun response(
+        commands: List<RemoteCommandDto>,
+        revision: Long = 1L,
+        lock: Int = 1440,
+        usb: Boolean = true,
+    ) = RemoteReconcileResponse(
         serverTime = "t",
         device = RemoteDeviceDto(
             id = "device-1",
@@ -106,9 +129,9 @@ class RemoteSyncCoordinatorTest {
             enrolledAt = "t",
         ),
         settings = RemoteSettingsDto(
-            revision = 1L,
-            lockTimerMinutes = 1440,
-            usbTriggerEnabled = true,
+            revision = revision,
+            lockTimerMinutes = lock,
+            usbTriggerEnabled = usb,
             initialized = true,
         ),
         commands = commands,
@@ -145,11 +168,33 @@ class RemoteSyncCoordinatorTest {
         assertTrue(outcome is SyncOutcome.Success)
         assertEquals(2, (outcome as SyncOutcome.Success).commands)
         assertEquals(2, dao.commands.size)
+        assertEquals(1440, settings.lockTimerMinutes)
+        assertEquals(true, settings.usbTriggerEnabled)
+        assertEquals(1L, credentials.appliedSettingsRevision)
 
         coordinator().syncNow()
 
         assertEquals(2, dao.commands.size)
         assertEquals(2, coordinator().pendingCommands().size)
+    }
+
+    @Test
+    fun `account settings apply once per new revision`() = runBlocking {
+        api.response = response(emptyList(), revision = 3L, lock = 720, usb = false)
+
+        coordinator().syncNow()
+        assertEquals(720, settings.lockTimerMinutes)
+        assertEquals(false, settings.usbTriggerEnabled)
+        assertEquals(3L, credentials.appliedSettingsRevision)
+
+        val callsAfterFirst = settings.calls
+        coordinator().syncNow()
+        assertEquals(callsAfterFirst, settings.calls)
+
+        api.response = response(emptyList(), revision = 2L, lock = 60, usb = true)
+        coordinator().syncNow()
+        assertEquals(720, settings.lockTimerMinutes)
+        assertEquals(3L, credentials.appliedSettingsRevision)
     }
 
     @Test
