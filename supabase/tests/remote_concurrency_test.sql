@@ -58,13 +58,24 @@ $$;
 
 create temp table pg_temp.t_enroll_1 as
     select e.* from public.create_device_enrollment() e;
+
+select set_config('request.jwt.claims',
+    '{"sub":"0a1a1a1a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":true}', true);
+
 create temp table pg_temp.t_claim_1 as
     select d.* from public.claim_device_enrollment(
         (select enrollment_token from pg_temp.t_enroll_1),
         '2a000000-0000-4000-8000-0000000000f1', 'Device One', 1440, true) d;
 
+select set_config('request.jwt.claims',
+    '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
+
 create temp table pg_temp.t_enroll_2 as
     select e.* from public.create_device_enrollment() e;
+
+select set_config('request.jwt.claims',
+    '{"sub":"0a2a2a2a-0000-4000-8000-0000000000a2","role":"authenticated","is_anonymous":true}', true);
+
 create temp table pg_temp.t_claim_2 as
     select d.* from public.claim_device_enrollment(
         (select enrollment_token from pg_temp.t_enroll_2),
@@ -166,10 +177,10 @@ select set_config('request.jwt.claims',
 
 create temp table pg_temp.t_rec_1 as
     select public.device_reconcile(
-        (select id from pg_temp.t_claim_1), 2, 2000, true, 0, false, true, true, true, '2.0.0', 34) as result;
+        (select id from pg_temp.t_claim_1), 2, 2000, true, 0, false, true, true, true, '2.0.0', 34::smallint) as result;
 create temp table pg_temp.t_rec_2 as
     select public.device_reconcile(
-        (select id from pg_temp.t_claim_1), 2, 2000, true, 0, false, true, true, true, '2.0.0', 34) as result;
+        (select id from pg_temp.t_claim_1), 2, 2000, true, 0, false, true, true, true, '2.0.0', 34::smallint) as result;
 
 do $$
 declare
@@ -196,7 +207,7 @@ begin
     perform pg_temp.assert_true(command.state = 'received', 'first receive must win');
 
     perform pg_temp.expect_error(
-        format($$select public.device_transition_command(%L, %L, 'queued', 'received')$$,
+        format($sql$select public.device_transition_command(%L, %L, 'queued', 'received')$sql$,
                (select id from pg_temp.t_claim_1), command_id),
         'P0001', 'state conflict');
 end;
@@ -207,13 +218,13 @@ reset role;
 -- events for the delivered command must stay at queued + received
 do $$
 declare
-    command_id uuid := (select c.id from public.device_commands c
+    target_command_id uuid := (select c.id from public.device_commands c
                          join public.account_actions a on a.id = c.action_id
                         where a.account_id = '0a0a0a0a-0000-4000-8000-0000000000a1'
                           and c.device_id = (select id from pg_temp.t_claim_1));
 begin
     perform pg_temp.assert_true(
-        (select count(*) from public.command_events where command_id = command_id) = 2,
+        (select count(*) from public.command_events e where e.command_id = target_command_id) = 2,
         'duplicate transition must not append a second received event'
     );
 end;
@@ -227,7 +238,7 @@ select set_config('request.jwt.claims',
 
 select pg_temp.expect_error(
     format($$select public.claim_device_enrollment(%L, '2c000000-0000-4000-8000-0000000000f1', 'Late', 60, false)$$,
-           (select enrollment_token from pg_temp.t_enroll_1)),
+           (select enrollment_token from pg_temp.t_enroll_2)),
     'P0001', 'already used'
 );
 

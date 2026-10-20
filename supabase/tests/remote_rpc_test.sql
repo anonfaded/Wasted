@@ -232,7 +232,7 @@ select set_config('request.jwt.claims',
 create temp table pg_temp.t_reconcile as
     select public.device_reconcile(
         (select id from pg_temp.t_claim),
-        1, 1440, true, 0, false, true, true, true, '2.0.0', 34
+        1, 1440, true, 0, false, true, true, true, '2.0.0', 34::smallint
     ) as result;
 
 do $$
@@ -260,7 +260,7 @@ do $$
 begin
     perform public.device_reconcile(
         (select id from pg_temp.t_claim),
-        1, 1440, true, 120, true, true, true, true, '2.0.0', 34
+        1, 1440, true, 120, true, true, true, true, '2.0.0', 34::smallint
     );
 end;
 $$;
@@ -382,7 +382,7 @@ begin
         'receive must stamp received_at');
 
     perform pg_temp.expect_error(
-        format($$select public.device_transition_command(%L, %L, 'queued', 'received')$$, device_id, reset_cmd),
+        format($sql$select public.device_transition_command(%L, %L, 'queued', 'received')$sql$, device_id, reset_cmd),
         'P0001', 'state conflict');
 
     command := public.device_transition_command(device_id, reset_cmd, 'received', 'executing');
@@ -393,7 +393,7 @@ begin
         'applied must be terminal with finished_at');
 
     perform pg_temp.expect_error(
-        format($$select public.device_transition_command(%L, %L, 'applied', 'received')$$, device_id, reset_cmd),
+        format($sql$select public.device_transition_command(%L, %L, 'applied', 'received')$sql$, device_id, reset_cmd),
         'P0001', 'illegal transition');
 
     command := public.device_transition_command(device_id, force_cmd, 'queued', 'received');
@@ -424,27 +424,19 @@ $$;
 
 -- ─── Expiry: device-lazy and owner-triggered ─────────────────────────────────
 
-set local role authenticated;
-select set_config('request.jwt.claims',
-    '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
-
-do $$
-begin
-    perform (select public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e3'));
-    perform (select public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e5'));
-end;
-$$;
-
 reset role;
 
--- backdate the newest queued command so it is overdue (the second one is backdated later,
--- after the lazy-expiry reconcile, so the owner-triggered path still has work to do)
-update public.device_commands set expires_at = now() - interval '1 minute'
- where state = 'queued'
-   and action_id in (
-       select id from public.account_actions
-        where idempotency_key = 'dd000000-0000-4000-8000-0000000000e3'
-   );
+-- overdue fixtures are inserted directly: updating expires_at would violate the
+-- command/action consistency trigger, and now() is transaction-fixed
+insert into public.account_actions (id, account_id, action_type, idempotency_key, created_at, expires_at)
+values ('ba000000-0000-4000-8000-0000000000e3', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'reset_timer', 'dd000000-0000-4000-8000-0000000000e3',
+        now() - interval '26 hours', now() - interval '2 hours');
+
+insert into public.device_commands (id, action_id, device_id, account_id, command_type, created_at, expires_at)
+values ('ee000000-0000-4000-8000-0000000000e3', 'ba000000-0000-4000-8000-0000000000e3',
+        (select id from pg_temp.t_claim), '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'reset_timer', now() - interval '26 hours', now() - interval '2 hours');
 
 set local role authenticated;
 select set_config('request.jwt.claims',
@@ -461,11 +453,11 @@ begin
      order by c.created_at limit 1;
 
     perform pg_temp.expect_error(
-        format($$select public.device_transition_command(%L, %L, 'queued', 'received')$$, device_id, overdue_cmd),
+        format($sql$select public.device_transition_command(%L, %L, 'queued', 'received')$sql$, device_id, overdue_cmd),
         'P0001', 'expired');
 
     -- reconcile lazily expires the overdue command and stops returning it
-    perform public.device_reconcile(device_id, 2, 2000, true, 0, false, true, true, true, '2.0.0', 34);
+    perform public.device_reconcile(device_id, 2, 2000, true, 0, false, true, true, true, '2.0.0', 34::smallint);
 end;
 $$;
 
@@ -491,13 +483,15 @@ begin
 end;
 $$;
 
--- backdate the remaining queued command for the owner-triggered expiry path
-update public.device_commands set expires_at = now() - interval '1 minute'
- where state = 'queued'
-   and action_id in (
-       select id from public.account_actions
-        where idempotency_key = 'dd000000-0000-4000-8000-0000000000e5'
-   );
+insert into public.account_actions (id, account_id, action_type, idempotency_key, created_at, expires_at)
+values ('ba000000-0000-4000-8000-0000000000e5', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'reset_timer', 'dd000000-0000-4000-8000-0000000000e5',
+        now() - interval '26 hours', now() - interval '2 hours');
+
+insert into public.device_commands (id, action_id, device_id, account_id, command_type, created_at, expires_at)
+values ('ee000000-0000-4000-8000-0000000000e5', 'ba000000-0000-4000-8000-0000000000e5',
+        (select id from pg_temp.t_claim), '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'reset_timer', now() - interval '26 hours', now() - interval '2 hours');
 
 -- owner-triggered expiry for the remaining overdue command
 set local role authenticated;
@@ -583,7 +577,7 @@ select set_config('request.jwt.claims',
     '{"sub":"0a1a1a1a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":true}', true);
 
 select pg_temp.expect_error(
-    format($$select public.device_reconcile(%L, 2, 2000, true, 0, false, true, true, true, '2.0.0', 34)$$,
+    format($sql$select public.device_reconcile(%L, 2, 2000, true, 0, false, true, true, true, '2.0.0', 34::smallint)$sql$,
            (select id from pg_temp.t_claim)),
     'P0001', 'active device not found'
 );

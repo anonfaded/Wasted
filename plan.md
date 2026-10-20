@@ -475,8 +475,10 @@ web/
 
 ### Phase 2 — Supabase core networking and durable synchronization
 
-- [ ] Create/apply/test migrations and Auth/Realtime configuration through the exact MCP procedure in §7.
+- [x] Migrations created/applied/tested via the §7 MCP procedure: 7 migrations live on the linked project (schema, RPCs, RLS/grants, realtime, maintenance, private-enrollments RLS, FK indexes); schema/RLS/RPC/concurrency suites all pass; advisors triaged; types generated. Evidence: `evidence/phase2/remote-deployment-notes.md`.
+  - Open: Auth platform settings (anonymous sign-ins, rate limits, auto-expose) have no MCP surface — apply on dashboard, local `config.toml` mirrors them; local Docker replay of migrations/seed pending (Docker not running); Realtime cross-identity delivery verified at the final acceptance round.
 - [ ] Implement owner/device enrollment and generated models/types.
+  - Website types already generated: `web/src/database.types.ts`. Android-side enrollment/reconcile wiring is the remaining work.
 - [ ] Implement Supabase repository, custom session persistence, Realtime lifecycle, reconcile/transition RPC mapping, Room journal/outbox, retry classification, and secret-safe logs.
 - [ ] Integrate RemoteSyncCoordinator into the existing service and reconfigure/boot/unlock/network/auth lifecycle.
 - [ ] Implement account revision sync through LocalSettingsApplier, timer/status reporting through TimerCoordinator, Reset Timer idempotency, and Force Reset execution order.
