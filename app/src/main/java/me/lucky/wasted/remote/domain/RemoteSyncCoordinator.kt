@@ -17,7 +17,7 @@ sealed class SyncOutcome {
     data object NotEnrolled : SyncOutcome()
     data object Coalesced : SyncOutcome()
     data class Success(val commands: Int) : SyncOutcome()
-    data class Failed(val reason: String) : SyncOutcome()
+    data class Failed(val reason: String, val retryable: Boolean = false) : SyncOutcome()
 }
 
 /**
@@ -176,14 +176,17 @@ class RemoteSyncCoordinator(
                 return SyncOutcome.Success(response.commands.size)
             } catch (e: RemoteException) {
                 if (!retryPolicy.shouldRetry(e.error) || attempt + 1 >= retryPolicy.maxAttempts) {
-                    return SyncOutcome.Failed(e.error.sanitizedReason)
+                    return SyncOutcome.Failed(
+                        e.error.sanitizedReason,
+                        retryPolicy.shouldRetry(e.error),
+                    )
                 }
                 sleep(retryPolicy.delayMillis(attempt, e.error))
                 attempt++
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                return SyncOutcome.Failed("unexpected error")
+                return SyncOutcome.Failed("unexpected error", true)
             }
         }
     }

@@ -26,20 +26,12 @@ import me.lucky.wasted.Preferences
 import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
-import me.lucky.wasted.admin.DeviceAdminManager
-import me.lucky.wasted.admin.ResetExecutor
 import me.lucky.wasted.p2p.P2PController
-import me.lucky.wasted.remote.data.LocalRemoteStatusProvider
+import me.lucky.wasted.remote.RemoteEngine
 import me.lucky.wasted.remote.data.RemoteConfigStore
-import me.lucky.wasted.remote.data.RemoteCredentialStore
-import me.lucky.wasted.remote.data.RemoteDatabase
 import me.lucky.wasted.remote.data.RemoteRealtimeClient
-import me.lucky.wasted.remote.data.SupabaseRemoteRepository
-import me.lucky.wasted.remote.domain.RemoteCommandProcessor
-import me.lucky.wasted.remote.domain.RemoteSettingsApplierPort
-import me.lucky.wasted.remote.domain.RemoteSyncCoordinator
-import me.lucky.wasted.remote.domain.RemoteTimerPort
-import me.lucky.wasted.settings.LocalSettingsApplier
+import me.lucky.wasted.remote.domain.SyncOutcome
+import me.lucky.wasted.remote.work.RemoteRecoveryWorker
 import me.lucky.wasted.trigger.lock.TimerCoordinator
 
 class ForegroundService : Service() {
@@ -61,6 +53,7 @@ class ForegroundService : Service() {
     private var remoteStarted = false
     private var remoteScope: CoroutineScope? = null
     private var remoteRealtime: RemoteRealtimeClient? = null
+    private var remoteEngine: RemoteEngine? = null
     private var remoteNetworkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate() {
@@ -153,54 +146,27 @@ class ForegroundService : Service() {
 
     private fun startRemote() {
         try {
-            val credentials = RemoteCredentialStore.new(this)
-            val repository = SupabaseRemoteRepository(remoteConfigStore, credentials)
-            val dao = RemoteDatabase.getInstance(this).remoteCommandDao()
-            val applier = LocalSettingsApplier.create(this)
-            val coordinator = RemoteSyncCoordinator(
-                api = repository,
-                dao = dao,
-                credentials = credentials,
-                statusProvider = LocalRemoteStatusProvider(this),
-                settingsApplier = object : RemoteSettingsApplierPort {
-                    override fun applyLockTimerMinutes(minutes: Int) =
-                        applier.setLockTimerMinutes(minutes)
-
-                    override fun applyUsbTrigger(enabled: Boolean) =
-                        applier.setTrigger(Trigger.USB, enabled)
-                },
-                isRemoteAvailable = { repository.isAvailable },
-            )
-            val processor = RemoteCommandProcessor(
-                api = repository,
-                dao = dao,
-                credentials = credentials,
-                timer = object : RemoteTimerPort {
-                    override fun restartIfActive(): Boolean =
-                        TimerCoordinator.create(this@ForegroundService).restartIfActive()
-                },
-                resetSupported = {
-                    DeviceAdminManager(this@ForegroundService).getResetSupport().isSupported
-                },
-                debugMode = { Preferences.new(this@ForegroundService).isDebugMode },
-                reset = { ResetExecutor.create(this@ForegroundService).execute() },
-            )
-            val runSync: suspend () -> Unit = {
-                runCatching { coordinator.syncNow() }
-                runCatching { processor.processPending() }
-            }
-            val realtime = RemoteRealtimeClient { repository.clientForRealtime() }
+            val engine = RemoteEngine.create(this) ?: return
+            val realtime = RemoteRealtimeClient { engine.repository.clientForRealtime() }
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
             remoteStarted = true
             remoteScope = scope
             remoteRealtime = realtime
+            remoteEngine = engine
+
+            val runSync: suspend () -> Unit = {
+                val outcome = runCatching { engine.runSync() }.getOrNull()
+                if (outcome is SyncOutcome.Failed && outcome.retryable) {
+                    RemoteRecoveryWorker.scheduleOnce(this)
+                }
+            }
 
             scope.launch {
                 runCatching {
-                    val deviceId = credentials.deviceId
-                    if (credentials.enrolled && deviceId != null) {
-                        realtime.start(scope, deviceId, credentials.accountId) {
+                    val deviceId = engine.credentials.deviceId
+                    if (engine.credentials.enrolled && deviceId != null) {
+                        realtime.start(scope, deviceId, engine.credentials.accountId) {
                             scope.launch { runSync() }
                         }
                     }
@@ -229,6 +195,8 @@ class ForegroundService : Service() {
             }.onFailure { Log.w(TAG, "Network callback registration failed: ${it.message}") }
             remoteNetworkCallback = callback
 
+            RemoteRecoveryWorker.schedulePeriodic(this)
+
             Log.i(TAG, "Remote subsystem started")
         } catch (e: Exception) {
             Log.e(TAG, "Remote subsystem failed to start: ${e.message}")
@@ -236,6 +204,7 @@ class ForegroundService : Service() {
             remoteScope?.cancel()
             remoteScope = null
             remoteRealtime = null
+            remoteEngine = null
         }
     }
 
@@ -251,15 +220,20 @@ class ForegroundService : Service() {
         }
         remoteNetworkCallback = null
 
+        RemoteRecoveryWorker.cancelPeriodic(this)
+
         val scope = remoteScope
         val realtime = remoteRealtime
+        val engine = remoteEngine
         remoteScope = null
         remoteRealtime = null
+        remoteEngine = null
         if (scope == null) return
 
         // Unsubscribe Realtime and remove its channel, then cancel the remote scope.
         scope.launch {
             runCatching { realtime?.stop() }
+            engine?.close()
             scope.cancel()
         }
         Log.i(TAG, "Remote subsystem stopped")
