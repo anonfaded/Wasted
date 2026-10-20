@@ -56,9 +56,38 @@ Be aware that the app does not work in _safe mode_.
 
 This fork adds optional remote management through your own Supabase project. It is disabled by default and performs no network work until it is configured, enrolled, and enabled.
 
-* A static dashboard lets you sign in, see enrolled devices, sync Lock Timer / USB Trigger, and queue Reset Timer or Force Reset.
-* Debug Mode is ON by default and blocks destructive remote commands. The dashboard can enable it directly, or disable it after a danger confirmation (the same semantics as the in-app toggle). Enabling applies immediately; disabling expires after 10 minutes if the device does not reconnect, and supersedes any pending Force Reset.
-* Remote commands never bypass the on-device `ResetExecutor` Debug Mode check.
+### Backend setup
+
+1. Create a Supabase project and apply the migrations in `supabase/migrations/` in order (the linked project was built through the Supabase MCP `apply_migration` tool).
+2. Keep email/password sign-in for owner accounts and enable anonymous sign-ins for per-device identities. The repository's `supabase/config.toml` mirrors the required Auth settings and rate limits.
+3. The app and dashboard store only the project URL and a publishable (anon) key. Never use a secret or service-role key.
+
+### Android setup
+
+1. Open **Remote Management** and enter the project URL, publishable key, and dashboard URL; save the configuration.
+2. In the dashboard, create an enrollment token (valid 10 minutes).
+3. Enable Remote Management (this forces Debug Mode ON), enter the token, and claim it. The device appears in the dashboard after the first sync.
+
+### Dashboard
+
+* `cd web && npm install && npm test && npm run build` produces a single `dist/index.html`.
+* Edit the CONFIG block at the top of that file (project URL, publishable key, product/version/footer links) and copy it to any HTTPS static host. There is no CDN, server runtime, or build step at the host. `config.example.js` documents the fields for source builds.
+* Sign In and Create Account are explicit; a failed sign-in never creates an account.
+
+### Behavior and limits
+
+* Device cards show reported state; Realtime only triggers a refetch and never executes payloads directly. A device counts as "recently connected" for 150 seconds; timers are extrapolated locally.
+* Lock Timer / USB Trigger changes are revision-protected and apply to every enrolled device.
+* Reset Timer restarts the lock timer. Force Reset sends a factory reset (typed confirmation in the dashboard) and only executes while Debug Mode is OFF.
+* Debug Mode is ON by default and blocks destructive remote commands. The dashboard asks for confirmation in both directions; the device applies remote toggles without a local dialog. Turning it OFF expires after 10 minutes if the device stays offline, and supersedes any pending Force Reset.
+* Optional notifications (off by default, `remote_events` channel) cover settings applied, Reset Timer, Force Reset, blocked or failed commands, manual-sync success, and sync failures. Repeated notices replace each other instead of stacking, and heartbeat successes never notify.
+* Delivery is not push: an online device syncs over Realtime, otherwise at the next 60-second heartbeat or WorkManager recovery run. Nothing is queued forever: Reset Timer 24 h, Force Reset and Debug Mode OFF 10 min, Debug Mode ON 24 h.
+
+### Troubleshooting and rollback
+
+* "Device is not enrolled" — claim a fresh token after enabling Remote Management.
+* Access-denied or RLS errors — confirm the owner is a normal (non-anonymous) account and the device still belongs to it.
+* Reset enrollment clears the device session and encrypted journal, rotates the installation ID, and disables Remote Management. Local settings, timers, Device Admin, and P2P are untouched.
 
 ## Broadcast
 

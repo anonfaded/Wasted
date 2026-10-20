@@ -80,6 +80,7 @@ class RemoteSyncCoordinatorTest {
     private val api = FakeRemoteApi()
     private val settings = RecordingSettingsApplier()
     private val sleeps = mutableListOf<Long>()
+    private val emitted = mutableListOf<RemoteEvent>()
 
     private fun coordinator() = RemoteSyncCoordinator(
         api = api,
@@ -101,6 +102,7 @@ class RemoteSyncCoordinatorTest {
         },
         isRemoteAvailable = { available },
         settingsApplier = settings,
+        events = RemoteEventSink { emitted.add(it) },
         clock = { now },
         sleep = { sleeps.add(it) },
     )
@@ -186,6 +188,8 @@ class RemoteSyncCoordinatorTest {
         assertEquals(720, settings.lockTimerMinutes)
         assertEquals(false, settings.usbTriggerEnabled)
         assertEquals(3L, credentials.appliedSettingsRevision)
+        assertEquals(listOf(RemoteEvent.Kind.SETTINGS_CHANGED), emitted.map { it.kind })
+        assertEquals("settings-3", emitted.single().key)
 
         val callsAfterFirst = settings.calls
         coordinator().syncNow()

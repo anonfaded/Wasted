@@ -14,6 +14,7 @@
     <string name="trigger_lock_time_helper_text">How much time to wait. Modifiers: [d]ays [h]ours [m]inutes</string>
     <string name="trigger_tile_delay_description">Safe delay before it will fire. Gives you some time to cancel fire if you will tap a tile accidentally.</string>
     <string name="notification_channel_default_name">Default</string>
+    <string name="notification_channel_remote_name">Remote events</string>
     <string name="foreground_service_notification_title">Guard</string>
     <string name="trigger_panic_kit">PanicKit</string>
     <string name="trigger_tile">Tile</string>

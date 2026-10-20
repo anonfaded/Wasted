@@ -33,6 +33,7 @@ import me.lucky.wasted.remote.domain.RemoteConfigError
 import me.lucky.wasted.remote.domain.RemoteConfigField
 import me.lucky.wasted.remote.domain.RemoteConfigValidator
 import me.lucky.wasted.remote.domain.SyncOutcome
+import me.lucky.wasted.trigger.shared.NotificationManager
 
 class RemoteManagementFragment : Fragment() {
 
@@ -293,15 +294,25 @@ class RemoteManagementFragment : Fragment() {
             return
         }
         snackbar("Syncing…")
+        val ctx = requireContext()
         scope.launch {
             val message = withContext(Dispatchers.IO) {
-                val engine = RemoteEngine.create(requireContext())
+                val engine = RemoteEngine.create(ctx)
                 if (engine == null) {
                     "Remote is not available."
                 } else {
                     try {
                         when (val outcome = engine.runSync()) {
-                            is SyncOutcome.Success -> "Sync complete."
+                            is SyncOutcome.Success -> {
+                                if (credentials.notificationsEnabled) {
+                                    NotificationManager(ctx).notifyRemoteEvent(
+                                        1002,
+                                        "Remote sync complete",
+                                        "Manual sync finished successfully.",
+                                    )
+                                }
+                                "Sync complete."
+                            }
                             is SyncOutcome.Failed -> "Sync failed: ${outcome.reason}"
                             SyncOutcome.NotConfigured -> "Remote is not configured."
                             SyncOutcome.NotEnrolled -> "Device is not enrolled."

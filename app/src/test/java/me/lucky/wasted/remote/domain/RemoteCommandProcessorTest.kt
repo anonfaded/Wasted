@@ -54,6 +54,7 @@ class RemoteCommandProcessorTest {
     private val resetCalls = mutableListOf<ResetResult>()
     private val debugWrites = mutableListOf<Boolean>()
     private var debugWriteFails = false
+    private val emitted = mutableListOf<RemoteEvent>()
 
     private fun seed(commandId: String, type: String = "reset_timer", state: String = "queued") {
         dao.commands[commandId] = RemoteCommandJournalEntity(
@@ -84,6 +85,7 @@ class RemoteCommandProcessorTest {
         reset = {
             ResetResult.Initiated("Device reset initiated").also { resetCalls.add(it) }
         },
+        events = RemoteEventSink { emitted.add(it) },
         clock = { now },
     )
 
@@ -105,6 +107,7 @@ class RemoteCommandProcessorTest {
         assertEquals("restarted", api.transitions.last().resultCode)
         assertEquals("applied", dao.commands.getValue("c1").state)
         assertEquals(1, restartCalls)
+        assertEquals(listOf(RemoteEvent.Kind.RESET_TIMER_APPLIED), emitted.map { it.kind })
     }
 
     @Test
@@ -128,6 +131,7 @@ class RemoteCommandProcessorTest {
         assertEquals(listOf("queued->received", "received->debug_blocked"), sent())
         assertEquals("debug_blocked", dao.commands.getValue("c1").state)
         assertTrue(resetCalls.isEmpty())
+        assertEquals(listOf(RemoteEvent.Kind.DEBUG_BLOCKED), emitted.map { it.kind })
     }
 
     @Test
@@ -186,6 +190,7 @@ class RemoteCommandProcessorTest {
         )
         assertEquals("reset_initiated", dao.commands.getValue("c1").state)
         assertEquals(1, resetCalls.size)
+        assertEquals(listOf(RemoteEvent.Kind.FORCE_RESET_INITIATED), emitted.map { it.kind })
     }
 
     @Test
@@ -198,6 +203,7 @@ class RemoteCommandProcessorTest {
         assertEquals("interrupted_before_reset", api.transitions.single().resultCode)
         assertEquals("failed", dao.commands.getValue("c1").state)
         assertTrue(resetCalls.isEmpty())
+        assertEquals(listOf(RemoteEvent.Kind.COMMAND_FAILED), emitted.map { it.kind })
     }
 
     @Test
@@ -272,6 +278,8 @@ class RemoteCommandProcessorTest {
         assertEquals("applied", dao.commands.getValue("c1").state)
         assertEquals(0, restartCalls)
         assertTrue(resetCalls.isEmpty())
+        assertEquals(listOf(RemoteEvent.Kind.DEBUG_MODE_CHANGED), emitted.map { it.kind })
+        assertTrue(emitted.single().message.contains("now ON"))
     }
 
     @Test
@@ -326,6 +334,7 @@ class RemoteCommandProcessorTest {
         assertEquals("debug_mode_write_failed", api.transitions.last().resultCode)
         assertEquals("failed", dao.commands.getValue("c1").state)
         assertTrue(resetCalls.isEmpty())
+        assertEquals(listOf(RemoteEvent.Kind.COMMAND_FAILED), emitted.map { it.kind })
     }
 
     @Test

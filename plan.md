@@ -495,8 +495,9 @@ web/
   - 19 Node unit tests green (`web/tests/`); browser/a11y suites run at Phase 4.
 - [x] Remote Debug Mode control: per-device `set_device_debug_mode` RPC (`debug_mode_on` 24 h TTL / `debug_mode_off` 10 min TTL), dashboard Enable (informational confirmation) and Disable (danger confirmation), device-side application without a local dialog, and pending-Force-Reset supersede when OFF is queued.
   - Migration `20261020131724_remote_debug_mode_commands.sql` applied to the linked project; advisors reviewed (no new findings); schema/RPC/RLS/concurrency suites 4/4 green; Android processor/recovery covered by unit tests with a fake preference port.
-- [ ] Add optional local notifications for remote setting change, Reset Timer, Force Reset, debug block, sync success, and processing failure.
-- [ ] Update README with configuration, Supabase migrations/MCP, static deployment, enrollment, Debug Mode, limitations, troubleshooting, and rollback.
+- [x] Add optional local notifications for remote setting change, Reset Timer, Force Reset, debug block, sync success, and processing failure.
+  - Dedicated `remote_events` channel (IMPORTANCE_DEFAULT); events flow through `RemoteEventSink` and are gated by the stored notifications flag. IDs derive from command/settings keys, so repeats replace instead of stack. Manual-sync success and sync-failure notices are limited to user-requested/error paths; heartbeat successes never notify. Unit tests assert emitted event kinds for command results and settings revisions.
+- [x] Update README with configuration, Supabase migrations/MCP, static deployment, enrollment, Debug Mode, limitations, troubleshooting, and rollback.
 - [ ] Gate: Create Account, Sign In, account isolation, first setup, multiple devices, simultaneous first enrollment, initialized settings, conflict revision, timers, commands, revoke/re-enroll, offline/reconnect, notification deduplication, URL validation, responsive and keyboard/screen-reader flows pass end to end. Existing app navigation/features remain unchanged.
 
 ### Phase 4 — Security, real-device reliability, rollout

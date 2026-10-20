@@ -23,6 +23,7 @@ class RemoteCommandProcessor(
     private val debugMode: () -> Boolean,
     private val setDebugMode: (Boolean) -> Unit,
     private val reset: () -> ResetResult,
+    private val events: RemoteEventSink = RemoteEventSink {},
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     companion object {
@@ -67,6 +68,14 @@ class RemoteCommandProcessor(
                 TYPE_FORCE_RESET -> {
                     sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_FAILED, "interrupted_before_reset")
                     dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+                    events.emit(
+                        RemoteEvent(
+                            kind = RemoteEvent.Kind.COMMAND_FAILED,
+                            key = row.commandId,
+                            title = "Force Reset not executed",
+                            message = "The command was interrupted before the reset and was failed safely.",
+                        ),
+                    )
                     Log.w(TAG, "Interrupted Force Reset ${row.commandId} failed safely")
                 }
                 TYPE_DEBUG_ON, TYPE_DEBUG_OFF -> recoverInterruptedDebugMode(deviceId, row)
@@ -80,6 +89,14 @@ class RemoteCommandProcessor(
                         if (restarted) "restarted" else "inactive",
                     )
                     dao.updateCommandState(row.commandId, STATE_APPLIED, row.executingAt, clock())
+                    events.emit(
+                        RemoteEvent(
+                            kind = RemoteEvent.Kind.RESET_TIMER_APPLIED,
+                            key = row.commandId,
+                            title = "Reset Timer",
+                            message = "The lock timer was restarted after a restart.",
+                        ),
+                    )
                     Log.i(TAG, "Interrupted Reset Timer ${row.commandId} completed idempotently")
                 }
             }
@@ -99,12 +116,21 @@ class RemoteCommandProcessor(
                 SendResult.RETRYABLE -> Unit
                 SendResult.OK, SendResult.FATAL -> {
                     dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+                    events.emit(
+                        RemoteEvent(
+                            kind = RemoteEvent.Kind.COMMAND_FAILED,
+                            key = row.commandId,
+                            title = "Debug Mode not changed",
+                            message = "The device could not update its local preference.",
+                        ),
+                    )
                     Log.w(TAG, "Interrupted debug mode ${row.commandId} failed: preference unavailable")
                 }
             }
             return
         }
 
+        var failed = false
         when (
             sendTransition(
                 deviceId,
@@ -116,8 +142,12 @@ class RemoteCommandProcessor(
         ) {
             SendResult.OK -> dao.updateCommandState(row.commandId, STATE_APPLIED, row.executingAt, clock())
             SendResult.RETRYABLE -> Unit
-            SendResult.FATAL -> dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+            SendResult.FATAL -> {
+                dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+                failed = true
+            }
         }
+        if (!failed) emitDebugModeChanged(row.commandId, enabled)
         Log.i(TAG, "Interrupted debug mode ${row.commandId} re-applied (enabled=$enabled)")
     }
 
@@ -176,6 +206,18 @@ class RemoteCommandProcessor(
             }
         }
         Log.i(TAG, "Reset Timer ${row.commandId} applied (restarted=$restarted)")
+        events.emit(
+            RemoteEvent(
+                kind = RemoteEvent.Kind.RESET_TIMER_APPLIED,
+                key = row.commandId,
+                title = "Reset Timer",
+                message = if (restarted) {
+                    "The lock timer was restarted."
+                } else {
+                    "The timer was inactive; nothing needed restarting."
+                },
+            ),
+        )
         return true
     }
 
@@ -184,6 +226,14 @@ class RemoteCommandProcessor(
         if (readDebugMode()) {
             sendTransition(deviceId, row.commandId, STATE_RECEIVED, STATE_DEBUG_BLOCKED, "debug_mode")
             dao.updateCommandState(row.commandId, STATE_DEBUG_BLOCKED, null, clock())
+            events.emit(
+                RemoteEvent(
+                    kind = RemoteEvent.Kind.DEBUG_BLOCKED,
+                    key = row.commandId,
+                    title = "Force Reset blocked",
+                    message = "Debug Mode is ON. The command was logged and not executed.",
+                ),
+            )
             Log.i(TAG, "Force Reset ${row.commandId} blocked by Debug Mode")
             return true
         }
@@ -193,6 +243,14 @@ class RemoteCommandProcessor(
         if (!supported) {
             sendTransition(deviceId, row.commandId, STATE_RECEIVED, STATE_REJECTED, "reset_unsupported")
             dao.updateCommandState(row.commandId, STATE_REJECTED, null, clock())
+            events.emit(
+                RemoteEvent(
+                    kind = RemoteEvent.Kind.COMMAND_FAILED,
+                    key = row.commandId,
+                    title = "Force Reset rejected",
+                    message = "Device reset is not supported on this device.",
+                ),
+            )
             Log.i(TAG, "Force Reset ${row.commandId} rejected: reset unsupported")
             return true
         }
@@ -212,6 +270,14 @@ class RemoteCommandProcessor(
         if (readDebugMode()) {
             sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_DEBUG_BLOCKED, "debug_mode")
             dao.updateCommandState(row.commandId, STATE_DEBUG_BLOCKED, clock(), clock())
+            events.emit(
+                RemoteEvent(
+                    kind = RemoteEvent.Kind.DEBUG_BLOCKED,
+                    key = row.commandId,
+                    title = "Force Reset blocked",
+                    message = "Debug Mode turned ON before execution. The command was not executed.",
+                ),
+            )
             Log.i(TAG, "Force Reset ${row.commandId} blocked by Debug Mode at the boundary")
             return true
         }
@@ -226,6 +292,15 @@ class RemoteCommandProcessor(
             }
         }
         dao.updateCommandState(row.commandId, STATE_RESET_INITIATED, row.executingAt, clock())
+
+        events.emit(
+            RemoteEvent(
+                kind = RemoteEvent.Kind.FORCE_RESET_INITIATED,
+                key = row.commandId,
+                title = "Force Reset initiated",
+                message = "The device reset was initiated.",
+            ),
+        )
 
         // 10. Execute exactly once. ResetExecutor re-reads Debug Mode at its own boundary.
         val result = runCatching { reset() }.getOrElse { ResetResult.Failed("reset failed") }
@@ -254,11 +329,13 @@ class RemoteCommandProcessor(
 
         val previous = runCatching { debugMode() }.getOrNull()
         if (previous == enabled) {
-            return finishDebugMode(
+            val applied = finishDebugMode(
                 deviceId,
                 row,
                 if (enabled) "already_enabled" else "already_disabled",
             )
+            if (applied) emitDebugModeChanged(row.commandId, enabled, already = true)
+            return applied
         }
 
         if (!runCatching { setDebugMode(enabled) }.isSuccess) {
@@ -268,6 +345,14 @@ class RemoteCommandProcessor(
                 SendResult.RETRYABLE -> false
                 SendResult.OK, SendResult.FATAL -> {
                     dao.updateCommandState(row.commandId, STATE_FAILED, clock(), clock())
+                    events.emit(
+                        RemoteEvent(
+                            kind = RemoteEvent.Kind.COMMAND_FAILED,
+                            key = row.commandId,
+                            title = "Debug Mode not changed",
+                            message = "The device could not update its local preference.",
+                        ),
+                    )
                     Log.w(TAG, "Debug mode ${row.commandId} failed to write the preference")
                     false
                 }
@@ -275,8 +360,28 @@ class RemoteCommandProcessor(
         }
 
         val applied = finishDebugMode(deviceId, row, if (enabled) "enabled" else "disabled")
-        if (applied) Log.i(TAG, "Debug mode set to $enabled for ${row.commandId}")
+        if (applied) {
+            Log.i(TAG, "Debug mode set to $enabled for ${row.commandId}")
+            emitDebugModeChanged(row.commandId, enabled)
+        }
         return applied
+    }
+
+    private fun emitDebugModeChanged(commandId: String, enabled: Boolean, already: Boolean = false) {
+        val message = when {
+            already && enabled -> "Debug Mode was already ON."
+            already -> "Debug Mode was already OFF."
+            enabled -> "Debug Mode is now ON. Destructive remote commands are blocked."
+            else -> "Debug Mode is now OFF. Destructive remote commands can execute."
+        }
+        events.emit(
+            RemoteEvent(
+                kind = RemoteEvent.Kind.DEBUG_MODE_CHANGED,
+                key = commandId,
+                title = "Debug Mode updated",
+                message = message,
+            ),
+        )
     }
 
     private suspend fun finishDebugMode(

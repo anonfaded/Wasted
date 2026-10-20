@@ -12,12 +12,14 @@ import me.lucky.wasted.remote.data.RemoteCredentialStore
 import me.lucky.wasted.remote.data.RemoteDatabase
 import me.lucky.wasted.remote.data.SupabaseRemoteRepository
 import me.lucky.wasted.remote.domain.RemoteCommandProcessor
+import me.lucky.wasted.remote.domain.RemoteEventSink
 import me.lucky.wasted.remote.domain.RemoteSettingsApplierPort
 import me.lucky.wasted.remote.domain.RemoteSyncCoordinator
 import me.lucky.wasted.remote.domain.RemoteTimerPort
 import me.lucky.wasted.remote.domain.SyncOutcome
 import me.lucky.wasted.settings.LocalSettingsApplier
 import me.lucky.wasted.trigger.lock.TimerCoordinator
+import me.lucky.wasted.trigger.shared.NotificationManager
 
 /**
  * Single composition root for the remote stack, shared by the foreground service and the
@@ -40,6 +42,19 @@ class RemoteEngine private constructor(
             val dao = RemoteDatabase.getInstance(ctx).remoteCommandDao()
             val applier = LocalSettingsApplier.create(ctx)
 
+            // Notifications are user-optional; command processing never depends on them.
+            val events = RemoteEventSink { event ->
+                if (credentials.notificationsEnabled) {
+                    runCatching {
+                        NotificationManager(ctx).notifyRemoteEvent(
+                            event.key.hashCode(),
+                            event.title,
+                            event.message,
+                        )
+                    }
+                }
+            }
+
             val coordinator = RemoteSyncCoordinator(
                 api = repository,
                 dao = dao,
@@ -53,6 +68,7 @@ class RemoteEngine private constructor(
                         applier.setTrigger(Trigger.USB, enabled)
                 },
                 isRemoteAvailable = { repository.isAvailable },
+                events = events,
             )
 
             val processor = RemoteCommandProcessor(
@@ -69,6 +85,7 @@ class RemoteEngine private constructor(
                 debugMode = { Preferences.new(ctx).isDebugMode },
                 setDebugMode = { enabled -> Preferences.new(ctx).isDebugMode = enabled },
                 reset = { ResetExecutor.create(ctx).execute() },
+                events = events,
             )
 
             return RemoteEngine(repository, credentials, coordinator, processor)

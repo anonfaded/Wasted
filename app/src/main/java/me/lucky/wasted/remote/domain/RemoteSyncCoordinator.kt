@@ -32,6 +32,7 @@ class RemoteSyncCoordinator(
     private val statusProvider: RemoteStatusProvider,
     private val settingsApplier: RemoteSettingsApplierPort,
     private val isRemoteAvailable: () -> Boolean,
+    private val events: RemoteEventSink = RemoteEventSink {},
     private val retryPolicy: RemoteRetryPolicy = RemoteRetryPolicy(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val sleep: suspend (Long) -> Unit = { delay(it) },
@@ -134,6 +135,15 @@ class RemoteSyncCoordinator(
             settingsApplier.applyLockTimerMinutes(settings.lockTimerMinutes)
             settingsApplier.applyUsbTrigger(settings.usbTriggerEnabled)
             credentials.appliedSettingsRevision = settings.revision
+            events.emit(
+                RemoteEvent(
+                    kind = RemoteEvent.Kind.SETTINGS_CHANGED,
+                    key = "settings-${settings.revision}",
+                    title = "Remote settings applied",
+                    message = "Lock timer ${settings.lockTimerMinutes} min; USB trigger " +
+                        (if (settings.usbTriggerEnabled) "on." else "off."),
+                ),
+            )
         }
     }
 

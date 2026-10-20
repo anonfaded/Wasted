@@ -39,6 +39,7 @@ class ForegroundService : Service() {
         const val ACTION_RECONFIGURE = "me.lucky.wasted.action.RECONFIGURE"
         private const val TAG = "ForegroundService"
         private const val NOTIFICATION_ID = 1000
+        private const val NOTIFICATION_ID_REMOTE_SYNC = 1001
         private const val ACTION_USB_STATE = "android.hardware.usb.action.USB_STATE"
         private const val REMOTE_HEARTBEAT_MS = 60_000L
     }
@@ -157,8 +158,17 @@ class ForegroundService : Service() {
 
             val runSync: suspend () -> Unit = {
                 val outcome = runCatching { engine.runSync() }.getOrNull()
-                if (outcome is SyncOutcome.Failed && outcome.retryable) {
-                    RemoteRecoveryWorker.scheduleOnce(this)
+                if (outcome is SyncOutcome.Failed) {
+                    if (outcome.retryable) {
+                        RemoteRecoveryWorker.scheduleOnce(this)
+                    }
+                    if (engine.credentials.notificationsEnabled) {
+                        NotificationManager(this).notifyRemoteEvent(
+                            NOTIFICATION_ID_REMOTE_SYNC,
+                            "Remote sync failed",
+                            outcome.reason,
+                        )
+                    }
                 }
             }
 
