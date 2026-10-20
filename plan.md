@@ -480,6 +480,8 @@ web/
 - [ ] Implement owner/device enrollment and generated models/types.
   - Website types already generated: `web/src/database.types.ts`. Android-side enrollment/reconcile wiring is the remaining work.
 - [ ] Implement Supabase repository, custom session persistence, Realtime lifecycle, reconcile/transition RPC mapping, Room journal/outbox, retry classification, and secret-safe logs.
+  - Done: `SupabaseRemoteRepository` (lazy fail-closed client, sanitized error mapping), `EncryptedSessionManager`, wire models, `RemoteRetryPolicy`, single-flight `RemoteSyncCoordinator` with encrypted journal + retrying outbox; 12 new tests (63 total green).
+  - Remaining: Realtime client lifecycle (lands with the service integration in the next item).
 - [ ] Integrate RemoteSyncCoordinator into the existing service and reconfigure/boot/unlock/network/auth lifecycle.
 - [ ] Implement account revision sync through LocalSettingsApplier, timer/status reporting through TimerCoordinator, Reset Timer idempotency, and Force Reset execution order.
 - [ ] Implement WorkManager recovery without treating it as immediate delivery.
