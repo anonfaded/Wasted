@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wasted Remote</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="app-header">
+  <h1 id="app-title">Wasted Remote</h1>
+  <button id="sign-out" type="button" class="quiet" hidden>Sign out</button>
+</header>
+
+<div id="config-error" class="banner error" role="alert" hidden></div>
+
+<main id="main">
+  <section id="auth-section" aria-labelledby="auth-title" class="panel narrow">
+    <h2 id="auth-title">Sign in</h2>
+    <p class="muted">Sign in to manage your Wasted devices, or create an account.</p>
+
+    <form id="auth-form" novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" minlength="12" required>
+      </div>
+      <div class="field" id="handle-field" hidden>
+        <label for="handle">Account handle</label>
+        <input id="handle" name="handle" type="text" autocomplete="off"
+               pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"
+               title="3-32 characters: letters, digits, dot, dash, underscore">
+        <p class="hint">A display name for your account (letters, digits, dot, dash, underscore).</p>
+      </div>
+      <div class="actions">
+        <button id="sign-in" type="submit" class="primary">Sign In</button>
+        <button id="create-account" type="button">Create Account</button>
+      </div>
+      <p id="auth-message" class="message" role="status"></p>
+    </form>
+  </section>
+
+  <section id="dashboard" hidden aria-labelledby="dashboard-title">
+    <div class="dashboard-header">
+      <h2 id="dashboard-title">Devices</h2>
+      <p id="account-line" class="muted"></p>
+    </div>
+
+    <p id="offline-banner" class="banner error" role="alert" hidden>
+      Connection lost — showing the last known data.
+    </p>
+
+    <div id="devices" class="device-grid" aria-live="polite"></div>
+
+    <section class="panel" aria-labelledby="settings-title">
+      <h3 id="settings-title">Account settings</h3>
+      <p class="muted">Applying changes synchronizes them to every enrolled device.</p>
+      <form id="settings-form" novalidate>
+        <div class="field inline">
+          <label for="lock-minutes">Lock timer (minutes)</label>
+          <input id="lock-minutes" name="lockMinutes" type="number" min="1" max="525600" required>
+        </div>
+        <div class="field inline">
+          <label for="usb-trigger">USB trigger enabled</label>
+          <input id="usb-trigger" name="usbTrigger" type="checkbox">
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary">Save settings</button>
+          <span id="settings-revision" class="muted"></span>
+        </div>
+        <p id="settings-message" class="message" role="status"></p>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="commands-title">
+      <h3 id="commands-title">Actions</h3>
+      <p class="muted" id="action-scope"></p>
+      <div class="actions">
+        <button id="reset-timer" type="button">Reset Timer</button>
+        <button id="force-reset" type="button" class="danger">Force Reset</button>
+      </div>
+      <p id="commands-message" class="message" role="status"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="enroll-title">
+      <h3 id="enroll-title">Enroll a device</h3>
+      <p class="muted">Create a one-time token (valid 10 minutes), then enter it in the Wasted app under Remote Management.</p>
+      <div class="actions">
+        <button id="create-token" type="button">Create enrollment token</button>
+      </div>
+      <div id="token-output" hidden>
+        <p class="token" id="token-value"></p>
+        <p class="muted" id="token-expiry"></p>
+        <button id="copy-token" type="button" class="quiet">Copy token</button>
+      </div>
+    </section>
+  </section>
+
+  <p id="loading" class="muted" hidden>Loading…</p>
+</main>
+
+<dialog id="confirm-dialog" aria-labelledby="confirm-title">
+  <form method="dialog">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-message"></p>
+    <div class="field" id="confirm-typed-field" hidden>
+      <label for="confirm-typed">Type <strong id="confirm-phrase"></strong> to confirm</label>
+      <input id="confirm-typed" type="text" autocomplete="off">
+    </div>
+    <div class="actions">
+      <button id="confirm-cancel" value="cancel" formnovalidate>Cancel</button>
+      <button id="confirm-ok" value="ok" class="danger">Confirm</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<footer>
+  <span id="footer-product">Wasted Remote</span>
+  <span id="footer-version" class="muted"></span>
+  <span class="footer-links">
+    <a id="footer-privacy" href="#" target="_blank" rel="noopener noreferrer" hidden>Privacy</a>
+    <a id="footer-support" href="#" target="_blank" rel="noopener noreferrer" hidden>Support</a>
+  </span>
+</footer>
+
+<script src="config.js"></script>
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>

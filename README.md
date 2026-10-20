@@ -1,4 +1,4 @@
-# Wasted (Modded v2.0.0)
+# Wasted (Modded v3.0.0)
 
 **This is a modded version of [Wasted](https://github.com/x13a/Wasted)** — the original open-source emergency lock & factory reset app by [@x13a](https://github.com/x13a).
 
