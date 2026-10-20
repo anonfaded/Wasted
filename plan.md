@@ -483,8 +483,10 @@ web/
   - `SupabaseRemoteRepository` (lazy fail-closed client, sanitized errors), `EncryptedSessionManager`, wire models, `RemoteRetryPolicy`, single-flight `RemoteSyncCoordinator` with encrypted journal + retrying outbox, `RemoteRealtimeClient` invalidation channel; 12 new tests (63 total green).
 - [x] Integrate RemoteSyncCoordinator into the existing service and reconfigure/boot/unlock/network/auth lifecycle.
   - Remote subsystem diffed inside `ForegroundService` (unlock-gated, one Realtime connection, 60s heartbeat, network-available signals, USER_UNLOCKED/boot reconfigure, ordered teardown). SDK manages reconnect backoff; every (re)subscribe triggers a full authoritative reconcile.
-- [ ] Implement account revision sync through LocalSettingsApplier, timer/status reporting through TimerCoordinator, Reset Timer idempotency, and Force Reset execution order.
-- [ ] Implement WorkManager recovery without treating it as immediate delivery.
+- [x] Implement account revision sync through LocalSettingsApplier, timer/status reporting through TimerCoordinator, Reset Timer idempotency, and Force Reset execution order.
+  - `RemoteSyncCoordinator` applies only newer revisions through `LocalSettingsApplier`; `LocalRemoteStatusProvider` reports timer/status; the processor implements Reset Timer idempotency and the documented Force Reset ordering (unit-tested).
+- [x] Implement WorkManager recovery without treating it as immediate delivery.
+  - `RemoteRecoveryWorker` schedules a unique one-time retry after retryable failures plus a unique 15-minute periodic reconciliation (5-minute flex), network-constrained and fail-closed.
 - [ ] Gate: all schema/RLS/RPC tests pass; two accounts/four devices cannot cross access; settings/commands survive missed Realtime, socket drop, process/service restart, network loss, auth refresh, and reboot. Existing P2P/local tests still pass.
 
 ### Phase 3 — Complete Android and website UI/control
@@ -503,14 +505,18 @@ web/
 ### Phase 4 — Security, real-device reliability, rollout
 
 - [ ] Run Android unit/instrumentation suites for validation, settings/timer behavior, service reconfigure, concurrency, retry, journal/outbox, Debug Mode, and log redaction.
+  - Unit suites 85/85 green (validation, settings/timer, service reconfigure, retry, journal/outbox, Debug Mode). Instrumentation and log-redaction device runs remain in the final acceptance round.
 - [ ] Run Supabase clean migration, pgTAP/RLS/RPC/concurrency/Realtime tests and security/performance advisors.
+  - Tracked migrations 9/9 match the linked history; schema/RLS/RPC/concurrency suites 4/4; advisors reviewed. Clean replay and `db diff --linked` still require Docker.
 - [ ] Run web unit/browser/accessibility/CSP/session/account-isolation tests and dependency/secret scans.
-- [ ] Real-device matrix: Android 7, 13, and 15 minimum; foreground/background/screen-off/Doze/OEM saver/offline/socket loss/process/service restart/reboot/user unlock/force-stop.
-- [ ] Run ≥16-hour spare-phone soak with Debug Mode ON. Repeatedly send settings, Reset Timer, and Force Reset; archive dashboard timestamps, DB events, and logcat; prove every Force Reset is debug-blocked and low-level wipe count is zero.
+  - Web unit tests 19/19; CSP meta and `no-referrer` added; `npm audit` clean; tracked-source secret scan clean; single-file build verified. Browser/a11y suites remain in the final acceptance round.
+- [ ] Compatibility matrix on emulators (API 24, 33, 35 minimum): foreground/background/screen-off/Doze/OEM saver/offline/socket loss/process/service restart/reboot/user unlock/force-stop. Install the release build on the physical phone once at the end to confirm upgrade and launch.
+- [ ] Run ≥16-hour soak (emulator or spare phone) with Debug Mode ON. Repeatedly send settings, Reset Timer, and Force Reset; archive dashboard timestamps, DB events, and logcat; prove every Force Reset is debug-blocked and low-level wipe count is zero.
 - [ ] Record p50/p95 command latency, reconnect time, missed/delayed scenarios, battery impact, and foreground-notification behavior. Client accepts measured reliability before release.
 - [ ] Verify actual §17 Free-plan headroom in Supabase Usage/Realtime reports and prove projected monthly usage remains below every internal threshold.
+  - Measured database size 12 MB against the 500 MB limit with zero residual device/command rows; Usage and Realtime reports to be captured during the soak.
 - [ ] Rebuild a fresh Supabase project from tracked migrations/config documentation, verify zero schema drift, and prove the same release APK can be configured and enrolled against it.
-- [ ] Only with separate explicit approval, locally disable Debug Mode on an empty sacrificial phone and perform one real wipe E2E test.
+- [ ] Only with separate explicit approval, locally disable Debug Mode on an emulator (or an empty sacrificial phone) and perform one real wipe E2E test.
 - [ ] Gate: no security/advisor blocker, all regression/compatibility/soak evidence passes, docs match implementation, and release/rollback rehearsal succeeds.
 
 ## 11. Regression matrix (must remain green)
@@ -543,6 +549,7 @@ Rollback:
 ## 13. Acceptance checklist
 
 - [ ] Static website is copy-deployable and contains no privileged secret.
+  - Single-file `dist/index.html` (248 KB) with inlined CSS/JS, CSP meta, and `no-referrer`; no privileged secret or client configuration; built from tracked sources.
 - [ ] Owner/device enrollment uses separate identities; revoked/unclaimed/cross-account access is denied by tested RLS.
 - [ ] Multiple devices show accurate settings, timer, Debug Mode, reset support, status, and last contact.
 - [ ] Lock Timer/USB changes use existing app behavior and converge after reconnect without touching other settings.
@@ -551,9 +558,10 @@ Rollback:
 - [ ] Debug Mode is local-only, fail-closed, and verified across every reset path.
 - [ ] Realtime is prompt while connected; durable reconcile closes missed-event gaps.
 - [ ] Existing Device Admin, local triggers, P2P, Shizuku, timer, and offline behavior pass the full regression matrix.
-- [ ] Android 7/13/15 plus 16-hour spare-phone evidence is archived and accepted.
+- [ ] Android emulator matrix (API 24/33/35) plus ≥16-hour soak evidence is archived and accepted; the release build installs and upgrades on the physical phone.
 - [ ] Supabase MCP migrations, tests, advisors, generated types, README, deployment, and rollback are complete.
 - [ ] The single public APK contains no client configuration or privileged secret; its default/unconfigured state makes zero Supabase requests.
+  - Release APK `Wasted-v3.0.0.apk` (19 MB) builds signed with the expected certificate; key/URL/project-ref scan is empty; the zero-request default path is enforced by `RemoteEngine.create` gating.
 - [ ] Free-tier capacity report and quota-threshold evidence are archived; the implementation remains within the Free plan.
 
 ## 14. External inputs that do not block Phase 1

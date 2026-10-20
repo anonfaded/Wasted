@@ -72,6 +72,7 @@ This fork adds optional remote management through your own Supabase project. It 
 
 * `cd web && npm install && npm test && npm run build` produces a single `dist/index.html`.
 * Edit the CONFIG block at the top of that file (project URL, publishable key, product/version/footer links) and copy it to any HTTPS static host. There is no CDN, server runtime, or build step at the host. `config.example.js` documents the fields for source builds.
+* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. For strict deployments, serve `config.js` externally and set CSP hashes plus `frame-ancestors 'none'` via response headers, since meta policies cannot set framing rules.
 * Sign In and Create Account are explicit; a failed sign-in never creates an account.
 
 ### Behavior and limits
