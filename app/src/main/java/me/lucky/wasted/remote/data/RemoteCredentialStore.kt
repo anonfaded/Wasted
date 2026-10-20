@@ -23,6 +23,7 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
         private const val KEY_SESSION = "session"
         private const val KEY_DB_PASSPHRASE = "database_passphrase"
         private const val KEY_APPLIED_REVISION = "applied_settings_revision"
+        private const val KEY_LAST_SYNC_AT = "last_sync_at"
         private const val PASSPHRASE_BYTES = 32
 
         fun new(ctx: Context): RemoteCredentialStore = RemoteCredentialStore(
@@ -81,6 +82,13 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
         get() = runCatching { prefs.getLong(KEY_APPLIED_REVISION, 0L) }.getOrDefault(0L)
         set(value) {
             runCatching { prefs.edit().putLong(KEY_APPLIED_REVISION, value).commit() }
+        }
+
+    /** Timestamp of the last successful server reconciliation. */
+    var lastSyncAt: Long
+        get() = runCatching { prefs.getLong(KEY_LAST_SYNC_AT, 0L) }.getOrDefault(0L)
+        set(value) {
+            runCatching { prefs.edit().putLong(KEY_LAST_SYNC_AT, value).commit() }
         }
 
     /**

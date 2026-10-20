@@ -55,6 +55,15 @@ abstract class RemoteDatabase : RoomDatabase() {
             instance ?: build(ctx.applicationContext).also { instance = it }
         }
 
+        /** Reset Remote Enrollment: drops the encrypted journal/outbox database entirely. */
+        fun clear(ctx: Context) {
+            synchronized(this) {
+                instance?.close()
+                instance = null
+            }
+            ctx.applicationContext.deleteDatabase(DB_NAME)
+        }
+
         private fun build(ctx: Context): RemoteDatabase {
             System.loadLibrary("sqlcipher")
             val passphrase = RemoteCredentialStore.new(ctx).databasePassphrase

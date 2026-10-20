@@ -175,6 +175,7 @@ open class MainActivity : AppCompatActivity() {
         R.id.nav_trigger_application -> ApplicationFragment()
         R.id.nav_recast -> RecastFragment()
         R.id.nav_p2p -> P2PNetworkFragment()
+        R.id.nav_remote -> me.lucky.wasted.remote.ui.RemoteManagementFragment()
         else -> MainFragment()
     }
 

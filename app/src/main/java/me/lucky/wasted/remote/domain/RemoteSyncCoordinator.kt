@@ -172,6 +172,7 @@ class RemoteSyncCoordinator(
                         ),
                     )
                 }
+                credentials.lastSyncAt = clock()
                 applyAccountSettings(response.settings)
                 return SyncOutcome.Success(response.commands.size)
             } catch (e: RemoteException) {
