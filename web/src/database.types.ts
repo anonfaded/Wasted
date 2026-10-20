@@ -20,6 +20,7 @@ export type Database = {
           action_type: string
           created_at: string
           created_by: string | null
+          device_id: string | null
           expires_at: string
           id: string
           idempotency_key: string
@@ -29,6 +30,7 @@ export type Database = {
           action_type: string
           created_at?: string
           created_by?: string | null
+          device_id?: string | null
           expires_at: string
           id?: string
           idempotency_key: string
@@ -38,6 +40,7 @@ export type Database = {
           action_type?: string
           created_at?: string
           created_by?: string | null
+          device_id?: string | null
           expires_at?: string
           id?: string
           idempotency_key?: string
@@ -49,6 +52,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_actions_device_fk"
+            columns: ["device_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id", "account_id"]
           },
         ]
       }
@@ -448,6 +458,14 @@ export type Database = {
         }
       }
       revoke_device: { Args: { p_device_id: string }; Returns: undefined }
+      set_device_debug_mode: {
+        Args: {
+          p_debug_mode: boolean
+          p_device_id: string
+          p_idempotency_key: string
+        }
+        Returns: Json
+      }
       update_account_settings: {
         Args: {
           p_expected_revision: number
@@ -593,9 +611,12 @@ export type CompositeTypes<
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions] extends {
+      schema: keyof DatabaseWithoutInternals
+    }
+    ? DatabaseWithoutInternals[DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]]
     : never
+  : never
 
 export const Constants = {
   public: {

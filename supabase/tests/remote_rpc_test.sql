@@ -422,6 +422,244 @@ begin
 end;
 $$;
 
+-- ─── Owner: remote debug mode toggle ─────────────────────────────────────────
+
+-- second active device in the same account to prove the toggle never fans out
+insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_anonymous)
+values ('00000000-0000-0000-0000-000000000000', '0d0d0d0d-0000-4000-8000-0000000000d8',
+        'authenticated', 'authenticated', now(), now(), true);
+
+insert into public.devices (id, account_id, auth_user_id, installation_id, name)
+values ('dd000000-0000-4000-8000-0000000000dd', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        '0d0d0d0d-0000-4000-8000-0000000000d8', '2d000000-0000-4000-8000-0000000000dd', 'Bystander');
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+    '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
+
+do $$
+declare
+    target_device uuid := (select id from pg_temp.t_claim);
+    on_result jsonb;
+    off_result jsonb;
+    replay jsonb;
+begin
+    on_result := public.set_device_debug_mode(target_device, true, 'dd000000-0000-4000-8000-0000000000f1');
+    perform pg_temp.assert_true(
+        (on_result->>'device_count')::integer = 1,
+        'debug enable must target exactly one device');
+    perform pg_temp.assert_true(
+        (on_result->>'expires_at')::timestamptz - (on_result->>'created_at')::timestamptz
+            between interval '23 hours 59 minutes' and interval '24 hours 1 minute',
+        'debug_mode_on TTL must be 24 hours');
+
+    replay := public.set_device_debug_mode(target_device, true, 'dd000000-0000-4000-8000-0000000000f1');
+    perform pg_temp.assert_true(
+        (replay->>'action_id') = (on_result->>'action_id'),
+        'replaying the same key must return the original action');
+    perform pg_temp.assert_true(
+        (replay->>'device_count')::integer = 1,
+        'replay must not create additional commands');
+
+    off_result := public.set_device_debug_mode(target_device, false, 'dd000000-0000-4000-8000-0000000000f2');
+    perform pg_temp.assert_true(
+        (off_result->>'expires_at')::timestamptz - (off_result->>'created_at')::timestamptz
+            between interval '9 minutes 59 seconds' and interval '10 minutes 1 second',
+        'debug_mode_off TTL must be 10 minutes');
+
+    perform pg_temp.expect_error(
+        format($sql$select public.set_device_debug_mode(%L, false, 'dd000000-0000-4000-8000-0000000000f1')$sql$, target_device),
+        'P0001', 'idempotency key reused');
+    perform pg_temp.expect_error(
+        $sql$select public.set_device_debug_mode('ffffffff-0000-4000-8000-0000000000ff', true, 'dd000000-0000-4000-8000-0000000000f3')$sql$,
+        'P0001', 'device not found');
+
+    -- account-wide actions cannot create debug commands
+    perform pg_temp.expect_error(
+        $sql$select public.create_account_action('debug_mode_on', 'dd000000-0000-4000-8000-0000000000f4')$sql$,
+        'P0001', 'unsupported action type');
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+    target_device uuid := (select id from pg_temp.t_claim);
+    on_action uuid := (select id from public.account_actions
+                        where idempotency_key = 'dd000000-0000-4000-8000-0000000000f1');
+    off_action uuid := (select id from public.account_actions
+                         where idempotency_key = 'dd000000-0000-4000-8000-0000000000f2');
+begin
+    perform pg_temp.assert_true(
+        (select count(*) from public.device_commands where action_id = on_action) = 1,
+        'debug enable must create exactly one command');
+    perform pg_temp.assert_true(
+        (select count(*) from public.device_commands where action_id = off_action) = 1,
+        'debug disable must create exactly one command');
+    perform pg_temp.assert_true(
+        (select device_id = target_device from public.device_commands where action_id = on_action),
+        'debug command must target the requested device');
+    perform pg_temp.assert_true(
+        (select count(*) from public.command_events e
+           join public.device_commands c on c.id = e.command_id
+          where c.action_id = on_action and e.event_type = 'queued') = 1,
+        'debug command must record exactly one queued event');
+    perform pg_temp.assert_true(
+        (select a.device_id = target_device from public.account_actions a where a.id = on_action),
+        'debug action must record the targeted device');
+    perform pg_temp.assert_true(
+        not exists (
+            select 1 from public.device_commands c
+             where c.device_id = 'dd000000-0000-4000-8000-0000000000dd'
+               and c.command_type in ('debug_mode_on', 'debug_mode_off')),
+        'debug commands must not fan out to other devices');
+
+    delete from public.devices where id = 'dd000000-0000-4000-8000-0000000000dd';
+end;
+$$;
+
+-- a queued force reset must be superseded before the guard is removed
+set local role authenticated;
+select set_config('request.jwt.claims',
+    '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
+
+do $$
+begin
+    perform public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000f5');
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+    target_device uuid := (select id from pg_temp.t_claim);
+    pending_force uuid;
+begin
+    select c.id into pending_force
+      from public.device_commands c
+     where c.device_id = target_device
+       and c.command_type = 'force_reset'
+       and c.state in ('queued', 'received')
+     order by c.created_at desc
+     limit 1;
+    perform pg_temp.assert_true(pending_force is not null,
+        'a fresh force reset must be queued before the supersede test');
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+    '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
+
+do $$
+begin
+    perform public.set_device_debug_mode(
+        (select id from pg_temp.t_claim), false, 'dd000000-0000-4000-8000-0000000000f6');
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+    target_device uuid := (select id from pg_temp.t_claim);
+    force_cmd uuid := (select c.id from public.device_commands c
+                         join public.account_actions a on a.id = c.action_id
+                        where a.idempotency_key = 'dd000000-0000-4000-8000-0000000000f5');
+    off_action uuid := (select id from public.account_actions
+                         where idempotency_key = 'dd000000-0000-4000-8000-0000000000f6');
+begin
+    perform pg_temp.assert_true(
+        (select state = 'expired' and result_code = 'superseded_by_debug_off'
+           from public.device_commands
+          where id = force_cmd),
+        'pending force reset must be superseded by debug_mode_off');
+    perform pg_temp.assert_true(
+        (select count(*) from public.command_events e
+          where e.command_id = force_cmd
+            and e.event_type = 'expired'
+            and e.result_code = 'superseded_by_debug_off') = 1,
+        'supersede must record exactly one expired event');
+    perform pg_temp.assert_true(
+        (select exists (
+            select 1 from public.device_commands c
+             where c.action_id = off_action and c.state = 'queued')),
+        'the OFF command itself must stay queued');
+end;
+$$;
+
+-- device execution path for debug commands
+
+-- captured as transaction-local settings: the device role cannot read owner-only tables
+select set_config('wasted.debug_on_cmd',
+                  (select c.id::text from public.device_commands c
+                     join public.account_actions a on a.id = c.action_id
+                    where a.idempotency_key = 'dd000000-0000-4000-8000-0000000000f1'), true),
+       set_config('wasted.debug_off_cmd',
+                  (select c.id::text from public.device_commands c
+                     join public.account_actions a on a.id = c.action_id
+                    where a.idempotency_key = 'dd000000-0000-4000-8000-0000000000f6'), true);
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+    '{"sub":"0a1a1a1a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":true}', true);
+
+do $$
+declare
+    target_device uuid := (select id from pg_temp.t_claim);
+    on_cmd uuid := current_setting('wasted.debug_on_cmd')::uuid;
+    off_cmd uuid := current_setting('wasted.debug_off_cmd')::uuid;
+    command public.device_commands;
+begin
+    command := public.device_transition_command(target_device, on_cmd, 'queued', 'received');
+
+    -- legal matrix but illegal terminal state for debug commands
+    perform pg_temp.expect_error(
+        format($sql$select public.device_transition_command(%L, %L, 'received', 'debug_blocked')$sql$, target_device, on_cmd),
+        'P0001', 'illegal terminal state');
+
+    command := public.device_transition_command(target_device, on_cmd, 'received', 'executing');
+    perform pg_temp.assert_true(command.executing_at is not null,
+        'debug enable must stamp executing_at');
+
+    perform pg_temp.expect_error(
+        format($sql$select public.device_transition_command(%L, %L, 'executing', 'reset_initiated')$sql$, target_device, on_cmd),
+        'P0001', 'illegal terminal state');
+
+    command := public.device_transition_command(target_device, on_cmd, 'executing', 'applied', 'enabled');
+    perform pg_temp.assert_true(command.state = 'applied' and command.result_code = 'enabled',
+        'debug enable must apply with a result code');
+
+    command := public.device_transition_command(target_device, off_cmd, 'queued', 'received');
+    command := public.device_transition_command(target_device, off_cmd, 'received', 'executing');
+    command := public.device_transition_command(target_device, off_cmd, 'executing', 'applied', 'disabled');
+    perform pg_temp.assert_true(command.state = 'applied' and command.result_code = 'disabled',
+        'debug disable must apply once');
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+    on_cmd uuid := (select c.id from public.device_commands c
+                      join public.account_actions a on a.id = c.action_id
+                     where a.idempotency_key = 'dd000000-0000-4000-8000-0000000000f1');
+    off_cmd uuid := (select c.id from public.device_commands c
+                       join public.account_actions a on a.id = c.action_id
+                      where a.idempotency_key = 'dd000000-0000-4000-8000-0000000000f6');
+begin
+    perform pg_temp.assert_true(
+        (select count(*) from public.command_events where command_id = on_cmd) = 4,
+        'debug enable must record exactly queued/received/executing/applied events');
+    perform pg_temp.assert_true(
+        (select count(*) from public.command_events where command_id = off_cmd) = 4,
+        'debug disable must record exactly queued/received/executing/applied events');
+end;
+$$;
+
 -- ─── Expiry: device-lazy and owner-triggered ─────────────────────────────────
 
 reset role;

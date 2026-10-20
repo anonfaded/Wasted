@@ -88,6 +88,39 @@ class RemoteWireModelsTest {
     }
 
     @Test
+    fun `debug mode command types decode from the wire`() {
+        val pairs = listOf(
+            "debug_mode_on" to RemoteCommandType.DEBUG_MODE_ON,
+            "debug_mode_off" to RemoteCommandType.DEBUG_MODE_OFF,
+        )
+        for ((wire, expected) in pairs) {
+            assertEquals(
+                expected,
+                json.decodeFromString(RemoteCommandType.serializer(), "\"$wire\""),
+            )
+        }
+    }
+
+    @Test
+    fun `reconcile response decodes debug mode commands`() {
+        val raw = """
+            {
+              "server_time": "2026-10-20T12:00:00Z",
+              "device": {"id": "d1", "account_id": "a1", "name": "Phone", "installation_id": "i1", "enrolled_at": "2026-10-20T11:00:00Z"},
+              "settings": {"revision": 1, "lock_timer_minutes": 1440, "usb_trigger_enabled": false, "initialized": true},
+              "commands": [
+                {"id": "c1", "action_id": "x1", "command_type": "debug_mode_off", "state": "queued", "created_at": "2026-10-20T11:59:00Z", "expires_at": "2026-10-20T12:09:00Z"}
+              ]
+            }
+        """.trimIndent()
+
+        val response = json.decodeFromString(RemoteReconcileResponse.serializer(), raw)
+
+        assertEquals(RemoteCommandType.DEBUG_MODE_OFF, response.commands.single().commandType)
+        assertEquals(RemoteCommandState.QUEUED, response.commands.single().state)
+    }
+
+    @Test
     fun `command states map every wire value`() {
         val pairs = listOf(
             "queued" to RemoteCommandState.QUEUED,

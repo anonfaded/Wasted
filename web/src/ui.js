@@ -40,7 +40,13 @@ export function setBusy(button, busy, busyLabel = "Working…") {
  * Promise-based confirmation dialog. When typedPhrase is provided the Confirm button stays
  * disabled until the phrase is typed exactly (Force Reset safety requirement).
  */
-export function confirmAction({ title, message, typedPhrase = null }) {
+export function confirmAction({
+  title,
+  message,
+  typedPhrase = null,
+  confirmLabel = "Confirm",
+  danger = true,
+}) {
   return new Promise((resolve) => {
     const dialog = $("#confirm-dialog");
     const ok = $("#confirm-ok");
@@ -50,6 +56,9 @@ export function confirmAction({ title, message, typedPhrase = null }) {
 
     $("#confirm-title").textContent = title;
     $("#confirm-message").textContent = message;
+    ok.textContent = confirmLabel;
+    ok.classList.toggle("danger", danger);
+    ok.classList.toggle("primary", !danger);
     const needsTyping = Boolean(typedPhrase);
     typedField.hidden = !needsTyping;
     typed.value = "";

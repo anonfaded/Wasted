@@ -52,6 +52,8 @@ class RemoteCommandProcessorTest {
     private var restartResult = true
     private var restartCalls = 0
     private val resetCalls = mutableListOf<ResetResult>()
+    private val debugWrites = mutableListOf<Boolean>()
+    private var debugWriteFails = false
 
     private fun seed(commandId: String, type: String = "reset_timer", state: String = "queued") {
         dao.commands[commandId] = RemoteCommandJournalEntity(
@@ -76,6 +78,9 @@ class RemoteCommandProcessorTest {
         },
         resetSupported = { supported },
         debugMode = { debug },
+        setDebugMode = { enabled ->
+            if (debugWriteFails) error("preference unavailable") else debugWrites.add(enabled)
+        },
         reset = {
             ResetResult.Initiated("Device reset initiated").also { resetCalls.add(it) }
         },
@@ -137,6 +142,9 @@ class RemoteCommandProcessorTest {
             },
             resetSupported = { true },
             debugMode = { reads++ > 0 },
+            setDebugMode = { enabled ->
+                if (debugWriteFails) error("preference unavailable") else debugWrites.add(enabled)
+            },
             reset = {
                 ResetResult.Initiated("Device reset initiated").also { resetCalls.add(it) }
             },
@@ -246,5 +254,103 @@ class RemoteCommandProcessorTest {
 
         assertEquals(0, outcome.processed)
         assertTrue(api.transitions.isEmpty())
+    }
+
+    @Test
+    fun `debug mode enable applies without consulting the reset gate`() = runBlocking {
+        debug = false
+        seed("c1", type = "debug_mode_on")
+
+        processor().processPending()
+
+        assertEquals(
+            listOf("queued->received", "received->executing", "executing->applied"),
+            sent(),
+        )
+        assertEquals("enabled", api.transitions.last().resultCode)
+        assertEquals(listOf(true), debugWrites)
+        assertEquals("applied", dao.commands.getValue("c1").state)
+        assertEquals(0, restartCalls)
+        assertTrue(resetCalls.isEmpty())
+    }
+
+    @Test
+    fun `debug mode disable writes the preference exactly once`() = runBlocking {
+        debug = true
+        seed("c1", type = "debug_mode_off")
+
+        processor().processPending()
+
+        assertEquals("disabled", api.transitions.last().resultCode)
+        assertEquals(listOf(false), debugWrites)
+        assertEquals("applied", dao.commands.getValue("c1").state)
+        assertTrue(resetCalls.isEmpty())
+    }
+
+    @Test
+    fun `debug mode already enabled skips the write`() = runBlocking {
+        debug = true
+        seed("c1", type = "debug_mode_on")
+
+        processor().processPending()
+
+        assertEquals("already_enabled", api.transitions.last().resultCode)
+        assertTrue(debugWrites.isEmpty())
+        assertEquals("applied", dao.commands.getValue("c1").state)
+    }
+
+    @Test
+    fun `debug mode already disabled skips the write`() = runBlocking {
+        debug = false
+        seed("c1", type = "debug_mode_off")
+
+        processor().processPending()
+
+        assertEquals("already_disabled", api.transitions.last().resultCode)
+        assertTrue(debugWrites.isEmpty())
+        assertEquals("applied", dao.commands.getValue("c1").state)
+    }
+
+    @Test
+    fun `debug mode preference failure fails the command without touching reset`() = runBlocking {
+        debugWriteFails = true
+        debug = false
+        seed("c1", type = "debug_mode_on")
+
+        processor().processPending()
+
+        assertEquals(
+            listOf("queued->received", "received->executing", "executing->failed"),
+            sent(),
+        )
+        assertEquals("debug_mode_write_failed", api.transitions.last().resultCode)
+        assertEquals("failed", dao.commands.getValue("c1").state)
+        assertTrue(resetCalls.isEmpty())
+    }
+
+    @Test
+    fun `interrupted debug mode enable is re-applied idempotently`() = runBlocking {
+        debug = false
+        seed("c1", type = "debug_mode_on", state = "executing")
+
+        processor().processPending()
+
+        assertEquals(listOf("executing->applied"), sent())
+        assertEquals(listOf(true), debugWrites)
+        assertEquals("applied", dao.commands.getValue("c1").state)
+        assertEquals(0, restartCalls)
+    }
+
+    @Test
+    fun `interrupted debug mode disable is re-applied`() = runBlocking {
+        debug = true
+        seed("c1", type = "debug_mode_off", state = "executing")
+
+        processor().processPending()
+
+        assertEquals(listOf("executing->applied"), sent())
+        assertEquals("disabled", api.transitions.single().resultCode)
+        assertEquals(listOf(false), debugWrites)
+        assertEquals("applied", dao.commands.getValue("c1").state)
     }
 }

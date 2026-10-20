@@ -37,7 +37,8 @@ $$;
 insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_anonymous) values
     ('00000000-0000-0000-0000-000000000000', '0d0d0d0d-0000-4000-8000-0000000000d1', 'authenticated', 'authenticated', now(), now(), false),
     ('00000000-0000-0000-0000-000000000000', '0d0d0d0d-0000-4000-8000-0000000000d2', 'authenticated', 'authenticated', now(), now(), false),
-    ('00000000-0000-0000-0000-000000000000', '0d0d0d0d-0000-4000-8000-0000000000d3', 'authenticated', 'authenticated', now(), now(), true);
+    ('00000000-0000-0000-0000-000000000000', '0d0d0d0d-0000-4000-8000-0000000000d3', 'authenticated', 'authenticated', now(), now(), true),
+    ('00000000-0000-0000-0000-000000000000', '0d0d0d0d-0000-4000-8000-0000000000d4', 'authenticated', 'authenticated', now(), now(), true);
 
 -- ─── Structure ───────────────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ begin
     foreach target in array array[
         'accounts_handle_lower_uidx', 'devices_account_active_idx',
         'device_status_account_seen_idx', 'account_actions_account_created_idx',
+        'account_actions_device_idx',
         'device_commands_device_pending_idx', 'device_commands_account_created_idx',
         'command_events_command_created_idx', 'command_events_account_created_idx'
     ] loop
@@ -152,6 +154,54 @@ select pg_temp.expect_error(
       values ('aa000000-0000-4000-8000-0000000000d1', 'dd000000-0000-4000-8000-0000000000d1',
               '0d0d0d0d-0000-4000-8000-0000000000d1', 'reset_timer', now() + interval '24 hours')$$,
     '23505'
+);
+
+-- ─── Device-targeted debug mode actions ─────────────────────────────────────
+
+insert into public.devices (id, account_id, auth_user_id, installation_id, name)
+values ('dd000000-0000-4000-8000-0000000000d2', '0d0d0d0d-0000-4000-8000-0000000000d1',
+        '0d0d0d0d-0000-4000-8000-0000000000d4', '2d000000-0000-4000-8000-0000000000d2', 'Device Two');
+
+insert into public.account_actions (id, account_id, action_type, idempotency_key, expires_at, device_id)
+values ('aa000000-0000-4000-8000-0000000000d2', '0d0d0d0d-0000-4000-8000-0000000000d1',
+        'debug_mode_on', 'cc000000-0000-4000-8000-0000000000d2', now() + interval '24 hours',
+        'dd000000-0000-4000-8000-0000000000d1');
+
+insert into public.device_commands (id, action_id, device_id, account_id, command_type, expires_at)
+values ('ee000000-0000-4000-8000-0000000000d2', 'aa000000-0000-4000-8000-0000000000d2',
+        'dd000000-0000-4000-8000-0000000000d1', '0d0d0d0d-0000-4000-8000-0000000000d1',
+        'debug_mode_on', now() + interval '24 hours');
+
+-- a debug action's command must target the same device
+select pg_temp.expect_error(
+    $$insert into public.device_commands (action_id, device_id, account_id, command_type, expires_at)
+      values ('aa000000-0000-4000-8000-0000000000d2', 'dd000000-0000-4000-8000-0000000000d2',
+              '0d0d0d0d-0000-4000-8000-0000000000d1', 'debug_mode_on', now() + interval '24 hours')$$,
+    'P0001'
+);
+
+-- scope: debug actions require a device; legacy actions must not carry one
+select pg_temp.expect_error(
+    $$insert into public.account_actions (account_id, action_type, idempotency_key, expires_at)
+      values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'debug_mode_off',
+              'cc000000-0000-4000-8000-0000000000d3', now() + interval '10 minutes')$$,
+    '23514'
+);
+select pg_temp.expect_error(
+    $$insert into public.account_actions (account_id, action_type, idempotency_key, expires_at, device_id)
+      values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'reset_timer',
+              'cc000000-0000-4000-8000-0000000000d4', now() + interval '24 hours',
+              'dd000000-0000-4000-8000-0000000000d1')$$,
+    '23514'
+);
+
+-- unknown action types stay rejected (device_commands inherits the allowlist through the trigger)
+select pg_temp.expect_error(
+    $$insert into public.account_actions (account_id, action_type, idempotency_key, expires_at, device_id)
+      values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'set_debug_mode',
+              'cc000000-0000-4000-8000-0000000000d5', now() + interval '1 hour',
+              'dd000000-0000-4000-8000-0000000000d1')$$,
+    '23514'
 );
 
 -- cascade behavior: deleting the account removes everything below it

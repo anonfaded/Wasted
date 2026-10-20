@@ -67,6 +67,7 @@ class RemoteEngine private constructor(
                     DeviceAdminManager(ctx).getResetSupport().isSupported
                 },
                 debugMode = { Preferences.new(ctx).isDebugMode },
+                setDebugMode = { enabled -> Preferences.new(ctx).isDebugMode = enabled },
                 reset = { ResetExecutor.create(ctx).execute() },
             )
 

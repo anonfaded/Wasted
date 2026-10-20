@@ -52,6 +52,14 @@ Only encrypted device may guarantee that the data will not be recoverable.
 
 Be aware that the app does not work in _safe mode_.
 
+## Remote Management
+
+This fork adds optional remote management through your own Supabase project. It is disabled by default and performs no network work until it is configured, enrolled, and enabled.
+
+* A static dashboard lets you sign in, see enrolled devices, sync Lock Timer / USB Trigger, and queue Reset Timer or Force Reset.
+* Debug Mode is ON by default and blocks destructive remote commands. The dashboard can enable it directly, or disable it after a danger confirmation (the same semantics as the in-app toggle). Enabling applies immediately; disabling expires after 10 minutes if the device does not reconnect, and supersedes any pending Force Reset.
+* Remote commands never bypass the on-device `ResetExecutor` Debug Mode check.
+
 ## Broadcast
 
 * action: `me.lucky.wasted.action.TRIGGER`

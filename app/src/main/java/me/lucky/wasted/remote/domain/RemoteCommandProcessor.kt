@@ -21,6 +21,7 @@ class RemoteCommandProcessor(
     private val timer: RemoteTimerPort,
     private val resetSupported: () -> Boolean,
     private val debugMode: () -> Boolean,
+    private val setDebugMode: (Boolean) -> Unit,
     private val reset: () -> ResetResult,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -38,6 +39,8 @@ class RemoteCommandProcessor(
 
         private const val TYPE_RESET_TIMER = "reset_timer"
         private const val TYPE_FORCE_RESET = "force_reset"
+        private const val TYPE_DEBUG_ON = "debug_mode_on"
+        private const val TYPE_DEBUG_OFF = "debug_mode_off"
     }
 
     data class ProcessOutcome(val processed: Int, val failed: Int)
@@ -60,23 +63,62 @@ class RemoteCommandProcessor(
     /** Force Reset rows interrupted before `reset_initiated` are never resumed destructively. */
     private suspend fun recoverInterrupted(deviceId: String) {
         for (row in dao.commandsInStates(listOf(STATE_EXECUTING))) {
-            if (row.type == TYPE_FORCE_RESET) {
-                sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_FAILED, "interrupted_before_reset")
-                dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
-                Log.w(TAG, "Interrupted Force Reset ${row.commandId} failed safely")
-            } else {
-                val restarted = safeRestartTimer()
-                sendTransition(
-                    deviceId,
-                    row.commandId,
-                    STATE_EXECUTING,
-                    STATE_APPLIED,
-                    if (restarted) "restarted" else "inactive",
-                )
-                dao.updateCommandState(row.commandId, STATE_APPLIED, row.executingAt, clock())
-                Log.i(TAG, "Interrupted Reset Timer ${row.commandId} completed idempotently")
+            when (row.type) {
+                TYPE_FORCE_RESET -> {
+                    sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_FAILED, "interrupted_before_reset")
+                    dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+                    Log.w(TAG, "Interrupted Force Reset ${row.commandId} failed safely")
+                }
+                TYPE_DEBUG_ON, TYPE_DEBUG_OFF -> recoverInterruptedDebugMode(deviceId, row)
+                else -> {
+                    val restarted = safeRestartTimer()
+                    sendTransition(
+                        deviceId,
+                        row.commandId,
+                        STATE_EXECUTING,
+                        STATE_APPLIED,
+                        if (restarted) "restarted" else "inactive",
+                    )
+                    dao.updateCommandState(row.commandId, STATE_APPLIED, row.executingAt, clock())
+                    Log.i(TAG, "Interrupted Reset Timer ${row.commandId} completed idempotently")
+                }
             }
         }
+    }
+
+    /** Re-applies the requested Debug Mode value; the write is idempotent by nature. */
+    private suspend fun recoverInterruptedDebugMode(
+        deviceId: String,
+        row: RemoteCommandJournalEntity,
+    ) {
+        val enabled = row.type == TYPE_DEBUG_ON
+        if (!runCatching { setDebugMode(enabled) }.isSuccess) {
+            when (
+                sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_FAILED, "debug_mode_write_failed")
+            ) {
+                SendResult.RETRYABLE -> Unit
+                SendResult.OK, SendResult.FATAL -> {
+                    dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+                    Log.w(TAG, "Interrupted debug mode ${row.commandId} failed: preference unavailable")
+                }
+            }
+            return
+        }
+
+        when (
+            sendTransition(
+                deviceId,
+                row.commandId,
+                STATE_EXECUTING,
+                STATE_APPLIED,
+                if (enabled) "enabled" else "disabled",
+            )
+        ) {
+            SendResult.OK -> dao.updateCommandState(row.commandId, STATE_APPLIED, row.executingAt, clock())
+            SendResult.RETRYABLE -> Unit
+            SendResult.FATAL -> dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+        }
+        Log.i(TAG, "Interrupted debug mode ${row.commandId} re-applied (enabled=$enabled)")
     }
 
     private suspend fun processOne(deviceId: String, row: RemoteCommandJournalEntity): Boolean {
@@ -95,6 +137,8 @@ class RemoteCommandProcessor(
         return when (current.type) {
             TYPE_RESET_TIMER -> executeResetTimer(deviceId, current)
             TYPE_FORCE_RESET -> executeForceReset(deviceId, current)
+            TYPE_DEBUG_ON -> executeSetDebugMode(deviceId, current, enabled = true)
+            TYPE_DEBUG_OFF -> executeSetDebugMode(deviceId, current, enabled = false)
             else -> {
                 dao.updateCommandState(current.commandId, STATE_FAILED, current.receivedAt, clock())
                 false
@@ -187,6 +231,70 @@ class RemoteCommandProcessor(
         val result = runCatching { reset() }.getOrElse { ResetResult.Failed("reset failed") }
         Log.i(TAG, "Force Reset ${row.commandId} executed once: ${result::class.simpleName}")
         return true
+    }
+
+    /**
+     * Remote Debug Mode control. This command is the safety toggle itself, so it is never gated
+     * by the current Debug Mode value and never touches the destructive boundary.
+     */
+    private suspend fun executeSetDebugMode(
+        deviceId: String,
+        row: RemoteCommandJournalEntity,
+        enabled: Boolean,
+    ): Boolean {
+        when (sendTransition(deviceId, row.commandId, STATE_RECEIVED, STATE_EXECUTING)) {
+            SendResult.OK -> Unit
+            SendResult.RETRYABLE -> return false
+            SendResult.FATAL -> {
+                dao.updateCommandState(row.commandId, STATE_FAILED, row.receivedAt, clock())
+                return false
+            }
+        }
+        dao.updateCommandState(row.commandId, STATE_EXECUTING, clock(), null)
+
+        val previous = runCatching { debugMode() }.getOrNull()
+        if (previous == enabled) {
+            return finishDebugMode(
+                deviceId,
+                row,
+                if (enabled) "already_enabled" else "already_disabled",
+            )
+        }
+
+        if (!runCatching { setDebugMode(enabled) }.isSuccess) {
+            return when (
+                sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_FAILED, "debug_mode_write_failed")
+            ) {
+                SendResult.RETRYABLE -> false
+                SendResult.OK, SendResult.FATAL -> {
+                    dao.updateCommandState(row.commandId, STATE_FAILED, clock(), clock())
+                    Log.w(TAG, "Debug mode ${row.commandId} failed to write the preference")
+                    false
+                }
+            }
+        }
+
+        val applied = finishDebugMode(deviceId, row, if (enabled) "enabled" else "disabled")
+        if (applied) Log.i(TAG, "Debug mode set to $enabled for ${row.commandId}")
+        return applied
+    }
+
+    private suspend fun finishDebugMode(
+        deviceId: String,
+        row: RemoteCommandJournalEntity,
+        resultCode: String,
+    ): Boolean = when (
+        sendTransition(deviceId, row.commandId, STATE_EXECUTING, STATE_APPLIED, resultCode)
+    ) {
+        SendResult.OK -> {
+            dao.updateCommandState(row.commandId, STATE_APPLIED, row.executingAt, clock())
+            true
+        }
+        SendResult.RETRYABLE -> false
+        SendResult.FATAL -> {
+            dao.updateCommandState(row.commandId, STATE_FAILED, clock(), clock())
+            false
+        }
     }
 
     private fun safeRestartTimer(): Boolean =

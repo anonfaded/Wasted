@@ -3,7 +3,7 @@ import { wireAuth, currentSession, onAuthChange, signOut } from "./auth.js";
 import { fetchDashboardData } from "./devices.js";
 import { createEnrollmentToken, tokenExpiryLabel } from "./enrollment.js";
 import { saveAccountSettings } from "./settings.js";
-import { createAction, newIdempotencyKey, RESET_TIMER, FORCE_RESET } from "./commands.js";
+import { createAction, setDeviceDebugMode, newIdempotencyKey, RESET_TIMER, FORCE_RESET } from "./commands.js";
 import {
   extrapolatedRemaining,
   isRecentlyConnected,
@@ -217,6 +217,10 @@ function renderDevices() {
             className: "badge debug",
             text: !status ? "unknown" : status.debug_mode ? "ON (wipes blocked)" : "OFF",
           }),
+          el("span", { className: "inline-actions" }, [
+            debugButton(device.id, true),
+            debugButton(device.id, false),
+          ]),
         ]),
         el("dt", { text: "Reset support" }),
         el("dd", { text: !status ? "unknown" : status.reset_supported ? "supported" : "not supported" }),
@@ -280,7 +284,67 @@ function tickTimers() {
   }
 }
 
+function debugButton(deviceId, enable) {
+  return el("button", {
+    className: `small ${enable ? "" : "danger-outline"}`.trim(),
+    text: enable ? "Enable" : "Disable",
+    attrs: {
+      type: "button",
+      "data-debug-device": deviceId,
+      "data-debug-enable": enable ? "true" : "false",
+    },
+  });
+}
+
+/** Enable and Disable both explain the effect; Disable keeps the danger styling. */
+async function toggleDebugMode(deviceId, enabled, button) {
+  const confirmed = await confirmAction(
+    enabled
+      ? {
+          title: "Turn Debug Mode ON?",
+          message:
+            "Debug Mode blocks destructive remote commands: a Force Reset will be " +
+            "logged and notified on the device instead of executing. Reset Timer and " +
+            "settings sync keep working.",
+          confirmLabel: "Enable",
+          danger: false,
+        }
+      : {
+          title: "Turn Debug Mode OFF?",
+          message:
+            "While Debug Mode is OFF, dangerous commands (including a remote Force Reset) " +
+            "can wipe this device.",
+          confirmLabel: "Disable",
+        },
+  );
+  if (!confirmed) return;
+
+  const group = button.closest(".inline-actions");
+  const buttons = group ? [...group.querySelectorAll("button")] : [button];
+  for (const candidate of buttons) candidate.disabled = true;
+
+  try {
+    await setDeviceDebugMode(state.client, deviceId, enabled, newIdempotencyKey());
+    toast(`${enabled ? "Enable" : "Disable"} command queued for 1 device.`);
+    scheduleRefresh();
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    for (const candidate of buttons) candidate.disabled = false;
+  }
+}
+
 function wireDashboard() {
+  $("#devices").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-debug-device]");
+    if (!button) return;
+    toggleDebugMode(
+      button.dataset.debugDevice,
+      button.dataset.debugEnable === "true",
+      button,
+    );
+  });
+
   $("#settings-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const settings = state.data.settings;
