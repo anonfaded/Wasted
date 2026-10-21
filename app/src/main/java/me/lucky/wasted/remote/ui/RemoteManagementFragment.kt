@@ -74,6 +74,7 @@ class RemoteManagementFragment : Fragment() {
     }
 
     private fun init() = with(binding) {
+        deviceName.editText?.setText(Build.MODEL ?: "")
         configStore.load()?.let { config ->
             projectUrl.editText?.setText(config.projectUrl)
             publishableKey.editText?.setText(config.publishableKey)
@@ -436,6 +437,10 @@ class RemoteManagementFragment : Fragment() {
             return
         }
         binding.enrollmentToken.error = null
+        val deviceName = binding.deviceName.editText?.text?.toString()?.trim()
+            .orEmpty()
+            .ifBlank { Build.MODEL ?: "Android device" }
+            .take(80)
         scope.launch {
             val message = withContext(Dispatchers.IO) {
                 val repository = SupabaseRemoteRepository(configStore, credentials)
@@ -445,7 +450,7 @@ class RemoteManagementFragment : Fragment() {
                         ClaimEnrollmentParams(
                             token = token,
                             installationId = credentials.installationId,
-                            deviceName = Build.MODEL ?: "Android device",
+                            deviceName = deviceName,
                             lockTimerMinutes = prefs.triggerLockCount,
                             usbTriggerEnabled = prefs.triggers.and(Trigger.USB.value) != 0,
                         ),

@@ -405,7 +405,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Netlify Drop note: the new site is password-protected and expires after 1 hour until you claim it. Click Claim this site on the Netlify page and sign in or sign up. Then copy the final https://… URL. If it expires, host the file again and update the Dashboard URL in Remote Management. After you have the final URL, set Supabase → Authentication → URL Configuration → Site URL to it so confirmation emails return to the dashboard."
+                    android:text="Netlify Drop note: the new site is password-protected and expires after 1 hour until you claim it. Click Claim this site on the Netlify page and sign in or sign up. Then copy the final https://… URL. If it expires, host the file again and update the Dashboard URL in Remote Management. If you already have a dashboard, replace index.html in the same Netlify site; do not create a new site, or the URL changes. After you have the final URL, set Supabase → Authentication → URL Configuration → Site URL to it so confirmation emails return to the dashboard."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.textfield.TextInputLayout

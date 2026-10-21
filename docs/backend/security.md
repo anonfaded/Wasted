@@ -61,6 +61,18 @@ URL + publishable key.
 - The publishable key is public by design; it identifies the project but does not authorize data
   access.
 
+## Auth input handling
+
+- Emails are trimmed and lowercased before Supabase Auth; the dashboard uses `type=email`,
+  `maxlength=254`, and native form validation. Supabase validates again server-side.
+- Passwords are never trimmed or altered. The UI enforces at least 12 characters; Supabase Auth
+  rate limits apply. Configure the project's minimum password length if you need a server-side
+  floor as well.
+- Account names are validated against the documented 3–32 character charset; device names are
+  1–80 characters.
+- Dynamic values are rendered with `textContent`, not HTML interpolation; RPC parameters are
+  parameterized and RLS/RPC ownership checks remain the authorization boundary.
+
 ## Device lifecycle
 
 - **Revoke** immediately stops commands for that device and hides it from the dashboard's active

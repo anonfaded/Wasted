@@ -35,6 +35,7 @@
       <div class="field">
         <label for="sign-in-email">Email</label>
         <input id="sign-in-email" name="email" type="email" autocomplete="username"
+               autocapitalize="none" spellcheck="false"
                maxlength="254" placeholder="you@example.com" required>
       </div>
       <div class="field">
@@ -51,6 +52,7 @@
       <div class="field">
         <label for="create-email">Email</label>
         <input id="create-email" name="email" type="email" autocomplete="email"
+               autocapitalize="none" spellcheck="false"
                maxlength="254" placeholder="you@example.com" required>
       </div>
       <div class="field">
@@ -60,12 +62,12 @@
         <p class="hint">At least 12 characters.</p>
       </div>
       <div class="field">
-        <label for="create-handle">Account handle</label>
+        <label for="create-handle">Account name</label>
         <input id="create-handle" name="handle" type="text" autocomplete="off" maxlength="32"
                pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"
-               placeholder="e.g. alex-wasted"
+               placeholder="Alex"
                title="3–32 characters: letters, digits, dot, dash, underscore" required>
-        <p class="hint">Shown on the dashboard. 3–32 characters.</p>
+        <p class="hint">Shown in the dashboard. 3–32 characters.</p>
       </div>
       <div class="actions">
         <button id="create-account" type="submit" class="primary">Create Account</button>
@@ -124,6 +126,10 @@
           hosted dashboard can attempt to create an account, though your data stays protected by
           the database rules. Keep the URL private if you do not want that. Never share your
           Supabase password or a secret key.
+        </p>
+        <p class="muted">
+          <strong>Updating:</strong> replace <code>index.html</code> in the same Netlify site.
+          Creating a new site changes the URL and requires updating Remote Management.
         </p>
       </div>
     </details>
@@ -184,16 +190,16 @@
     <section id="account-setup" class="panel" hidden aria-labelledby="account-setup-title">
       <h3 id="account-setup-title">Finish account setup</h3>
       <p class="section-desc">
-        Your sign-in worked, but the owner profile is missing. Choose a handle to finish setup.
+        Your sign-in worked, but the owner profile is missing. Choose an account name to finish setup.
       </p>
       <form id="account-setup-form" novalidate>
         <div class="field">
-          <label for="setup-handle">Account handle</label>
+          <label for="setup-handle">Account name</label>
           <input id="setup-handle" name="setupHandle" type="text" autocomplete="off" maxlength="32"
                  pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"
-                 placeholder="e.g. alex-wasted" required
+                 placeholder="Alex" required
                  title="3–32 characters: letters, digits, dot, dash, underscore">
-          <p class="hint">3–32 characters: letters, digits, dot, dash, underscore.</p>
+          <p class="hint">Shown in the dashboard. 3–32 characters.</p>
         </div>
         <div class="actions">
           <button type="submit" class="primary">Finish setup</button>

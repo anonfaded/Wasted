@@ -26,6 +26,15 @@ export function wireAuth(client) {
   $("#show-create").addEventListener("click", () => showMode("create"));
   $("#show-sign-in").addEventListener("click", () => showMode("sign-in"));
 
+  for (const input of [$("#sign-in-email"), $("#create-email")]) {
+    if (!input) continue;
+    input.addEventListener("input", () => sanitizeEmailInput(input));
+    input.addEventListener("blur", () => sanitizeEmailInput(input));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === " ") event.preventDefault();
+    });
+  }
+
   signInForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!signInForm.reportValidity()) return;
@@ -86,7 +95,10 @@ export function onAuthChange(client, callback) {
 }
 
 export async function signIn(client, email, password) {
-  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  const { data, error } = await client.auth.signInWithPassword({
+    email: normalizeEmail(email),
+    password,
+  });
   if (error) throw new Error(friendlyAuthError(error.message));
   return data.session;
 }
@@ -97,7 +109,7 @@ export async function createAccount(client, email, password, handle) {
   }
   const redirectTo = `${window.location.origin}${window.location.pathname}`;
   const { data, error } = await client.auth.signUp({
-    email,
+    email: normalizeEmail(email),
     password,
     options: { emailRedirectTo: redirectTo },
   });
@@ -117,6 +129,21 @@ export async function createAccount(client, email, password, handle) {
 
 export async function signOut(client) {
   await client.auth.signOut();
+}
+
+function normalizeEmail(value) {
+  return String(value ?? "").replace(/\s+/g, "").toLowerCase();
+}
+
+function sanitizeEmailInput(input) {
+  const original = input.value;
+  const cleaned = normalizeEmail(original);
+  if (cleaned === original) return;
+  const start = input.selectionStart ?? original.length;
+  const removedBeforeCursor = (original.slice(0, start).match(/\s/g) ?? []).length;
+  input.value = cleaned;
+  const position = Math.max(0, Math.min(cleaned.length, start - removedBeforeCursor));
+  input.setSelectionRange(position, position);
 }
 
 function friendlyAuthError(message) {

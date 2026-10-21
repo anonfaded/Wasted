@@ -89,6 +89,9 @@ The dashboard file is generated **by the app**, already configured with your own
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app.
 
+When updating an existing dashboard, replace `index.html` in the **same Netlify site**; creating a new
+site changes the URL and requires updating Remote Management.
+
 ### Building the APK
 
 `./gradlew assembleSignedRelease` (or `assembleDebug` for development) requires Node.js 20+. The

@@ -29,13 +29,16 @@ or unclaimed. Claim it, wait for the claim to finish, then test the final URL ag
 - **Vercel** — `vercel deploy --prod` from a folder containing only `index.html`.
 - Any HTTPS static host (S3 + CloudFront, nginx, Caddy, …).
 
-No redirect URLs or CORS setup is needed (password sign-in only). HTTPS is required.
+No CORS setup is needed (password sign-in only). If Confirm email is enabled, set the Supabase Auth
+**Site URL/redirect URL** to the dashboard URL. HTTPS is required.
 
 ## Updating the dashboard
 
-Regenerate the file in the app and drag the new file to the same host. Keep the previous file if you
-want a rollback path. If the publishable key rotates, regenerate the file and update the app's saved
-key.
+Regenerate the file in the app and drag the new `index.html` to the **same host and site**. On
+Netlify Drop, open the claimed site and replace/redeploy the file there — do **not** create a new
+site, because that changes the URL and you would have to update Remote Management. Keep the previous
+file if you want a rollback path. If the publishable key rotates, regenerate the file and update the
+app's saved key.
 
 ## Backups and restore
 
