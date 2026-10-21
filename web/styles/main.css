@@ -278,6 +278,16 @@ button.small {
 
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
+/* Theme-aware text selection (avoid the browser/OS accent color). */
+::selection {
+  background: var(--ink);
+  color: var(--ink-inverse);
+}
+::-moz-selection {
+  background: var(--ink);
+  color: var(--ink-inverse);
+}
+
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; margin-top: 0.85rem; }
 
 .message { min-height: 1.2em; margin: 0.5rem 0 0; font-size: 0.86rem; font-family: var(--mono); }
