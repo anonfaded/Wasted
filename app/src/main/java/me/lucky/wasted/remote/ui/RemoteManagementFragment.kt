@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 import me.lucky.wasted.Preferences
+import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
 import me.lucky.wasted.databinding.FragmentRemoteManagementBinding
@@ -32,6 +34,8 @@ import me.lucky.wasted.remote.domain.RemoteConfig
 import me.lucky.wasted.remote.domain.RemoteConfigError
 import me.lucky.wasted.remote.domain.RemoteConfigField
 import me.lucky.wasted.remote.domain.RemoteConfigValidator
+import me.lucky.wasted.remote.domain.RemoteError
+import me.lucky.wasted.remote.domain.RemoteException
 import me.lucky.wasted.remote.domain.SyncOutcome
 import me.lucky.wasted.trigger.shared.NotificationManager
 import okhttp3.OkHttpClient
@@ -45,6 +49,8 @@ class RemoteManagementFragment : Fragment() {
     private lateinit var configStore: RemoteConfigStore
     private lateinit var credentials: RemoteCredentialStore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var defaultDashboardStrokeColor = 0
+    private var defaultDashboardStatusColor = 0
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -52,6 +58,8 @@ class RemoteManagementFragment : Fragment() {
         savedInstanceState: Bundle?,
     ): View {
         binding = FragmentRemoteManagementBinding.inflate(inflater, container, false)
+        defaultDashboardStrokeColor = binding.websiteUrl.boxStrokeColor
+        defaultDashboardStatusColor = binding.dashboardStatus.currentTextColor
         prefs = Preferences.new(requireContext())
         configStore = RemoteConfigStore.new(requireContext())
         credentials = RemoteCredentialStore.new(requireContext())
@@ -136,7 +144,6 @@ class RemoteManagementFragment : Fragment() {
         detachListeners()
         val config = configStore.load()
         val draft = if (config == null) configStore.loadDraft() else null
-        setupGuide.visibility = if (config == null && draft == null) View.VISIBLE else View.GONE
         enableRemote.isChecked = configStore.remoteEnabled
         debugMode.isChecked = prefs.isDebugMode
         notifications.isChecked = credentials.notificationsEnabled
@@ -148,7 +155,7 @@ class RemoteManagementFragment : Fragment() {
                 if (draft != null) {
                     append("Project details saved. Next: host the dashboard, paste its URL under 2. Dashboard URL, and tap Save connection.")
                 } else {
-                    append("Not set up yet. Start with the setup wizard above.")
+                    append("Not set up yet. Start with the setup wizard below.")
                 }
             } else {
                 append("Connection saved.")
@@ -219,10 +226,12 @@ class RemoteManagementFragment : Fragment() {
             val message = withContext(Dispatchers.IO) {
                 val repository = SupabaseRemoteRepository(configStore, credentials)
                 try {
-                    repository.ensureAnonymousSession()
+                    repository.testConnection()
                     "Supabase connection OK."
+                } catch (e: RemoteException) {
+                    "Supabase connection failed: ${connectionErrorMessage(e.error)}"
                 } catch (e: Exception) {
-                    "Supabase connection failed: ${e.message}"
+                    "Supabase connection failed: ${e.message ?: "unknown error"}"
                 } finally {
                     repository.close()
                 }
@@ -234,14 +243,17 @@ class RemoteManagementFragment : Fragment() {
     private fun testDashboard() {
         val raw = binding.websiteUrl.editText?.text?.toString()?.trim().orEmpty()
         if (raw.isEmpty()) {
+            setDashboardTestVisual(false)
             binding.dashboardStatus.text = "Enter the hosted dashboard URL first."
             return
         }
         val uri = runCatching { java.net.URI(raw) }.getOrNull()
         if (uri?.scheme != "https" || uri.host.isNullOrBlank()) {
+            setDashboardTestVisual(false)
             binding.dashboardStatus.text = "Enter a valid HTTPS URL."
             return
         }
+        setDashboardTestVisual(false)
         binding.dashboardStatus.text = "Checking…"
         scope.launch {
             val code = withContext(Dispatchers.IO) {
@@ -255,12 +267,59 @@ class RemoteManagementFragment : Fragment() {
                         .use { it.code }
                 }.getOrNull()
             }
-            binding.dashboardStatus.text = when {
-                code == null -> "Could not reach the dashboard."
-                code in 200..299 -> "Dashboard is reachable (HTTP $code)."
-                else -> "Dashboard responded with HTTP $code."
+            when {
+                code == null -> {
+                    setDashboardTestVisual(false)
+                    binding.dashboardStatus.text = "Could not reach the dashboard. Check the URL and your connection."
+                }
+                code in 200..299 -> {
+                    setDashboardTestVisual(true)
+                    binding.dashboardStatus.text = "Dashboard is reachable (HTTP $code)."
+                }
+                code == 401 || code == 403 -> {
+                    setDashboardTestVisual(false)
+                    binding.dashboardStatus.text =
+                        "Dashboard responded with HTTP $code. Netlify Drop sites are password-protected until claimed. Open the site, click Claim this site, then test again."
+                }
+                code == 404 -> {
+                    setDashboardTestVisual(false)
+                    binding.dashboardStatus.text =
+                        "Dashboard responded with HTTP 404. Make sure the uploaded file is named index.html at the site root."
+                }
+                else -> {
+                    setDashboardTestVisual(false)
+                    binding.dashboardStatus.text = "Dashboard responded with HTTP $code."
+                }
             }
         }
+    }
+
+    private fun setDashboardTestVisual(success: Boolean) {
+        val green = ContextCompat.getColor(requireContext(), R.color.green_500)
+        binding.websiteUrl.setBoxStrokeColor(
+            if (success) green else defaultDashboardStrokeColor,
+        )
+        binding.dashboardStatus.setTextColor(
+            if (success) green else defaultDashboardStatusColor,
+        )
+    }
+
+    private fun connectionErrorMessage(error: RemoteError): String = when (error) {
+        RemoteError.Network -> "network unavailable. Check your internet connection."
+        is RemoteError.RateLimited ->
+            "Supabase rate-limited the request. Wait a minute and try again."
+        is RemoteError.Server ->
+            "Supabase server error (${error.statusCode}). Try again shortly."
+        RemoteError.Authentication ->
+            "Supabase rejected the key. Check the Project URL and publishable key."
+        RemoteError.RlsDenied ->
+            "Supabase denied access. Check that setup.sql ran successfully."
+        RemoteError.Conflict ->
+            "Supabase reported a configuration conflict."
+        RemoteError.Validation ->
+            "Supabase rejected the request. Enable “Allow anonymous sign-ins” in Authentication → Providers, then check the Project URL and publishable key."
+        is RemoteError.Unknown ->
+            "unexpected Supabase error. Check the Project URL/key and Auth settings."
     }
 
     private fun openWebsite() {

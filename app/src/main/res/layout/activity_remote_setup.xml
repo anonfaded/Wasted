@@ -101,7 +101,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:text="Create the Supabase database, Authentication settings, and dashboard file. Best for first-time setup."
+                            android:text="Create the Supabase database, Authentication settings, and dashboard file. Choose this even if you only need to generate and download the dashboard HTML file."
                             android:textAppearance="?attr/textAppearanceBodySmall" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -213,6 +213,20 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="These details stay on this device and are written into the dashboard file later. Tap Continue when both fields are filled in."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/skipToDashboard"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Skip to dashboard file" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Use this if you already have the Project URL and publishable key and only want the dashboard HTML file. You can finish the SQL and Auth steps later."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
             </LinearLayout>
         </ScrollView>
@@ -334,7 +348,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Tap Generate dashboard file. The app reads the Project URL and publishable key you saved in step 1 and writes them into one HTML file. That file is the dashboard website you will host — it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
+                    android:text="Tap Generate dashboard file. The app reads the Project URL and publishable key you saved in step 1 and writes them into one HTML file named index.html. That file is the dashboard website you will host — it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -376,7 +390,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Upload the saved dashboard file to any HTTPS static host. Easiest is Netlify Drop: drag the file in and copy the https://… URL it gives you. GitHub Pages, Cloudflare Pages, and Vercel also work."
+                    android:text="Upload the saved index.html to any HTTPS static host. Easiest is Netlify Drop: drag the file in and copy the https://… URL it gives you. GitHub Pages, Cloudflare Pages, and Vercel also work."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -386,6 +400,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:text="Open Netlify Drop" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Netlify Drop note: the new site is password-protected and expires after 1 hour until you claim it. Click Claim this site on the Netlify page and sign in or sign up. Then copy the final https://… URL. If it expires, host the file again and update the Dashboard URL in Remote Management."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/dashboardUrl"

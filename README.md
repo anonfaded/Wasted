@@ -79,9 +79,14 @@ The dashboard file is generated **by the app**, already configured with your own
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
 3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and disable **Confirm email**. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
-4. In the wizard, **generate the dashboard file** and save it wherever you like.
-5. Host it: drag the file onto **Netlify Drop** (no account needed to start), claim the site to keep it online, and copy the HTTPS URL. Alternatives: Cloudflare Pages direct upload, GitHub Pages, Vercel, any HTTPS static host.
-6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and Enable. Create an enrollment token in the dashboard and claim it in the app.
+4. In the wizard, **generate the dashboard file** and save it as `index.html`. Netlify Drop requires
+   an `index.html` home page; another filename shows “page not found.”
+5. Host it: drag the file onto **Netlify Drop** (no account needed to start). The temporary site is
+   password-protected and expires after **1 hour** until you click **Claim this site** and sign in or
+   sign up. Copy the final HTTPS URL. Alternatives: Cloudflare Pages direct upload, GitHub Pages,
+   Vercel, any HTTPS static host.
+6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
+   Enable. Create an enrollment token in the dashboard and claim it in the app.
 
 ### Building the APK
 

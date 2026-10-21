@@ -45,14 +45,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="First time setting this up?"
+                    android:text="Setup wizard"
                     android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Use the wizard only if the Supabase database and dashboard are not set up yet. If they already exist, skip it and fill in the connection details below."
+                    android:text="Use it for first-time setup, to generate or regenerate the dashboard file, or to add this device to an existing backend. You can also enter the details directly below."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.button.MaterialButton
@@ -143,7 +143,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Already hosted? Paste its HTTPS URL here and tap Test dashboard URL. If it is not hosted yet, use the setup wizard to generate the file, host it (for example on Netlify Drop), then paste the URL here."
+                android:text="Already hosted? Paste its HTTPS URL here and tap Test dashboard URL. If it is not hosted yet, use the setup wizard to generate index.html, then host it on any HTTPS static host (Netlify Drop, GitHub Pages, Cloudflare Pages, Vercel)."
+                android:textAppearance="?attr/textAppearanceBodySmall" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Netlify Drop note: a new site is password-protected and expires after 1 hour until you claim it. Open the site, click Claim this site, then test again. HTTP 401 means it is still protected."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <com.google.android.material.textfield.TextInputLayout

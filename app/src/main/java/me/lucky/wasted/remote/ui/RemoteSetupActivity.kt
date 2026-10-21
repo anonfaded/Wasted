@@ -110,9 +110,12 @@ class RemoteSetupActivity : AppCompatActivity() {
         binding.openSqlEditor.setOnClickListener { openProjectPage("sql/new") }
         binding.openAuthSettings.setOnClickListener { openProjectPage("auth/providers") }
         binding.generateDashboard.setOnClickListener {
-            if (saveDetails()) createDocument.launch("wasted-dashboard.html")
+            if (saveDetails()) createDocument.launch("index.html")
         }
         binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/drop") }
+        binding.skipToDashboard.setOnClickListener {
+            if (saveDetails()) showStep(STEP_DASHBOARD)
+        }
         binding.backToRemote.setOnClickListener { finish() }
         binding.wizardNext.setOnClickListener { advance() }
 
@@ -338,7 +341,7 @@ class RemoteSetupActivity : AppCompatActivity() {
             }
             dashboardGenerated = saved
             binding.dashboardGeneratedStatus.text = if (saved) {
-                "Dashboard file saved. Upload it to your hosting provider, then tap Continue."
+                "Dashboard file saved as index.html. Upload it to your hosting provider, then tap Continue."
             } else {
                 "Could not save the dashboard file. Try again."
             }
@@ -347,7 +350,7 @@ class RemoteSetupActivity : AppCompatActivity() {
             }
             snackbar(
                 if (saved) {
-                    "Dashboard saved. Upload that file to Netlify Drop or another HTTPS host."
+                    "Dashboard saved as index.html. Upload it to Netlify Drop or another HTTPS host."
                 } else {
                     "Could not save the dashboard file."
                 },

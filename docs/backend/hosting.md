@@ -7,11 +7,20 @@ server, database credential, or CDN dependency.
 ## Steps (Netlify Drop — simplest)
 
 1. In the app: **Remote Management → Open setup wizard** → enter project URL + publishable key.
-2. Tap **Generate dashboard file** and save `wasted-dashboard.html` via the Android file picker.
+2. Tap **Generate dashboard file** and save it as `index.html`. The app suggests this name because
+   Netlify Drop requires an `index.html` home page; a differently named file shows “page not found.”
 3. Open <https://app.netlify.com/drop> and drag the file in.
-4. Netlify gives you an HTTPS URL (`https://…netlify.app`). Claim the site to keep it online;
-   unclaimed deployments are password-protected until claimed.
+4. Netlify gives you a temporary HTTPS URL (`https://…netlify.app`). Until you claim it, the site is
+   password-protected and **expires after 1 hour**. Click **Claim this site**, sign in or sign up,
+   then copy the final HTTPS URL.
 5. Open the URL, create your account, then enter it in the app and enable Remote Management.
+
+If the temporary site expires before you claim it, upload the file again and use the new URL. If you
+later move to a different host or URL, update **Remote Management → 2. Dashboard URL**, save, and test
+again; an old URL stops working, but the device enrollment remains valid.
+
+**HTTP 401 after a dashboard test** usually means the Netlify Drop site is still password-protected
+or unclaimed. Claim it, wait for the claim to finish, then test the final URL again.
 
 ## Alternatives
 

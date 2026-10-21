@@ -38,11 +38,13 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
 ## 3. Generate and host the dashboard
 
 1. In the app: **Remote Management → Open setup wizard**.
-2. Paste the Project URL and publishable key → **Save project details**.
-3. **Generate dashboard file** → save `wasted-dashboard.html` anywhere via the Android file picker.
-4. Host it: drag the file onto <https://app.netlify.com/drop>, claim the site to keep it online, and
-   copy the `https://…netlify.app` URL. Alternatives: Cloudflare Pages, GitHub Pages, Vercel, any
-   HTTPS static host.
+2. Paste the Project URL and publishable key → **Continue**.
+3. **Generate dashboard file** → save it as `index.html` via the Android file picker (the app
+   suggests this name; Netlify Drop needs an `index.html` home page).
+4. Host it: drag the file onto <https://app.netlify.com/drop>. The temporary site is
+   password-protected and expires after 1 hour until you click **Claim this site** and sign in or
+   sign up. Then copy the final `https://…netlify.app` URL. Alternatives: Cloudflare Pages, GitHub
+   Pages, Vercel, any HTTPS static host.
 
 The file contains only the project URL + publishable key. It is not a secret, but anyone who can
 open the URL can attempt to create an account; RLS protects the data.

@@ -57,6 +57,20 @@ class SupabaseRemoteRepository(
         }
     }
 
+    /**
+     * Explicit user-triggered connectivity check. Unlike background sync, this may run while
+     * Remote Management is still disabled, because the user is deliberately testing the saved
+     * connection before enabling network work.
+     */
+    suspend fun testConnection() = guarded {
+        val supabase = clientOrNull(requireEnabled = false)
+            ?: throw IllegalStateException("Remote configuration is not saved")
+        if (supabase.auth.currentSessionOrNull() == null) {
+            supabase.auth.signInAnonymously()
+        }
+        Log.i(TAG, "Connection test passed")
+    }
+
     override suspend fun claimEnrollment(params: ClaimEnrollmentParams): RemoteDeviceDto = guarded {
         Log.d(TAG, "claim_device_enrollment")
         val body = json.encodeToJsonElement(ClaimEnrollmentParams.serializer(), params).jsonObject
@@ -94,9 +108,9 @@ class SupabaseRemoteRepository(
     private fun requireClient(): SupabaseClient =
         clientOrNull() ?: throw IllegalStateException("Remote configuration is not enabled")
 
-    private fun clientOrNull(): SupabaseClient? {
+    private fun clientOrNull(requireEnabled: Boolean = true): SupabaseClient? {
+        if (requireEnabled && !configStore.remoteEnabled) return null
         client?.let { return it }
-        if (!configStore.canStartRemoteWork()) return null
         val config = configStore.load() ?: return null
         return synchronized(this) {
             client ?: createSupabaseClient(
