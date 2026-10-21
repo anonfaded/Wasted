@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Lightweight, portable static dashboard for the Wasted remote-management backend.",
   "scripts": {
+    "dev": "node dev-build.mjs",
     "build": "node build.mjs",
     "build:android-template": "node build-android-template.mjs",
     "test": "node --test tests/*.test.js"

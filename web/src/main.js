@@ -43,6 +43,7 @@ if (!config) {
 
 async function boot(cfg) {
   applyFooter(cfg);
+  applySetupLinks(cfg);
   applyOptionalLink("#footer-privacy", cfg.privacyUrl);
   applyOptionalLink("#footer-support", cfg.supportUrl);
 
@@ -78,6 +79,31 @@ function applyFooter(cfg) {
   $("#footer-product").textContent = product;
   $("#footer-version").textContent = cfg.version ? `— v${cfg.version}` : "";
   $("#footer-version").hidden = !cfg.version;
+}
+
+function applySetupLinks(cfg) {
+  const ref = projectRef(cfg.supabaseUrl);
+  const base = ref
+    ? `https://supabase.com/dashboard/project/${ref}`
+    : "https://supabase.com/dashboard";
+  const project = $("#setup-project-link");
+  if (project) project.href = base;
+  const sql = $("#setup-sql-link");
+  if (sql) sql.href = `${base}/sql/new`;
+  const auth = $("#setup-auth-link");
+  if (auth) auth.href = `${base}/auth/providers`;
+}
+
+function projectRef(value) {
+  try {
+    const host = new URL(value).hostname;
+    if (!host.endsWith(".supabase.co")) return null;
+    const ref = host.slice(0, -".supabase.co".length);
+    if (!/^[a-z0-9-]+$/.test(ref) || /^YOUR-/.test(ref)) return null;
+    return ref;
+  } catch {
+    return null;
+  }
 }
 
 function applyOptionalLink(selector, url) {

@@ -84,24 +84,37 @@
     <p id="auth-message" class="message" role="status"></p>
 
     <details class="help">
-      <summary>First time? Setup guide</summary>
+      <summary>Setup guide</summary>
       <div class="help-body">
         <ol>
-          <li><strong>Create a free Supabase project</strong> at supabase.com.</li>
+          <li><strong>Create a free Supabase project</strong> at
+            <a id="setup-project-link" href="https://supabase.com/dashboard"
+               target="_blank" rel="noopener noreferrer">supabase.com/dashboard</a>.</li>
           <li>In the Wasted app, open <strong>Remote Management → Open setup wizard</strong>.
             Paste the project URL and publishable key from the Supabase Connect dialog or
             Settings → API Keys. Never use the secret/service-role key.</li>
-          <li>In Supabase, open <strong>SQL Editor</strong> and run the setup SQL copied from
-            the wizard (one paste). Then in <strong>Authentication → Providers</strong>:
+          <li>In Supabase, open the
+            <a id="setup-sql-link" href="https://supabase.com/dashboard"
+               target="_blank" rel="noopener noreferrer">SQL Editor</a>
+            and run the setup SQL copied from the wizard (one paste). Then in
+            <a id="setup-auth-link" href="https://supabase.com/dashboard"
+               target="_blank" rel="noopener noreferrer">Authentication → Providers</a>:
             enable “Allow anonymous sign-ins” and disable “Confirm email”.</li>
           <li>In the wizard, <strong>generate the dashboard file</strong> and save it. Host it
-            by dragging it onto <strong>Netlify Drop</strong>; claim the site so it stays
-            online.</li>
+            by dragging it onto
+            <a id="setup-netlify-link" href="https://app.netlify.com/drop"
+               target="_blank" rel="noopener noreferrer">Netlify Drop</a>; claim the site so it
+            stays online.</li>
           <li>Open your new dashboard URL, create an account here, and sign in.</li>
           <li>In the app, paste the hosted URL into Remote Management, Save, and Enable.
             Create an enrollment token below and claim it in the app.</li>
           <li>Send Reset Timer here and confirm the device card updates.</li>
         </ol>
+        <p class="muted">
+          <strong>Confirm email:</strong> the recommended setup disables it, so Create Account
+          signs in immediately. If your project has it enabled, click the confirmation link in
+          the email, then sign in. That email is for the owner account only; devices never use it.
+        </p>
         <p class="muted">
           The dashboard file contains only your project URL and publishable key — these are
           public by design, so sharing the file does not leak secrets. Anyone who can open the

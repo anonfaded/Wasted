@@ -22,3 +22,5 @@ keystore.properties
 evidence/
 web/node_modules/
 web/dist/
+web/config.js
+web/assets/
