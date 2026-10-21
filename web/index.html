@@ -28,50 +28,60 @@
 
 <main id="main">
   <section id="auth-section" aria-labelledby="auth-title" class="panel narrow">
-    <h2 id="auth-title">Sign in</h2>
-    <p class="section-desc">
-      Your email and password sign you in here. Devices never receive them: each device gets its
-      own private identity when you claim a one-time enrollment token. First time? Create an
-      account below.
-    </p>
+    <h2 id="auth-title">Sign In</h2>
+    <p id="auth-subtitle" class="section-desc">Sign in to manage your devices.</p>
 
-    <form id="auth-form" novalidate>
+    <form id="sign-in-form" novalidate>
       <div class="field">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="username"
-               maxlength="254" placeholder="you@example.com"
-               aria-describedby="email-hint" required>
-        <p id="email-hint" class="hint">Use the email you want for this dashboard.</p>
+        <label for="sign-in-email">Email</label>
+        <input id="sign-in-email" name="email" type="email" autocomplete="username"
+               maxlength="254" placeholder="you@example.com" required>
       </div>
       <div class="field">
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password"
-               minlength="12" placeholder="Your password"
-               aria-describedby="password-hint" required>
-        <p id="password-hint" class="hint">
-          At least 12 characters, mixing letters, numbers, and symbols.
-        </p>
-      </div>
-      <div class="field" id="handle-field" hidden>
-        <label for="handle">Account handle</label>
-        <input id="handle" name="handle" type="text" autocomplete="off" maxlength="32"
-               pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"
-               placeholder="e.g. alex-wasted" aria-describedby="handle-hint"
-               title="3–32 characters: letters, digits, dot, dash, underscore">
-        <p id="handle-hint" class="hint">
-          A display name for this dashboard, 3–32 characters (letters, digits, dot,
-          dash, underscore). It is not a login name.
-        </p>
+        <label for="sign-in-password">Password</label>
+        <input id="sign-in-password" name="password" type="password" autocomplete="current-password"
+               minlength="12" placeholder="Your password" required>
       </div>
       <div class="actions">
-        <button id="sign-in" type="submit" class="primary"
-                title="Sign in with your existing account">Sign In</button>
-        <button id="create-account" type="button"
-                title="Create your dashboard account">Create Account</button>
+        <button id="sign-in" type="submit" class="primary">Sign In</button>
       </div>
-      <p class="hint">First time? Choose <strong>Create Account</strong>. A failed sign-in never creates one.</p>
-      <p id="auth-message" class="message" role="status"></p>
     </form>
+
+    <form id="create-account-form" novalidate hidden>
+      <div class="field">
+        <label for="create-email">Email</label>
+        <input id="create-email" name="email" type="email" autocomplete="email"
+               maxlength="254" placeholder="you@example.com" required>
+      </div>
+      <div class="field">
+        <label for="create-password">Password</label>
+        <input id="create-password" name="password" type="password" autocomplete="new-password"
+               minlength="12" placeholder="At least 12 characters" required>
+        <p class="hint">At least 12 characters.</p>
+      </div>
+      <div class="field">
+        <label for="create-handle">Account handle</label>
+        <input id="create-handle" name="handle" type="text" autocomplete="off" maxlength="32"
+               pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"
+               placeholder="e.g. alex-wasted"
+               title="3–32 characters: letters, digits, dot, dash, underscore" required>
+        <p class="hint">Shown on the dashboard. 3–32 characters.</p>
+      </div>
+      <div class="actions">
+        <button id="create-account" type="submit" class="primary">Create Account</button>
+      </div>
+    </form>
+
+    <p class="auth-switch">
+      <span id="show-create-line">New here?
+        <button id="show-create" type="button" class="link">Create an account</button>
+      </span>
+      <span id="show-sign-in-line" hidden>Already have an account?
+        <button id="show-sign-in" type="button" class="link">Sign in</button>
+      </span>
+    </p>
+
+    <p id="auth-message" class="message" role="status"></p>
 
     <details class="help">
       <summary>First time? Setup guide</summary>
@@ -300,6 +310,11 @@
       <div id="token-output" hidden>
         <p class="token" id="token-value"></p>
         <p class="muted" id="token-expiry"></p>
+        <p class="hint">
+          Open the Wasted app → Remote Management → <strong>4. Enroll this device</strong>,
+          paste this token, and tap <strong>Claim enrollment</strong>. The token is not entered
+          on this page.
+        </p>
         <button id="copy-token" type="button" class="quiet"
                 title="Copy the token to the clipboard">Copy token</button>
       </div>

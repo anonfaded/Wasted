@@ -1,43 +1,69 @@
 import { $, toast, setBusy, clearMessage, showMessage } from "./ui.js";
 
-/** Auth flows: explicit Sign In and Create Account. A failed sign-in never creates an account. */
+/** Auth flows: separate Sign In and Create Account forms; a failed sign-in never creates one. */
 export function wireAuth(client) {
-  const form = $("#auth-form");
-  const email = $("#email");
-  const password = $("#password");
-  const handle = $("#handle");
-  const handleField = $("#handle-field");
-  const signInButton = $("#sign-in");
-  const createButton = $("#create-account");
-  let mode = "sign-in";
+  const signInForm = $("#sign-in-form");
+  const createForm = $("#create-account-form");
+  const signInLine = $("#show-sign-in-line");
+  const createLine = $("#show-create-line");
+  const title = $("#auth-title");
+  const subtitle = $("#auth-subtitle");
+  const message = "#auth-message";
 
-  const setMode = (next) => {
-    mode = next;
-    handleField.hidden = next !== "create";
-    handle.required = next === "create";
-    clearMessage("#auth-message");
+  const showMode = (mode) => {
+    const create = mode === "create";
+    signInForm.hidden = create;
+    createForm.hidden = !create;
+    createLine.hidden = create;
+    signInLine.hidden = !create;
+    title.textContent = create ? "Create Account" : "Sign In";
+    subtitle.textContent = create
+      ? "Create an account to manage your devices."
+      : "Sign in to manage your devices.";
+    clearMessage(message);
   };
-  createButton.addEventListener("click", () =>
-    setMode(mode === "create" ? "sign-in" : "create"),
-  );
 
-  form.addEventListener("submit", async (event) => {
+  $("#show-create").addEventListener("click", () => showMode("create"));
+  $("#show-sign-in").addEventListener("click", () => showMode("sign-in"));
+
+  signInForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!form.reportValidity()) return;
-    clearMessage("#auth-message");
-    const button = mode === "create" ? createButton : signInButton;
+    if (!signInForm.reportValidity()) return;
+    clearMessage(message);
+    const button = $("#sign-in");
     setBusy(button, true);
     try {
-      if (mode === "create") {
-        await createAccount(client, email.value.trim(), password.value, handle.value.trim());
-        toast("Account created.");
-      } else {
-        await signIn(client, email.value.trim(), password.value);
-        toast("Signed in.");
-      }
-      password.value = "";
+      await signIn(
+        client,
+        $("#sign-in-email").value.trim(),
+        $("#sign-in-password").value,
+      );
+      $("#sign-in-password").value = "";
+      toast("Signed in.");
     } catch (error) {
-      showMessage("#auth-message", error.message);
+      showMessage(message, error.message);
+    } finally {
+      setBusy(button, false);
+    }
+  });
+
+  createForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!createForm.reportValidity()) return;
+    clearMessage(message);
+    const button = $("#create-account");
+    setBusy(button, true);
+    try {
+      await createAccount(
+        client,
+        $("#create-email").value.trim(),
+        $("#create-password").value,
+        $("#create-handle").value.trim(),
+      );
+      $("#create-password").value = "";
+      toast("Account created.");
+    } catch (error) {
+      showMessage(message, error.message);
     } finally {
       setBusy(button, false);
     }

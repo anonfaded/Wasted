@@ -45,8 +45,8 @@ design.
      to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 
    This setting is optional only in the sense that you can leave it off if you do not want Remote
-   Management. If it stays off, the app and dashboard still work, but no device can enroll or sync
-   remote commands.
+   Management. If it stays off, your owner account and dashboard still work, but no device can
+   enroll or sync remote commands.
 4. Run the release's [`verify.sql`](../../supabase/releases/) in SQL Editor; every row must say
    **PASS**. The verifier checks FORCE RLS, exact policies/grants, RPC properties, Realtime scope,
    the cleanup job, and the schema marker — not just table names.

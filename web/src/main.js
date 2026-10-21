@@ -447,7 +447,8 @@ async function revokeDevicePrompt(deviceId, button) {
     title: "Revoke this device?",
     message:
       "Remote commands stop immediately. The device keeps working normally and is not wiped. " +
-      "You can enroll it again with a new token.",
+      "To use it again, open Remote Management in the app, tap Reset enrollment, then claim a " +
+      "new token.",
     confirmLabel: "Revoke device",
   });
   if (!confirmed) return;
@@ -516,6 +517,18 @@ function wireDashboard() {
     }
     const form = event.target;
     if (!form.reportValidity()) return;
+    const lockMinutes = Number($("#lock-minutes").value);
+    const usbEnabled = $("#usb-trigger").checked;
+    const confirmed = await confirmAction({
+      title: "Save settings?",
+      message:
+        `Lock timer: ${lockMinutes} minute(s). USB trigger: ` +
+        `${usbEnabled ? "enabled" : "disabled"}. This creates a new revision and every enrolled ` +
+        "device applies it at its next sync.",
+      confirmLabel: "Save and sync",
+      danger: false,
+    });
+    if (!confirmed) return;
     const button = form.querySelector("button[type=submit]");
     clearMessage("#settings-message");
     setBusy(button, true);
@@ -523,8 +536,8 @@ function wireDashboard() {
       const updated = await saveAccountSettings(
         state.client,
         settings.revision,
-        Number($("#lock-minutes").value),
-        $("#usb-trigger").checked,
+        lockMinutes,
+        usbEnabled,
       );
       state.data.settings = updated;
       toast("Settings saved — every device will apply them.");
@@ -568,6 +581,15 @@ function wireDashboard() {
   });
 
   $("#create-token").addEventListener("click", async () => {
+    const confirmed = await confirmAction({
+      title: "Create enrollment token?",
+      message:
+        "This creates a single-use code valid for 10 minutes. Anyone with the code can add a " +
+        "device to this account, so share it only with your own device.",
+      confirmLabel: "Create token",
+      danger: false,
+    });
+    if (!confirmed) return;
     const button = $("#create-token");
     setBusy(button, true);
     try {

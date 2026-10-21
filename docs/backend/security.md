@@ -61,6 +61,15 @@ URL + publishable key.
 - The publishable key is public by design; it identifies the project but does not authorize data
   access.
 
+## Device lifecycle
+
+- **Revoke** immediately stops commands for that device and hides it from the dashboard's active
+  list. It does not wipe the device. The device row is kept for audit history.
+- Thirty days after revocation, the daily cleanup deletes only the anonymous Auth identity. The
+  device row remains, with `auth_user_id` set to null; it is not silently deleted.
+- A revoked installation cannot re-enroll with the same installation ID. On the device, use
+  **Reset enrollment** (which rotates the installation ID), then claim a new token.
+
 ## Dashboard exposure
 
 - The generated dashboard is public at its URL; anyone can attempt signups (rate-limited).

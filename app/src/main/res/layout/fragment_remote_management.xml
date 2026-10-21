@@ -209,7 +209,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Starts background sync on this device. Requires the connection above and an enrollment token. Off by default."
+                android:text="Starts background sync on this device. Requires the connection above. After enabling, the enrollment token field appears below."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <com.google.android.material.materialswitch.MaterialSwitch
