@@ -60,7 +60,7 @@ This fork adds optional remote management through your own Supabase project. It 
 
 1. Create a free Supabase project and open **SQL Editor**.
 2. Paste `supabase/setup.sql` and press **Run** once. It creates the tables, RLS policies, RPCs, grants, Realtime publication, and cleanup job. No CLI or Docker is required.
-3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and disable **Confirm email** (instant account creation). In **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
+3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and leave **Confirm email** enabled (recommended: click the link in the email, then sign in). In **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. Run `supabase/verify.sql`; every row should say PASS.
 5. The app setup wizard provides the same SQL and instructions. Developers can instead use the CLI/MCP path documented in `supabase/README.md`.
 
@@ -78,13 +78,14 @@ The dashboard file is generated **by the app**, already configured with your own
 
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
-3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and disable **Confirm email**. Anonymous sign-ins give each device its own private identity, so your email/password is never stored on the device. If you do not want Remote Management, you can leave them off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
+3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and leave **Confirm email** enabled. Anonymous sign-ins give each device its own private identity, so your email/password is never stored on the device. Confirm email is recommended: click the link in the email, then sign in. If you do not want Remote Management, you can leave anonymous sign-ins off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. In the wizard, **generate the dashboard file** and save it as `index.html`. Netlify Drop requires
    an `index.html` home page; another filename shows “page not found.”
 5. Host it: drag the file onto **Netlify Drop** (no account needed to start). The temporary site is
    password-protected and expires after **1 hour** until you click **Claim this site** and sign in or
-   sign up. Copy the final HTTPS URL. Alternatives: Cloudflare Pages direct upload, GitHub Pages,
-   Vercel, any HTTPS static host.
+   sign up. Copy the final HTTPS URL, then set Supabase → **Authentication → URL Configuration →
+   Site URL** to that URL so confirmation emails return to the dashboard. Alternatives: Cloudflare
+   Pages direct upload, GitHub Pages, Vercel, any HTTPS static host.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app.
 

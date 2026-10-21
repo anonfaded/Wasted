@@ -33,7 +33,7 @@ cd web && npm test && npm run build && npm run build:android-template
 - [ ] `assembleSignedRelease` succeeds (fails closed without signing inputs); unsigned output is
   named `-unsigned` and is not published.
 - [ ] `apksigner verify --print-certs` shows the expected certificate SHA-256.
-- [ ] Verify Auth settings in the dashboard: anonymous on, Confirm email off, rate limits as
+- [ ] Verify Auth settings in the dashboard: anonymous on, Confirm email on (recommended), rate limits as
   documented; record the observed values.
 - [ ] Hosting headers observed: `frame-ancestors 'none'`/`X-Frame-Options: DENY`, nosniff,
   no-referrer.

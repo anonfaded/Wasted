@@ -9,7 +9,7 @@ Reproducible infrastructure for the optional Remote Management feature. Git is t
    policies, RPCs, grants, Realtime publication, and the cleanup job; it also ensures
    `pgcrypto`/`pg_cron` are available.
 3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** (device identities)
-   and disable **Confirm email** (instant account creation). In **Authentication → Rate Limits**,
+   and leave **Confirm email** enabled (recommended: click the link, then sign in). In **Authentication → Rate Limits**,
    set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your
    chosen values). CAPTCHA is optional.
 4. Run `verify.sql`; every row must say PASS. The verifier checks FORCE RLS, exact policies/grants,
@@ -52,9 +52,9 @@ Record and verify these values for every project:
 | Setting | Expected |
 | --- | --- |
 | Auth providers | Email/password for owners; anonymous sign-ins for devices |
-| Sign-up | No confirmation email required for the owner flow; no recovery-email UI shipped |
+| Sign-up | Confirmation email recommended; click the link, then sign in |
 | Rate limits | Anonymous sign-ups 10/hour/IP; sign-in/sign-up 10 per 5 minutes/IP |
-| Redirect URLs | None required (no email magic links) |
+| Redirect URLs | Site URL set to the hosted dashboard URL for confirmation emails |
 | Exposed schemas | `public` only; `private` schema usage/grants revoked |
 | Extensions | `pgcrypto` (digest, random bytes); `pg_cron` (daily anonymous-identity cleanup) |
 | Realtime | Publication `supabase_realtime` contains only `account_settings`, `devices`, `device_status`, `device_commands` |

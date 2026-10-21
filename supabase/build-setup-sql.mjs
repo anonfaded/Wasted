@@ -94,8 +94,9 @@ function setupHeader(release) {
 -- This file configures the DATABASE (tables, RLS, RPCs, grants, Realtime, cron).
 -- In Authentication settings (Dashboard -> Authentication):
 --   1) enable "Allow anonymous sign-ins" (device identities)
---   2) disable "Confirm email" (instant owner account creation)
---   3) review the sign-up / sign-in rate limits
+--   2) leave "Confirm email" enabled (recommended; click the link, then sign in)
+--   3) set the Auth Site URL to the hosted dashboard URL
+--   4) review the sign-up / sign-in rate limits
 --
 -- Extensions: pgcrypto is available on Supabase; pg_cron is enabled by the script.`;
 }
@@ -138,7 +139,8 @@ function releaseReadme(release, updates, checksums) {
     "1. Back up or export the project first if it contains anything you care about.",
     "2. Open **SQL Editor**, paste `setup.sql`, and press **Run** once.",
     "3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** and",
-    "   disable **Confirm email**. Keep the default rate limits.",
+    "   leave **Confirm email** enabled (recommended). Set **Authentication → URL Configuration**",
+    "   **Site URL** to the hosted dashboard URL. Keep the default rate limits.",
     "4. Run `verify.sql`; every row must say PASS.",
     "",
     "Never run `setup.sql` on an existing project and never run it twice.",
@@ -169,7 +171,8 @@ function releaseReadme(release, updates, checksums) {
     "## Authentication checklist",
     "",
     "- Enable **Allow anonymous sign-ins** (per-device identities).",
-    "- Disable **Confirm email** (instant owner account creation).",
+    "- Leave **Confirm email** enabled (recommended; click the link, then sign in).",
+    "- Set the Auth **Site URL** to the hosted dashboard URL.",
     "- Review sign-up/sign-in rate limits.",
     "- CAPTCHA is optional and not required by this project.",
     "",

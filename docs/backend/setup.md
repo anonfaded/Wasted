@@ -40,7 +40,9 @@ design.
    - enable **Allow anonymous sign-ins**. Remote Management uses this to give each device its own
      private, unnamed identity, so the app can link a device to your account without storing your
      email or password on the device.
-   - disable **Confirm email** (the dashboard expects an immediate session after Create Account);
+   - leave **Confirm email** enabled (recommended). Supabase sends a confirmation link; click
+     it, then sign in. Confirm email verifies that you own the address, but it does not prevent
+     other people from signing up with their own email;
    - in **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up
      to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 
@@ -63,6 +65,8 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
    password-protected and expires after 1 hour until you click **Claim this site** and sign in or
    sign up. Then copy the final `https://…netlify.app` URL. Alternatives: Cloudflare Pages, GitHub
    Pages, Vercel, any HTTPS static host.
+5. In **Authentication → URL Configuration**, set **Site URL** to that final dashboard URL so
+   confirmation emails return there.
 
 The file contains only the project URL + publishable key. It is not a secret, but anyone who can
 open the URL can attempt to create an account; RLS protects the data.

@@ -54,14 +54,19 @@ export function wireAuth(client) {
     const button = $("#create-account");
     setBusy(button, true);
     try {
-      await createAccount(
+      const session = await createAccount(
         client,
         $("#create-email").value.trim(),
         $("#create-password").value,
         $("#create-handle").value.trim(),
       );
       $("#create-password").value = "";
-      toast("Account created.");
+      if (session) {
+        toast("Account created.");
+      } else {
+        showMode("sign-in");
+        showMessage(message, "Check your email for the confirmation link, then sign in.");
+      }
     } catch (error) {
       showMessage(message, error.message);
     } finally {
@@ -90,10 +95,20 @@ export async function createAccount(client, email, password, handle) {
   if (!handle || !/^[A-Za-z0-9][A-Za-z0-9_.-]{2,31}$/.test(handle)) {
     throw new Error("Use 3-32 characters: letters, digits, dot, dash, underscore.");
   }
-  const { data, error } = await client.auth.signUp({ email, password });
+  const redirectTo = `${window.location.origin}${window.location.pathname}`;
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: redirectTo },
+  });
   if (error) throw new Error(friendlyAuthError(error.message));
   if (!data.session) {
-    throw new Error("Sign-up needs email confirmation on this project. Confirm, then sign in.");
+    try {
+      localStorage.setItem("wasted_pending_handle", handle);
+    } catch {
+      // Storage is optional; the setup form still asks for the handle.
+    }
+    return null;
   }
   const { error: rpcError } = await client.rpc("initialize_owner_account", { p_handle: handle });
   if (rpcError) throw new Error(friendlyAuthError(rpcError.message));

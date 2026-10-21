@@ -8,8 +8,9 @@
 -- This file configures the DATABASE (tables, RLS, RPCs, grants, Realtime, cron).
 -- In Authentication settings (Dashboard -> Authentication):
 --   1) enable "Allow anonymous sign-ins" (device identities)
---   2) disable "Confirm email" (instant owner account creation)
---   3) review the sign-up / sign-in rate limits
+--   2) leave "Confirm email" enabled (recommended; click the link, then sign in)
+--   3) set the Auth Site URL to the hosted dashboard URL
+--   4) review the sign-up / sign-in rate limits
 --
 -- Extensions: pgcrypto is available on Supabase; pg_cron is enabled by the script.
 

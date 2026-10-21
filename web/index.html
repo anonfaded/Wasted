@@ -99,7 +99,7 @@
             and run the setup SQL copied from the wizard (one paste). Then in
             <a id="setup-auth-link" href="https://supabase.com/dashboard"
                target="_blank" rel="noopener noreferrer">Authentication → Providers</a>:
-            enable “Allow anonymous sign-ins” and disable “Confirm email”.</li>
+            enable “Allow anonymous sign-ins” and leave “Confirm email” enabled.</li>
           <li>In the wizard, <strong>generate the dashboard file</strong> and save it. Host it
             by dragging it onto
             <a id="setup-netlify-link" href="https://app.netlify.com/drop"
@@ -111,9 +111,12 @@
           <li>Send Reset Timer here and confirm the device card updates.</li>
         </ol>
         <p class="muted">
-          <strong>Confirm email:</strong> the recommended setup disables it, so Create Account
-          signs in immediately. If your project has it enabled, click the confirmation link in
-          the email, then sign in. That email is for the owner account only; devices never use it.
+          <strong>Confirm email:</strong> recommended and usually enabled by default. After
+          Create Account, click the confirmation link in the email, then sign in. Set the
+          <a id="setup-url-link" href="https://supabase.com/dashboard"
+             target="_blank" rel="noopener noreferrer">Authentication → URL Configuration</a>
+          Site URL to this dashboard, or the confirmation link may redirect elsewhere. That email
+          is for the owner account only; devices never use it.
         </p>
         <p class="muted">
           The dashboard file contains only your project URL and publishable key — these are
@@ -158,8 +161,8 @@
           enroll or sync. Rate limits and automatic cleanup of unused identities limit abuse.
         </p>
         <ol>
-          <li>In Supabase, run the setup SQL and enable anonymous sign-ins
-            (disable “Confirm email”).</li>
+          <li>In Supabase, run the setup SQL, enable anonymous sign-ins, and leave
+            “Confirm email” enabled.</li>
           <li>Create your account on this page.</li>
           <li>In the app, paste this page's URL under Remote Management, Save, and Enable.</li>
           <li>Create an enrollment token below, then claim it in the app.</li>

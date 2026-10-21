@@ -29,7 +29,7 @@ header-capable hosts; the frame-busting script is only a fallback.
 
 ## Auth settings (manual, verify in dashboard)
 
-- Anonymous sign-ins enabled; Confirm email disabled.
+- Anonymous sign-ins enabled; Confirm email enabled (recommended).
 - Rate limits: anonymous 10/hour/IP; sign-in/sign-up 10 per 5 minutes/IP (or documented choice).
 - CAPTCHA optional; verify the actual values rather than assuming defaults.
 
@@ -71,7 +71,7 @@ Expected: schema, RLS, RPC, and concurrency suites pass (4/4).
 
 1. Create an empty Supabase project.
 2. Run `supabase/releases/<current>/setup.sql`.
-3. Enable anonymous sign-ins, disable Confirm email.
+3. Enable anonymous sign-ins and keep Confirm email enabled.
 4. Run `verify.sql` → all PASS.
 5. Run the four SQL suites.
 6. Generate the dashboard, create an owner, enroll a device.

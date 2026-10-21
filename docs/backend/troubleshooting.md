@@ -3,7 +3,7 @@
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | `Anonymous sign-ins are disabled` / enrollment fails | Auth provider not enabled | Remote Management needs this to give each device its own private identity without storing your password on it. Authentication → Providers → enable **Allow anonymous sign-ins**. If you leave it off, your owner account and dashboard still work, but devices cannot enroll or sync. |
-| Create Account returns no session / “check your email” | Confirm Email is enabled | Authentication → Providers → disable **Confirm email** |
+| Create Account shows “check your email” | Confirm email is enabled (recommended) | Click the confirmation link in the email, then sign in. To skip confirmation, disable **Confirm email** in Authentication → Providers, but that does not restrict who can sign up. |
 | `Invalid API key` / 401 | Wrong key or URL | Re-copy Project URL + publishable key; never use the secret key |
 | `permission denied` (42501) | Direct table access / wrong role | Use the app/dashboard RPCs only; do not grant table writes |
 | Empty dashboard data | Wrong account, RLS, or not enrolled | Confirm the same project and owner account; check enrollment |

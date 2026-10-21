@@ -312,7 +312,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="In Supabase → Authentication:\n\n• Providers: enable “Allow anonymous sign-ins”. Remote Management uses this to give each device its own private identity, so your email and password never have to be stored on the device.\n• Providers: disable “Confirm email” (so your owner account works immediately).\n• Rate Limits: 10 anonymous/hour/IP and 10 sign-in/sign-up per 5 minutes/IP.\n\nCAPTCHA can stay off. If you do not want Remote Management, you can leave anonymous sign-ins off. Your owner account and dashboard still work, but this device cannot enroll or sync."
+                    android:text="In Supabase → Authentication:\n\n• Providers: enable “Allow anonymous sign-ins”. Remote Management uses this to give each device its own private identity, so your email and password never have to be stored on the device.\n• Providers: leave “Confirm email” enabled (recommended). Supabase sends a confirmation link; click it, then sign in.\n• Rate Limits: 10 anonymous/hour/IP and 10 sign-in/sign-up per 5 minutes/IP.\n\nCAPTCHA can stay off. If you do not want Remote Management, you can leave anonymous sign-ins off. Your owner account and dashboard still work, but this device cannot enroll or sync."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -405,7 +405,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Netlify Drop note: the new site is password-protected and expires after 1 hour until you claim it. Click Claim this site on the Netlify page and sign in or sign up. Then copy the final https://… URL. If it expires, host the file again and update the Dashboard URL in Remote Management."
+                    android:text="Netlify Drop note: the new site is password-protected and expires after 1 hour until you claim it. Click Claim this site on the Netlify page and sign in or sign up. Then copy the final https://… URL. If it expires, host the file again and update the Dashboard URL in Remote Management. After you have the final URL, set Supabase → Authentication → URL Configuration → Site URL to it so confirmation emails return to the dashboard."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.textfield.TextInputLayout

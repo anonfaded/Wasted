@@ -92,6 +92,8 @@ function applySetupLinks(cfg) {
   if (sql) sql.href = `${base}/sql/new`;
   const auth = $("#setup-auth-link");
   if (auth) auth.href = `${base}/auth/providers`;
+  const url = $("#setup-url-link");
+  if (url) url.href = `${base}/auth/url-configuration`;
 }
 
 function projectRef(value) {
@@ -152,6 +154,13 @@ async function refreshDashboard() {
       ? `Account: ${state.handle}`
       : `Signed in as ${state.session.user.email ?? "owner"}`;
     $("#account-setup").hidden = Boolean(state.handle);
+    if (!state.handle && !$("#setup-handle").value) {
+      try {
+        $("#setup-handle").value = localStorage.getItem("wasted_pending_handle") || "";
+      } catch {
+        // Storage is optional.
+      }
+    }
 
     state.data = await fetchDashboardData(state.client);
     renderSettings();
@@ -503,6 +512,11 @@ function wireDashboard() {
       const { error } = await state.client.rpc("initialize_owner_account", { p_handle: handle });
       if (error) throw new Error(error.message);
       state.handle = handle;
+      try {
+        localStorage.removeItem("wasted_pending_handle");
+      } catch {
+        // Storage is optional.
+      }
       $("#account-setup").hidden = true;
       toast("Account setup complete.");
       refreshDashboard();
