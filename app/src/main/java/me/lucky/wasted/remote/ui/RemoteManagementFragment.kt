@@ -262,8 +262,8 @@ class RemoteManagementFragment : Fragment() {
             .setMessage(
                 "Remote Management uses anonymous sign-ins to give each device its own private " +
                     "identity. That links a device to your account without storing your email or " +
-                    "password on it.\n\nIf you leave this off, the app and dashboard still work, " +
-                    "but this device cannot enroll or sync remote commands.\n\nEnable “Allow " +
+                    "password on it.\n\nIf you leave this off, your owner account and dashboard " +
+                    "still work, but this device cannot enroll or sync remote commands.\n\nEnable “Allow " +
                     "anonymous sign-ins” in Supabase → Authentication → Providers if you want " +
                     "Remote Management.",
             )

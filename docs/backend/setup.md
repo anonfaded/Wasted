@@ -8,6 +8,18 @@ Use this for a new installation. For upgrades, see [updates.md](./updates.md).
 - A free Supabase account.
 - A place to host one HTML file over HTTPS (Netlify Drop is the simplest).
 
+## Accounts vs devices
+
+- **Owner account:** your email + password, used only on the dashboard. This is a normal Supabase
+  Auth account; Create Account is explicit.
+- **Device identity:** a separate, anonymous Supabase Auth user created by the app for each
+  installation. It has no email or password. It is bound to the owner account only when the app
+  claims an owner-created, single-use enrollment token.
+- **Why:** the owner password never has to be stored on a device, each device has its own credential,
+  and a device can be revoked independently.
+- **If anonymous sign-ins stay off:** your owner account and dashboard still work, but devices cannot
+  enroll or sync. Enable the provider only if you want Remote Management.
+
 ## 1. Create the project
 
 1. Create a project at <https://supabase.com/dashboard>.

@@ -47,6 +47,20 @@ URL + publishable key.
 - Force Reset executes at most once; interrupted `executing` commands are failed, never replayed.
 - Per-device Debug Mode OFF requires owner action and supersedes pending Force Resets.
 
+## Anonymous device identities
+
+- Enabling anonymous sign-ins does **not** make the owner account anonymous. Owner accounts remain
+  normal email/password accounts; the provider is used only to create per-device identities.
+- An anonymous identity alone grants no app data. RLS/RPCs deny access until a device is bound to an
+  owner account through a single-use enrollment token.
+- The enrollment token is generated only by the signed-in owner, stored hashed, expires after 10
+  minutes, and is consumed by one device.
+- Abuse is limited by Auth rate limits (use 10 anonymous/hour/IP), daily cleanup of unbound
+  identities older than 24 hours, and cleanup of identities for devices revoked for more than 30
+  days. CAPTCHA is an optional additional control.
+- The publishable key is public by design; it identifies the project but does not authorize data
+  access.
+
 ## Dashboard exposure
 
 - The generated dashboard is public at its URL; anyone can attempt signups (rate-limited).

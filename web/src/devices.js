@@ -37,3 +37,21 @@ export function latestCommandByDevice(rows) {
   }
   return latest;
 }
+
+export async function renameDevice(client, deviceId, name) {
+  const trimmed = String(name ?? "").trim();
+  if (trimmed.length < 1 || trimmed.length > 80) {
+    throw new Error("Device name must be 1–80 characters.");
+  }
+  const { data, error } = await client.rpc("rename_device", {
+    p_device_id: deviceId,
+    p_name: trimmed,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function revokeDevice(client, deviceId) {
+  const { error } = await client.rpc("revoke_device", { p_device_id: deviceId });
+  if (error) throw new Error(error.message);
+}

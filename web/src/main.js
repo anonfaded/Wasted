@@ -1,6 +1,6 @@
 import { readConfig, createSupabaseClient } from "./supabase-client.js";
 import { wireAuth, currentSession, onAuthChange, signOut } from "./auth.js";
-import { fetchDashboardData } from "./devices.js";
+import { fetchDashboardData, renameDevice, revokeDevice } from "./devices.js";
 import { createEnrollmentToken, tokenExpiryLabel } from "./enrollment.js";
 import { saveAccountSettings } from "./settings.js";
 import { createAction, setDeviceDebugMode, newIdempotencyKey, RESET_TIMER, FORCE_RESET } from "./commands.js";
@@ -209,6 +209,27 @@ function renderDevices() {
     const card = el("article", { className: "device-card" }, [
       el("h3", { text: device.name || "Unnamed device" }),
       el("p", { className: "device-id", text: `ID ${device.id}` }),
+      el("div", { className: "device-actions" }, [
+        el("button", {
+          className: "small",
+          text: "Rename",
+          attrs: {
+            type: "button",
+            "data-device-rename": device.id,
+            "data-device-name": device.name || "",
+            title: "Rename this device in the dashboard only",
+          },
+        }),
+        el("button", {
+          className: "small danger-outline",
+          text: "Revoke",
+          attrs: {
+            type: "button",
+            "data-device-revoke": device.id,
+            title: "Stop remote commands for this device without wiping it",
+          },
+        }),
+      ]),
       ...(status
         ? []
         : [
@@ -392,6 +413,56 @@ async function toggleDebugMode(deviceId, enabled, button) {
   }
 }
 
+/** Rename is dashboard-only; it does not change the device identity or its credentials. */
+function openRenameDialog(deviceId, currentName, button) {
+  const dialog = $("#rename-dialog");
+  const input = $("#rename-device-name");
+  input.value = currentName;
+  dialog.returnValue = "";
+  dialog.showModal();
+  const onClose = async () => {
+    dialog.removeEventListener("close", onClose);
+    if (dialog.returnValue !== "ok") return;
+    const name = input.value.trim();
+    if (!name || name.length > 80) {
+      toast("Device name must be 1–80 characters.");
+      return;
+    }
+    setBusy(button, true, "Renaming…");
+    try {
+      await renameDevice(state.client, deviceId, name);
+      toast("Device renamed.");
+      scheduleRefresh();
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      setBusy(button, false);
+    }
+  };
+  dialog.addEventListener("close", onClose);
+}
+
+async function revokeDevicePrompt(deviceId, button) {
+  const confirmed = await confirmAction({
+    title: "Revoke this device?",
+    message:
+      "Remote commands stop immediately. The device keeps working normally and is not wiped. " +
+      "You can enroll it again with a new token.",
+    confirmLabel: "Revoke device",
+  });
+  if (!confirmed) return;
+  setBusy(button, true, "Revoking…");
+  try {
+    await revokeDevice(state.client, deviceId);
+    toast("Device revoked.");
+    scheduleRefresh();
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    setBusy(button, false);
+  }
+}
+
 function wireDashboard() {
   $("#account-setup-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -416,13 +487,24 @@ function wireDashboard() {
   });
 
   $("#devices").addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-debug-device]");
-    if (!button) return;
-    toggleDebugMode(
-      button.dataset.debugDevice,
-      button.dataset.debugEnable === "true",
-      button,
-    );
+    const debug = event.target.closest("button[data-debug-device]");
+    if (debug) {
+      toggleDebugMode(
+        debug.dataset.debugDevice,
+        debug.dataset.debugEnable === "true",
+        debug,
+      );
+      return;
+    }
+    const rename = event.target.closest("button[data-device-rename]");
+    if (rename) {
+      openRenameDialog(rename.dataset.deviceRename, rename.dataset.deviceName, rename);
+      return;
+    }
+    const revoke = event.target.closest("button[data-device-revoke]");
+    if (revoke) {
+      revokeDevicePrompt(revoke.dataset.deviceRevoke, revoke);
+    }
   });
 
   $("#settings-form").addEventListener("submit", async (event) => {

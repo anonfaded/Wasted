@@ -312,7 +312,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="In Supabase → Authentication:\n\n• Providers: enable “Allow anonymous sign-ins”. Remote Management uses this to give each device its own private identity, so your email and password never have to be stored on the device.\n• Providers: disable “Confirm email” (so your owner account works immediately).\n• Rate Limits: 10 anonymous/hour/IP and 10 sign-in/sign-up per 5 minutes/IP.\n\nCAPTCHA can stay off. If you do not want Remote Management, you can leave anonymous sign-ins off. The app and dashboard still work, but this device cannot enroll or sync."
+                    android:text="In Supabase → Authentication:\n\n• Providers: enable “Allow anonymous sign-ins”. Remote Management uses this to give each device its own private identity, so your email and password never have to be stored on the device.\n• Providers: disable “Confirm email” (so your owner account works immediately).\n• Rate Limits: 10 anonymous/hour/IP and 10 sign-in/sign-up per 5 minutes/IP.\n\nCAPTCHA can stay off. If you do not want Remote Management, you can leave anonymous sign-ins off. Your owner account and dashboard still work, but this device cannot enroll or sync."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
