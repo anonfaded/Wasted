@@ -28,10 +28,37 @@ export function wireAuth(client) {
 
   for (const input of [$("#sign-in-email"), $("#create-email")]) {
     if (!input) continue;
+    input.addEventListener("beforeinput", (event) => {
+      if (!event.data || (event.inputType ?? "").startsWith("delete")) return;
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? start;
+      const cleaned = cleanEmailInsertion(input, event.data, start, end);
+      if (cleaned === event.data) return;
+      event.preventDefault();
+      if (!cleaned) return;
+      const next = input.value.slice(0, start) + cleaned + input.value.slice(end);
+      input.value = next;
+      const position = start + cleaned.length;
+      input.setSelectionRange(position, position);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
     input.addEventListener("input", () => sanitizeEmailInput(input));
     input.addEventListener("blur", () => sanitizeEmailInput(input));
     input.addEventListener("keydown", (event) => {
-      if (event.key === " ") event.preventDefault();
+      if (event.key.length === 1 && !/[a-zA-Z0-9@._%+-]/.test(event.key)) {
+        event.preventDefault();
+      }
+    });
+  }
+
+  for (const toggle of document.querySelectorAll("[data-password-toggle]")) {
+    toggle.addEventListener("click", () => {
+      const input = document.getElementById(toggle.dataset.passwordToggle);
+      if (!input) return;
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      toggle.setAttribute("aria-pressed", String(show));
+      toggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
     });
   }
 
@@ -132,7 +159,19 @@ export async function signOut(client) {
 }
 
 function normalizeEmail(value) {
-  return String(value ?? "").replace(/\s+/g, "").toLowerCase();
+  return String(value ?? "")
+    .replace(/\s+/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9@._%+-]/g, "");
+}
+
+function cleanEmailInsertion(input, data, start, end) {
+  let cleaned = String(data).replace(/\s+/g, "").toLowerCase()
+    .replace(/[^a-z0-9@._%+-]/g, "");
+  const base = input.value.slice(0, start) + input.value.slice(end);
+  if (base.includes("@")) cleaned = cleaned.replace(/@/g, "");
+  if (!base && cleaned.startsWith("@")) cleaned = cleaned.replace(/^@+/, "");
+  return cleaned;
 }
 
 function sanitizeEmailInput(input) {
@@ -140,7 +179,7 @@ function sanitizeEmailInput(input) {
   const cleaned = normalizeEmail(original);
   if (cleaned === original) return;
   const start = input.selectionStart ?? original.length;
-  const removedBeforeCursor = (original.slice(0, start).match(/\s/g) ?? []).length;
+  const removedBeforeCursor = (original.slice(0, start).match(/\s|[^a-z0-9@._%+-]/gi) ?? []).length;
   input.value = cleaned;
   const position = Math.max(0, Math.min(cleaned.length, start - removedBeforeCursor));
   input.setSelectionRange(position, position);

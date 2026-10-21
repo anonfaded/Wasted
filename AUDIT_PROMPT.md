@@ -20,7 +20,7 @@ new issues. Be very concise; do not restate fixed findings or the whole codebase
 ## Changes since the first audit (verify these)
 
 - **Migrations**: added and applied `20261021060654_remote_hardening.sql` and
-  `20261021061300_remote_public_acl.sql`; `supabase/releases.json` now lists 11 migrations; setup,
+  `20261021061300_remote_public_acl.sql`; `supabase/releases.json` now lists 12 migrations; setup,
   release folder, manifest, and verify were regenerated.
 - **M1 verifier**: `supabase/verify.sql` expanded to 18 fail-closed catalog checks (FORCE RLS,
   exact policies/grants, RPC signatures/definer/owner/empty search_path/ACL, Realtime scope, cron,
@@ -41,6 +41,24 @@ Files changed: `README.md`, `plan.md`, `app/build.gradle`, `web/**`, `app/src/ma
 `supabase/migrations/*hardening*`, `*public_acl*`, `supabase/tests/**`, `supabase/verify.sql`,
 `supabase/releases.json`, `supabase/releases/3.0.0/**`, `supabase/README.md`, `docs/backend/**`.
 
+## Latest change set (2026-10-21) — verify
+
+- **Auth UX:** Sign In and Create Account are separate one-at-a-time forms. Emails are filtered
+  before insertion (lowercase, no whitespace, restricted practical charset); passwords are not
+  trimmed; both password fields have an eye toggle. Confirm email is recommended/on, with
+  `emailRedirectTo` and Auth Site URL guidance. Pending account name survives confirmation.
+- **Setup wizard:** branching first screen (new backend vs existing backend), five steps for new
+  setup, separate existing-backend screen, top back arrow + insets, dashboard-only skip, full-width
+  actions, Netlify 1-hour claim/Site URL/same-site update guidance.
+- **Dashboard:** device Rename/Revoke, confirmations for settings/token/commands, setup links,
+  Netlify same-site update note, `npm run dev` source build, production single-file build.
+- **Device names:** app sends an editable name (prefilled with `Build.MODEL`); dashboard can rename.
+- **Docs:** Confirm email/Site URL, device lifecycle/cleanup, account-vs-device identities, public
+  signup risk, and Netlify update guidance updated.
+- **MCP check:** linked project Confirm email ON (`mailer_autoconfirm=false`), signups open,
+  anonymous sign-ins OFF. Confirm the docs match the private self-hosted model and flag public
+  signup abuse as residual risk; a single-owner signup guard is not implemented.
+
 ## Checks
 
 1. Open `AUDIT_REPORT.md`; mark every finding Fixed/Partial/Open with file/line evidence.
@@ -54,6 +72,9 @@ Files changed: `README.md`, `plan.md`, `app/build.gradle`, `web/**`, `app/src/ma
    step because another device already initialized the backend.
 5. Check the requirements matrix deltas and whether the doc corrections are accurate.
 6. Only widen the audit if a concrete new issue demands it.
+7. Verify the latest auth/dashboard changes: email filtering, password toggle, Confirm email/Site
+   URL flow, account-vs-device naming, rename/revoke lifecycle, confirmations, Netlify same-site
+   update, and documentation consistency. Confirm no owner password is stored on devices.
 
 ## Output (`AUDIT_REPORT_2.md`, concise)
 
