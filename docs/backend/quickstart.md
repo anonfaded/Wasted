@@ -7,9 +7,12 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    **Publishable key** (never the secret/service-role key).
 3. **Set up the database**: in Supabase, open **SQL Editor**, run the release's `setup.sql` once,
    then **Authentication → Providers**: enable **Allow anonymous sign-ins**, disable **Confirm
-   email**. Under **Rate Limits**, set anonymous 10/hour/IP and sign-in/sign-up 10 per 5 minutes/IP
-   (or verify your values). Run `verify.sql`; every row must say PASS. The app never runs SQL; use
-   **Save setup SQL file** in the wizard to move it to a computer if that is easier.
+   email**. Anonymous sign-ins give each device its own private identity, so your email/password is
+   never stored on the device. If you do not want Remote Management, you can leave them off; the app
+   and dashboard still work, but devices cannot enroll or sync. Under **Rate Limits**, set anonymous
+   10/hour/IP and sign-in/sign-up 10 per 5 minutes/IP (or verify your values). Run `verify.sql`; every
+   row must say PASS. The app never runs SQL; use **Save setup SQL file** in the wizard to move it to
+   a computer if that is easier.
 4. **Generate the dashboard** in the wizard and save it as `index.html`. Host it on
    <https://app.netlify.com/drop>: the temporary site is password-protected and expires after 1 hour
    until you click **Claim this site** and sign in/up. Copy the final URL. For strict framing

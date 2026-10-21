@@ -26,6 +26,9 @@ connection form was considered and rejected by the client.
 **Context:** End users should not need CLI/Docker.
 **Decision:** `setup.sql` (generated from migrations) is pasted once into Supabase SQL Editor.
 Two Auth dashboard toggles are required: enable anonymous sign-ins, disable Confirm email.
+Anonymous sign-ins give each device a private identity so the owner password never has to be stored
+on devices. They can be left off if Remote Management is not wanted; the rest of the app and
+dashboard still work, but device enrollment and sync will not.
 **Consequences:** No tooling; Auth settings cannot be set via SQL and remain a manual step.
 Docker/CLI stays a developer path only.
 

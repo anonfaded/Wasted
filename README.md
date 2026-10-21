@@ -78,7 +78,7 @@ The dashboard file is generated **by the app**, already configured with your own
 
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
-3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and disable **Confirm email**. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
+3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and disable **Confirm email**. Anonymous sign-ins give each device its own private identity, so your email/password is never stored on the device. If you do not want Remote Management, you can leave them off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. In the wizard, **generate the dashboard file** and save it as `index.html`. Netlify Drop requires
    an `index.html` home page; another filename shows “page not found.”
 5. Host it: drag the file onto **Netlify Drop** (no account needed to start). The temporary site is

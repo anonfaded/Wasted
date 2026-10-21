@@ -15,8 +15,17 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.realtime.Realtime
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+import okhttp3.OkHttpClient
+import okhttp3.Request
+
+import java.util.concurrent.TimeUnit
 
 import me.lucky.wasted.remote.domain.ClaimEnrollmentParams
 import me.lucky.wasted.remote.domain.ReconcileParams
@@ -46,6 +55,13 @@ class SupabaseRemoteRepository(
     @Volatile
     private var client: SupabaseClient? = null
 
+    private val httpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+    }
+
     val isAvailable: Boolean
         get() = configStore.canStartRemoteWork()
 
@@ -58,17 +74,39 @@ class SupabaseRemoteRepository(
     }
 
     /**
-     * Explicit user-triggered connectivity check. Unlike background sync, this may run while
-     * Remote Management is still disabled, because the user is deliberately testing the saved
-     * connection before enabling network work.
+     * Explicit user-triggered, read-only connectivity check. Reads the public Auth settings to
+     * validate the project URL/publishable key; it does not create a user or start Realtime.
+     *
+     * @return true when anonymous sign-ins are enabled on the project.
      */
-    suspend fun testConnection() = guarded {
-        val supabase = clientOrNull(requireEnabled = false)
-            ?: throw IllegalStateException("Remote configuration is not saved")
-        if (supabase.auth.currentSessionOrNull() == null) {
-            supabase.auth.signInAnonymously()
+    suspend fun testConnection(): Boolean = withContext(Dispatchers.IO) {
+        val config = configStore.load()
+            ?: throw RemoteException(RemoteError.Validation)
+        val endpoint = config.projectUrl.trimEnd('/') + "/auth/v1/settings"
+        val request = Request.Builder()
+            .url(endpoint)
+            .header("apikey", config.publishableKey)
+            .get()
+            .build()
+        val response = try {
+            httpClient.newCall(request).execute()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw RemoteException(RemoteError.Network, e)
         }
-        Log.i(TAG, "Connection test passed")
+        response.use {
+            if (it.code == 401 || it.code == 403) {
+                throw RemoteException(RemoteError.Authentication)
+            }
+            if (!it.isSuccessful) {
+                throw RemoteException(RemoteError.Server(it.code))
+            }
+            val body = it.body?.string().orEmpty()
+            val external = json.parseToJsonElement(body).jsonObject["external"]?.jsonObject
+            val anonymous = external?.get("anonymous_users")?.jsonPrimitive?.booleanOrNull
+            anonymous == true
+        }
     }
 
     override suspend fun claimEnrollment(params: ClaimEnrollmentParams): RemoteDeviceDto = guarded {
@@ -108,9 +146,9 @@ class SupabaseRemoteRepository(
     private fun requireClient(): SupabaseClient =
         clientOrNull() ?: throw IllegalStateException("Remote configuration is not enabled")
 
-    private fun clientOrNull(requireEnabled: Boolean = true): SupabaseClient? {
-        if (requireEnabled && !configStore.remoteEnabled) return null
+    private fun clientOrNull(): SupabaseClient? {
         client?.let { return it }
+        if (!configStore.canStartRemoteWork()) return null
         val config = configStore.load() ?: return null
         return synchronized(this) {
             client ?: createSupabaseClient(

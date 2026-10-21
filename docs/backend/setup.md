@@ -25,10 +25,16 @@ design.
    as a file; it never runs SQL itself) and run it once in **SQL Editor**. Running it from a computer
    is easier than a mobile browser.
 3. In **Authentication → Providers**:
-   - enable **Allow anonymous sign-ins** (required for per-device identities);
+   - enable **Allow anonymous sign-ins**. Remote Management uses this to give each device its own
+     private, unnamed identity, so the app can link a device to your account without storing your
+     email or password on the device.
    - disable **Confirm email** (the dashboard expects an immediate session after Create Account);
    - in **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up
      to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
+
+   This setting is optional only in the sense that you can leave it off if you do not want Remote
+   Management. If it stays off, the app and dashboard still work, but no device can enroll or sync
+   remote commands.
 4. Run the release's [`verify.sql`](../../supabase/releases/) in SQL Editor; every row must say
    **PASS**. The verifier checks FORCE RLS, exact policies/grants, RPC properties, Realtime scope,
    the cleanup job, and the schema marker — not just table names.

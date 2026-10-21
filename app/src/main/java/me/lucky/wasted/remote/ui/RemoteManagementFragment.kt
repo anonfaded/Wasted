@@ -223,21 +223,64 @@ class RemoteManagementFragment : Fragment() {
         }
         snackbar("Testing Supabase connection…")
         scope.launch {
-            val message = withContext(Dispatchers.IO) {
+            val result = withContext(Dispatchers.IO) {
                 val repository = SupabaseRemoteRepository(configStore, credentials)
                 try {
-                    repository.testConnection()
-                    "Supabase connection OK."
+                    Result.success(repository.testConnection())
                 } catch (e: RemoteException) {
-                    "Supabase connection failed: ${connectionErrorMessage(e.error)}"
+                    Result.failure(e)
                 } catch (e: Exception) {
-                    "Supabase connection failed: ${e.message ?: "unknown error"}"
+                    Result.failure(e)
                 } finally {
                     repository.close()
                 }
             }
-            snackbar(message)
+            result.fold(
+                onSuccess = { anonymousEnabled ->
+                    if (anonymousEnabled) {
+                        snackbar("Supabase connection OK. Anonymous sign-ins are enabled.")
+                    } else {
+                        showAnonymousSignInsDialog()
+                    }
+                },
+                onFailure = { error ->
+                    val message = when (error) {
+                        is RemoteException ->
+                            "Supabase connection failed: ${connectionErrorMessage(error.error)}"
+                        else ->
+                            "Supabase connection failed: ${error.message ?: "unknown error"}"
+                    }
+                    snackbar(message)
+                },
+            )
         }
+    }
+
+    private fun showAnonymousSignInsDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Anonymous sign-ins are off")
+            .setMessage(
+                "Remote Management uses anonymous sign-ins to give each device its own private " +
+                    "identity. That links a device to your account without storing your email or " +
+                    "password on it.\n\nIf you leave this off, the app and dashboard still work, " +
+                    "but this device cannot enroll or sync remote commands.\n\nEnable “Allow " +
+                    "anonymous sign-ins” in Supabase → Authentication → Providers if you want " +
+                    "Remote Management.",
+            )
+            .setPositiveButton("Open Auth settings") { _, _ ->
+                projectAuthUrl()?.let(::openUrl)
+                    ?: snackbar("Save a valid project URL first.")
+            }
+            .setNegativeButton("Not now", null)
+            .show()
+    }
+
+    private fun projectAuthUrl(): String? {
+        val config = configStore.load() ?: return null
+        val host = Uri.parse(config.projectUrl).host ?: return null
+        if (!host.endsWith(".supabase.co")) return null
+        val ref = host.removeSuffix(".supabase.co")
+        return "https://supabase.com/dashboard/project/$ref/auth/providers"
     }
 
     private fun testDashboard() {
@@ -317,7 +360,7 @@ class RemoteManagementFragment : Fragment() {
         RemoteError.Conflict ->
             "Supabase reported a configuration conflict."
         RemoteError.Validation ->
-            "Supabase rejected the request. Enable “Allow anonymous sign-ins” in Authentication → Providers, then check the Project URL and publishable key."
+            "Supabase rejected the request. Check the Project URL and publishable key, and make sure the backend setup is complete."
         is RemoteError.Unknown ->
             "unexpected Supabase error. Check the Project URL/key and Auth settings."
     }
