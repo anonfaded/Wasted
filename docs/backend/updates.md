@@ -10,10 +10,19 @@ No automatic update check. Release notes name the exact SQL file; the APK bundle
    `supabase db dump`) before applying anything.
 3. **Update the app** (install the new APK). Older schemas remain compatible; the app does not need
    the database to be updated first.
-4. **Apply the update bundle:** Supabase → SQL Editor → paste the file → Run. Apply exactly once.
+4. **Apply the update bundle:** choose the file named `update-from-<your current version>-to-<current>.sql`
+   (bundles are cumulative — one file covers the jump), then paste it in SQL Editor and Run once.
+   The app's setup wizard can save that file for you; it never executes SQL.
 5. **Verify:** run `verify.sql`; every row must say PASS.
 6. **Dashboard:** regenerate and re-upload it only if the release notes say so.
-7. **Skipped versions?** Apply each release's bundle in order (stepwise). Never jump.
+7. **Older than the oldest listed bundle?** Step through releases or start from a fresh setup; an
+   unknown/very old schema is not a supported upgrade path.
+
+## Enrollment tokens and multiple devices
+
+- Each device needs its own single-use token; tokens are independent and expire after 10 minutes.
+- Additional devices never re-run `setup.sql` or change Auth settings; they only need the same
+  Project URL/key, the dashboard URL, and a new token.
 
 ## Release notes template
 
@@ -52,12 +61,20 @@ Docker is required for `db diff`; it is not required for `db push`.
 
 ## Backups and restore
 
-- Supabase Free has **no PITR** and limited backups; export before every update.
-- Export: Supabase Dashboard → Database → Backups (if available) or
-  `supabase db dump --linked -f backup.sql` (schema) plus a data-only dump if needed.
+- Supabase Free has **no PITR**; do not assume downloadable backups are available.
+- Reliable export uses the Supabase CLI (`supabase db dump`, which runs `pg_dump` in Docker) for
+  schema and data. A no-CLI/Docker export workflow must be tested before release; if the dashboard
+  offers a backup download on your plan, verify it is restorable.
 - Store the backup outside the project; verify it is readable before applying an update.
 - Restore: create/choose the project, restore the schema/data dump, then run `verify.sql`.
 - Never “roll back” by manually dropping objects; restore the backup or ship a forward fix.
+- If you cannot produce and restore a backup, do not apply the update.
+
+## Revoked devices during execution
+
+If a device is revoked while a command is `executing`, the command becomes
+`failed`/`device_revoked_during_execution`. The outcome is intentionally marked unknown; inspect the
+device locally and never retry a wipe blindly.
 
 ## Key rotation
 

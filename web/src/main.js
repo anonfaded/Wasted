@@ -82,11 +82,18 @@ function applyFooter(cfg) {
 
 function applyOptionalLink(selector, url) {
   const link = $(selector);
-  if (!url) {
+  let parsed = null;
+  try {
+    parsed = url ? new URL(url) : null;
+  } catch {
+    parsed = null;
+  }
+  if (!parsed || parsed.protocol !== "https:") {
     link.hidden = true;
+    link.removeAttribute("href");
     return;
   }
-  link.href = url;
+  link.href = parsed.href;
   link.hidden = false;
 }
 
@@ -100,6 +107,7 @@ function renderAuthState() {
     refreshDashboard();
   } else {
     teardownRealtime();
+    clearEnrollmentToken();
     state.handle = "";
     state.data = { devices: [], statusByDevice: new Map(), latestCommand: new Map(), settings: null };
   }
@@ -117,6 +125,7 @@ async function refreshDashboard() {
     $("#account-line").textContent = state.handle
       ? `Account: ${state.handle}`
       : `Signed in as ${state.session.user.email ?? "owner"}`;
+    $("#account-setup").hidden = Boolean(state.handle);
 
     state.data = await fetchDashboardData(state.client);
     renderSettings();
@@ -286,13 +295,26 @@ const COMMAND_LABELS = {
   debug_mode_off: "Debug Mode OFF",
 };
 
+const STATE_LABELS = {
+  queued: "queued",
+  received: "received",
+  executing: "executing",
+  applied: "applied",
+  reset_initiated: "reset initiated — no completion signal after a wipe",
+  debug_blocked: "blocked by Debug Mode",
+  rejected: "rejected",
+  failed: "failed",
+  expired: "expired",
+};
+
 function describeCommand(command) {
   if (!command) return "none";
   const label = COMMAND_LABELS[command.command_type] ?? command.command_type;
+  const state = STATE_LABELS[command.state] ?? command.state;
   const result = command.result_code ? ` (${command.result_code})` : "";
   const when = Date.parse(command.created_at);
   const timestamp = Number.isNaN(when) ? command.created_at : new Date(when).toLocaleString();
-  return `${label} — ${command.state}${result} · ${timestamp}`;
+  return `${label} — ${state}${result} · ${timestamp}`;
 }
 
 function renderSettings() {
@@ -371,6 +393,28 @@ async function toggleDebugMode(deviceId, enabled, button) {
 }
 
 function wireDashboard() {
+  $("#account-setup-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    if (!form.reportValidity()) return;
+    const handle = $("#setup-handle").value.trim();
+    const button = form.querySelector("button[type=submit]");
+    clearMessage("#account-setup-message");
+    setBusy(button, true);
+    try {
+      const { error } = await state.client.rpc("initialize_owner_account", { p_handle: handle });
+      if (error) throw new Error(error.message);
+      state.handle = handle;
+      $("#account-setup").hidden = true;
+      toast("Account setup complete.");
+      refreshDashboard();
+    } catch (error) {
+      showMessage("#account-setup-message", error.message);
+    } finally {
+      setBusy(button, false);
+    }
+  });
+
   $("#devices").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-debug-device]");
     if (!button) return;
@@ -446,10 +490,10 @@ function wireDashboard() {
     setBusy(button, true);
     try {
       const { token, expiresAt } = await createEnrollmentToken(state.client);
+      clearEnrollmentToken();
       $("#token-value").textContent = token;
       $("#token-output").hidden = false;
       updateTokenExpiry(expiresAt);
-      clearInterval(state.tokenTimer);
       state.tokenTimer = setInterval(() => updateTokenExpiry(expiresAt), 1000);
     } catch (error) {
       toast(`Could not create a token: ${error.message}`);
@@ -468,10 +512,24 @@ function wireDashboard() {
   });
 }
 
+function clearEnrollmentToken() {
+  clearInterval(state.tokenTimer);
+  state.tokenTimer = null;
+  const value = $("#token-value");
+  if (value) value.textContent = "";
+  const output = $("#token-output");
+  if (output) output.hidden = true;
+  const expiry = $("#token-expiry");
+  if (expiry) expiry.textContent = "";
+}
+
 function updateTokenExpiry(expiresAt) {
   const label = tokenExpiryLabel(expiresAt);
   $("#token-expiry").textContent = label;
-  if (label.startsWith("Expired")) clearInterval(state.tokenTimer);
+  if (label.startsWith("Expired")) {
+    clearEnrollmentToken();
+    toast("Enrollment token expired — create a new one.");
+  }
 }
 
 async function sendAction(actionType) {
@@ -491,6 +549,7 @@ async function sendAction(actionType) {
 
 function wireSignOut() {
   $("#sign-out").addEventListener("click", async () => {
+    clearEnrollmentToken();
     await signOut(state.client);
     toast("Signed out.");
   });

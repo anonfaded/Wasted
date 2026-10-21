@@ -6,7 +6,7 @@
 
 - **P2P Network**: Remote factory reset via encrypted local Wi-Fi (TLS encrypted messaging on port 9876)
 - **Android 14+ Device Owner Setup**: Interactive Shizuku-based setup to make Wasted Device Owner for full factory reset capability
-- **Fixed Android 14+ Reset**: Reset now uses proper `wipeDevice()` API instead of deprecated `wipeData()`
+- **Android 14+ Reset**: On Android 14+, eligible Device Owner installs use `wipeDevice()`; non-Device-Owner installs use the existing best-effort chain (Shizuku + manual cleanup). Android <14 uses the legacy `wipeData()` path. Debug Mode gates every path.
 - **Debug Mode**: Enabled by default. While enabled, dangerous commands never execute — they are logged locally, and remote commands are shown as a notification stating they were received but not executed. Disable it locally with a danger confirmation to allow real wipes.
 
 All original features remain unchanged and fully compatible with Android 7+.
@@ -54,13 +54,13 @@ Be aware that the app does not work in _safe mode_.
 
 ## Remote Management
 
-This fork adds optional remote management through your own Supabase project. It is disabled by default and performs no network work until it is configured, enrolled, and enabled. Full backend documentation is indexed in [`docs/README.md`](docs/README.md).
+This fork adds optional remote management through your own Supabase project. It is disabled by default and performs no network work until it is configured, enrolled, and enabled. Full backend documentation is indexed in [`docs/README.md`](docs/README.md); the six-step setup is [`docs/backend/quickstart.md`](docs/backend/quickstart.md).
 
 ### Backend setup
 
 1. Create a free Supabase project and open **SQL Editor**.
 2. Paste `supabase/setup.sql` and press **Run** once. It creates the tables, RLS policies, RPCs, grants, Realtime publication, and cleanup job. No CLI or Docker is required.
-3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and disable **Confirm email** (instant account creation). Keep the default rate limits.
+3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and disable **Confirm email** (instant account creation). In **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. Run `supabase/verify.sql`; every row should say PASS.
 5. The app setup wizard provides the same SQL and instructions. Developers can instead use the CLI/MCP path documented in `supabase/README.md`.
 
@@ -78,18 +78,20 @@ The dashboard file is generated **by the app**, already configured with your own
 
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
-3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and disable **Confirm email**. Keep the default rate limits.
+3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and disable **Confirm email**. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. In the wizard, **generate the dashboard file** and save it wherever you like.
 5. Host it: drag the file onto **Netlify Drop** (no account needed to start), claim the site to keep it online, and copy the HTTPS URL. Alternatives: Cloudflare Pages direct upload, GitHub Pages, Vercel, any HTTPS static host.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and Enable. Create an enrollment token in the dashboard and claim it in the app.
 
 ### Building the APK
 
-`./gradlew assembleDebug` (or `assembleRelease`) requires Node.js 20+. Gradle regenerates the
-dashboard template, `supabase/setup.sql`, and the release update bundles from the tracked sources
-before packaging, so the APK never contains stale assets; set `NODE_BIN`/`NPM_BIN` if Node is not on
-`PATH`. Developers can verify the linked database against the migrations with
-`./gradlew :app:verifyRemoteSchema` (requires Supabase CLI, Docker, and `supabase link`).
+`./gradlew assembleSignedRelease` (or `assembleDebug` for development) requires Node.js 20+. The
+signed task fails unless `keystore.properties` and the keystore exist; unsigned release APKs are
+named `Wasted-v<version>-unsigned.apk`. Gradle regenerates the dashboard template,
+`supabase/setup.sql`, and the release update bundles from the tracked sources before packaging, so
+the APK never contains stale assets; set `NODE_BIN`/`NPM_BIN` if Node is not on `PATH`. Developers
+can verify the linked database against the migrations with `./gradlew :app:verifyRemoteSchema`
+(requires Supabase CLI, Docker, and `supabase link`).
 
 Release updates are organized by `supabase/releases.json`: each app release lists its cumulative
 migrations and schema version, and the build emits a folder per release
@@ -102,7 +104,7 @@ No redirect URLs, CORS setup, or build step is needed at the host. Updating the 
 The publishable key is public by design and safe to expose. Never embed a secret/service-role key or the database password. The generated file contains no secret, but anyone who can open the hosted page can attempt to create an account; the database rules protect all data.
 
 * Sign In and Create Account are explicit; a failed sign-in never creates an account.
-* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. For strict deployments, edit the CONFIG block into a separate `config.js` and use header-based CSP hashes plus `frame-ancestors 'none'`.
+* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. Meta policies cannot set `frame-ancestors`; production hosting must send `frame-ancestors 'none'` (or `X-Frame-Options: DENY`) via response headers. The repository includes `web/_headers` for header-capable hosts (Netlify/Cloudflare Pages) and a frame-busting fallback in the page.
 
 ### Behavior and limits
 

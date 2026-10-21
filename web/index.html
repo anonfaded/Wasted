@@ -6,6 +6,13 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://*.supabase.co wss://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+  <script>
+    // Defense in depth; production hosts must also send frame-ancestors 'none'.
+    if (window.top !== window.self) {
+      try { window.top.location = window.self.location; }
+      catch (_) { document.documentElement.hidden = true; }
+    }
+  </script>
   <title>Wasted Remote</title>
   <link rel="stylesheet" href="styles/main.css">
 </head>
@@ -136,6 +143,27 @@
 
     <div id="devices" class="device-grid" aria-live="polite"></div>
 
+    <section id="account-setup" class="panel" hidden aria-labelledby="account-setup-title">
+      <h3 id="account-setup-title">Finish account setup</h3>
+      <p class="section-desc">
+        Your sign-in worked, but the owner profile is missing. Choose a handle to finish setup.
+      </p>
+      <form id="account-setup-form" novalidate>
+        <div class="field">
+          <label for="setup-handle">Account handle</label>
+          <input id="setup-handle" name="setupHandle" type="text" autocomplete="off" maxlength="32"
+                 pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"
+                 placeholder="e.g. alex-wasted" required
+                 title="3–32 characters: letters, digits, dot, dash, underscore">
+          <p class="hint">3–32 characters: letters, digits, dot, dash, underscore.</p>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary">Finish setup</button>
+        </div>
+        <p id="account-setup-message" class="message" role="status"></p>
+      </form>
+    </section>
+
     <details class="help">
       <summary>What each device field means</summary>
       <div class="help-body">
@@ -242,10 +270,13 @@
       <h3 id="enroll-title">Enroll a device</h3>
       <p class="section-desc">
         Create a single-use token, then enter it in the app:
-        <strong>Remote Management → Enrollment token → Claim</strong>.
+        <strong>Remote Management → Enrollment token → Claim</strong>. The token is entered in the
+        app, not on this page; each token pairs one device.
       </p>
       <ul class="hint-list">
         <li>Valid for 10 minutes and usable once.</li>
+        <li>Each device needs its own token.</li>
+        <li>Tokens are independent; you can create several while setting up devices.</li>
         <li>The app must use the same project URL and publishable key configured on this page.</li>
         <li>Anyone with the token can enroll a device to this account — share it only with your own device.</li>
       </ul>

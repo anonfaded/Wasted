@@ -60,7 +60,7 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
         set(value) = writeOrRemove(KEY_ACCOUNT_ID, value)
 
     var notificationsEnabled: Boolean
-        get() = readBoolean(KEY_NOTIFICATIONS_ENABLED)
+        get() = readBoolean(KEY_NOTIFICATIONS_ENABLED, default = true)
         set(value) = writeBoolean(KEY_NOTIFICATIONS_ENABLED, value)
 
     var session: String?
@@ -109,8 +109,8 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
     private fun readString(key: String): String? =
         runCatching { prefs.getString(key, null) }.getOrNull()
 
-    private fun readBoolean(key: String): Boolean =
-        runCatching { prefs.getBoolean(key, false) }.getOrDefault(false)
+    private fun readBoolean(key: String, default: Boolean = false): Boolean =
+        runCatching { prefs.getBoolean(key, default) }.getOrDefault(default)
 
     private fun write(key: String, value: String) {
         runCatching { prefs.edit().putString(key, value).commit() }

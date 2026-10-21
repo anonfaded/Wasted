@@ -33,12 +33,26 @@ key.
 Hosting has no data to back up: the dashboard is stateless and the database lives in Supabase. Back
 up Supabase before schema updates; see [updates.md](./updates.md).
 
+## Anti-framing and response headers
+
+A meta CSP cannot set `frame-ancestors`, so the single HTML file alone cannot prevent framing.
+Production hosting must send:
+
+- `Content-Security-Policy: …; frame-ancestors 'none'`
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: no-referrer`
+
+The repository provides `web/_headers` for hosts that support `_headers` files (Netlify, Cloudflare
+Pages): deploy a folder containing `index.html` and `_headers`, or configure the equivalent headers
+in the host. The page also includes a frame-busting fallback, but it is defense-in-depth only.
+
 ## CSP and custom domains
 
 The page ships a restrictive CSP meta policy allowing only `*.supabase.co` connections plus inline
 scripts/styles, and `no-referrer`. If you use a custom/self-hosted Supabase domain, adjust the CSP
 and rebuild. For strict deployments, serve the config externally and use response-header CSP hashes
-plus `frame-ancestors 'none'` (meta policies cannot set framing rules).
+plus `frame-ancestors 'none'`.
 
 ## Why not environment variables?
 

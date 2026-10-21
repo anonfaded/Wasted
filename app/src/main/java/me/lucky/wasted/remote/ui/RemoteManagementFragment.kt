@@ -34,6 +34,9 @@ import me.lucky.wasted.remote.domain.RemoteConfigField
 import me.lucky.wasted.remote.domain.RemoteConfigValidator
 import me.lucky.wasted.remote.domain.SyncOutcome
 import me.lucky.wasted.trigger.shared.NotificationManager
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 class RemoteManagementFragment : Fragment() {
 
@@ -76,7 +79,20 @@ class RemoteManagementFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        if (configStore.isConfigured) return
+        val config = configStore.load()
+        if (config != null) {
+            if (binding.projectUrl.editText?.text.isNullOrBlank()) {
+                binding.projectUrl.editText?.setText(config.projectUrl)
+            }
+            if (binding.publishableKey.editText?.text.isNullOrBlank()) {
+                binding.publishableKey.editText?.setText(config.publishableKey)
+            }
+            if (binding.websiteUrl.editText?.text.isNullOrBlank()) {
+                binding.websiteUrl.editText?.setText(config.websiteUrl)
+            }
+            refreshState()
+            return
+        }
         val draft = configStore.loadDraft() ?: return
         if (binding.projectUrl.editText?.text.isNullOrBlank()) {
             binding.projectUrl.editText?.setText(draft.projectUrl)
@@ -84,6 +100,7 @@ class RemoteManagementFragment : Fragment() {
         if (binding.publishableKey.editText?.text.isNullOrBlank()) {
             binding.publishableKey.editText?.setText(draft.publishableKey)
         }
+        refreshState()
     }
 
     private fun setup() = with(binding) {
@@ -92,6 +109,8 @@ class RemoteManagementFragment : Fragment() {
         }
         saveConfig.setOnClickListener { saveConfig() }
         testConnection.setOnClickListener { testConnection() }
+        testDashboard.setOnClickListener { testDashboard() }
+        openSupabase.setOnClickListener { openUrl("https://supabase.com/dashboard") }
         openWebsite.setOnClickListener { openWebsite() }
         claimEnrollment.setOnClickListener { claimEnrollment() }
         manualSync.setOnClickListener { manualSync() }
@@ -115,25 +134,28 @@ class RemoteManagementFragment : Fragment() {
 
     private fun refreshState() = with(binding) {
         detachListeners()
+        val config = configStore.load()
+        val draft = if (config == null) configStore.loadDraft() else null
+        setupGuide.visibility = if (config == null && draft == null) View.VISIBLE else View.GONE
         enableRemote.isChecked = configStore.remoteEnabled
         debugMode.isChecked = prefs.isDebugMode
         notifications.isChecked = credentials.notificationsEnabled
         enrollmentSection.visibility = if (configStore.remoteEnabled) View.VISIBLE else View.GONE
+        openWebsite.isEnabled = !config?.websiteUrl.isNullOrBlank()
 
         val message = buildString {
-            if (!configStore.isConfigured) {
-                append("Configuration: not saved yet.")
+            if (config == null) {
+                if (draft != null) {
+                    append("Project details saved. Next: host the dashboard, paste its URL under 2. Dashboard URL, and tap Save connection.")
+                } else {
+                    append("Not set up yet. Start with the setup wizard above.")
+                }
             } else {
-                append("Configuration: saved.")
-            }
-            when {
-                !credentials.enrolled -> append("\nDevice: not enrolled.")
-                else -> {
-                    append("\nDevice: ")
-                    append(credentials.deviceId ?: "unknown")
-                    append(" (account ")
-                    append(credentials.accountId ?: "unknown")
-                    append(")")
+                append("Connection saved.")
+                if (!credentials.enrolled) {
+                    append("\nNext: enable Remote Management and claim an enrollment token.")
+                } else {
+                    append("\nThis device is enrolled.")
                 }
             }
             val lastSync = credentials.lastSyncAt
@@ -143,7 +165,7 @@ class RemoteManagementFragment : Fragment() {
                     .format(java.util.Date(lastSync)))
             }
             if (configStore.remoteEnabled && credentials.enrolled) {
-                append("\nRemote sync is active while the app is unlocked.")
+                append("\nRemote sync is active while this device is unlocked.")
             }
         }
         enrollmentStatus.text = message
@@ -189,18 +211,18 @@ class RemoteManagementFragment : Fragment() {
 
     private fun testConnection() {
         if (!configStore.isConfigured) {
-            snackbar("Save a valid configuration first.")
+            snackbar("Save the connection details first.")
             return
         }
-        snackbar("Testing connection…")
+        snackbar("Testing Supabase connection…")
         scope.launch {
             val message = withContext(Dispatchers.IO) {
                 val repository = SupabaseRemoteRepository(configStore, credentials)
                 try {
                     repository.ensureAnonymousSession()
-                    "Connection OK."
+                    "Supabase connection OK."
                 } catch (e: Exception) {
-                    "Connection failed: ${e.message}"
+                    "Supabase connection failed: ${e.message}"
                 } finally {
                     repository.close()
                 }
@@ -209,12 +231,48 @@ class RemoteManagementFragment : Fragment() {
         }
     }
 
+    private fun testDashboard() {
+        val raw = binding.websiteUrl.editText?.text?.toString()?.trim().orEmpty()
+        if (raw.isEmpty()) {
+            binding.dashboardStatus.text = "Enter the hosted dashboard URL first."
+            return
+        }
+        val uri = runCatching { java.net.URI(raw) }.getOrNull()
+        if (uri?.scheme != "https" || uri.host.isNullOrBlank()) {
+            binding.dashboardStatus.text = "Enter a valid HTTPS URL."
+            return
+        }
+        binding.dashboardStatus.text = "Checking…"
+        scope.launch {
+            val code = withContext(Dispatchers.IO) {
+                runCatching {
+                    val client = OkHttpClient.Builder()
+                        .connectTimeout(10, TimeUnit.SECONDS)
+                        .readTimeout(10, TimeUnit.SECONDS)
+                        .build()
+                    client.newCall(Request.Builder().url(raw).get().build())
+                        .execute()
+                        .use { it.code }
+                }.getOrNull()
+            }
+            binding.dashboardStatus.text = when {
+                code == null -> "Could not reach the dashboard."
+                code in 200..299 -> "Dashboard is reachable (HTTP $code)."
+                else -> "Dashboard responded with HTTP $code."
+            }
+        }
+    }
+
     private fun openWebsite() {
         val url = configStore.load()?.websiteUrl
         if (url.isNullOrBlank()) {
-            snackbar("Save a valid website URL first.")
+            snackbar("Host the generated dashboard first, then save its HTTPS URL here.")
             return
         }
+        openUrl(url)
+    }
+
+    private fun openUrl(url: String) {
         runCatching {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }.onFailure {
@@ -228,7 +286,7 @@ class RemoteManagementFragment : Fragment() {
                 detachListeners()
                 binding.enableRemote.isChecked = false
                 attachListeners()
-                snackbar("Save a valid configuration before enabling.")
+                snackbar("Save the project URL, publishable key, and dashboard URL first (or use the setup wizard).")
                 return
             }
             // First enablement locally forces Debug Mode ON before enrollment.

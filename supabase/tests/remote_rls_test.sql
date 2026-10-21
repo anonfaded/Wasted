@@ -32,6 +32,10 @@ begin
 end;
 $$;
 
+-- Default function ACL is locked down globally; grant helpers to the roles tests switch to.
+grant execute on function pg_temp.assert_true(boolean, text) to authenticated, anon;
+grant execute on function pg_temp.expect_error(text, text) to authenticated, anon;
+
 -- ─── Fixtures (as postgres, inside the transaction) ──────────────────────────
 
 insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_anonymous) values
@@ -138,6 +142,87 @@ begin
     );
 end;
 $$;
+
+-- ─── Effective privileges (not just ACL text) ───────────────────────────────
+
+do $$
+declare
+    table_name text;
+    signature text;
+    proc_oid oid;
+begin
+    foreach table_name in array array[
+        'accounts', 'devices', 'account_settings', 'device_status',
+        'account_actions', 'device_commands', 'command_events'
+    ] loop
+        perform pg_temp.assert_true(
+            has_table_privilege('authenticated', format('public.%I', table_name), 'SELECT'),
+            'authenticated must read ' || table_name
+        );
+        perform pg_temp.assert_true(
+            not has_table_privilege('authenticated', format('public.%I', table_name), 'INSERT')
+            and not has_table_privilege('authenticated', format('public.%I', table_name), 'UPDATE')
+            and not has_table_privilege('authenticated', format('public.%I', table_name), 'DELETE'),
+            'authenticated must not write ' || table_name
+        );
+        perform pg_temp.assert_true(
+            not has_table_privilege('anon', format('public.%I', table_name), 'SELECT'),
+            'anon must not read ' || table_name
+        );
+    end loop;
+
+    foreach signature in array array[
+        'public.initialize_owner_account(text)',
+        'public.create_device_enrollment()',
+        'public.rename_device(uuid,text)',
+        'public.revoke_device(uuid)',
+        'public.update_account_settings(bigint,integer,boolean)',
+        'public.create_account_action(text,uuid)',
+        'public.expire_account_commands()',
+        'public.claim_device_enrollment(text,uuid,text,integer,boolean)',
+        'public.device_reconcile(uuid,bigint,integer,boolean,bigint,boolean,boolean,boolean,boolean,text,smallint,text,text)',
+        'public.device_transition_command(uuid,uuid,text,text,text,text)',
+        'public.set_device_debug_mode(uuid,boolean,uuid)'
+    ] loop
+        proc_oid := signature::regprocedure;
+        perform pg_temp.assert_true(
+            (select prosecdef from pg_proc where oid = proc_oid),
+            signature || ' must be security definer'
+        );
+        perform pg_temp.assert_true(
+            (select coalesce('search_path=""' = any(proconfig), false) from pg_proc where oid = proc_oid),
+            signature || ' must pin an empty search_path'
+        );
+        perform pg_temp.assert_true(
+            has_function_privilege('authenticated', proc_oid, 'EXECUTE'),
+            signature || ' must be executable by authenticated'
+        );
+        perform pg_temp.assert_true(
+            not has_function_privilege('anon', proc_oid, 'EXECUTE'),
+            signature || ' must not be executable by anon/public'
+        );
+    end loop;
+end;
+$$;
+
+-- Future functions must not inherit PUBLIC execute.
+create function public.__wasted_default_acl_probe()
+returns integer language sql as 'select 1';
+
+do $$
+begin
+    perform pg_temp.assert_true(
+        not has_function_privilege('anon', 'public.__wasted_default_acl_probe()', 'EXECUTE'),
+        'future functions must not be executable by anon'
+    );
+    perform pg_temp.assert_true(
+        not has_function_privilege('authenticated', 'public.__wasted_default_acl_probe()', 'EXECUTE'),
+        'future functions must not be executable by authenticated by default'
+    );
+end;
+$$;
+
+drop function public.__wasted_default_acl_probe();
 
 -- ─── Owner A ─────────────────────────────────────────────────────────────────
 

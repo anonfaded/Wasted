@@ -6,12 +6,41 @@ Run these before claiming a release is ready. Docker is only needed for schema d
 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
-./gradlew :app:assembleRelease
+./gradlew :app:assembleSignedRelease
 cd web && npm test && npm run build && npm run build:android-template
 ```
 
 Expected: Android **92/92** unit tests (or the current count), web **19/19**, both APKs build, and
-the release APK is signed with the expected certificate.
+the signed release task fails unless signing inputs exist. Unsigned output is explicitly named
+`-unsigned`.
+
+## Verifier
+
+Run the release's `verify.sql`. It must return all PASS and otherwise raises: exact tables, FORCE
+RLS, SELECT-only policies, effective grants, RPC signatures/SECURITY DEFINER/empty search_path/
+authenticated-only execute, exact Realtime scope, cron job, schema marker, and future-function
+PUBLIC denial.
+
+## Hosting headers
+
+Confirm the deployed page sends `frame-ancestors 'none'` (or `X-Frame-Options: DENY`),
+`X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Deploy `web/_headers` on
+header-capable hosts; the frame-busting script is only a fallback.
+
+## Auth settings (manual, verify in dashboard)
+
+- Anonymous sign-ins enabled; Confirm email disabled.
+- Rate limits: anonymous 10/hour/IP; sign-in/sign-up 10 per 5 minutes/IP (or documented choice).
+- CAPTCHA optional; verify the actual values rather than assuming defaults.
+
+## Release certificate
+
+```bash
+"$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs app/build/outputs/apk/release/Wasted-v*.apk
+```
+
+Expected: the app's signing certificate SHA-256. `assembleSignedRelease` fails before assembly when
+signing inputs are missing; unsigned output is named `-unsigned` and must not be published.
 
 ## Generated artifacts
 
@@ -75,6 +104,7 @@ Expected: only validator/test constants in source; no real key/URL in the APK.
 - Direct boot/user unlock/package replacement and encrypted preference migration/corruption.
 - Remote disabled/unconfigured/offline: zero network work and unchanged local behavior.
 - Remote/P2P independent toggling.
+- Revocation during executing; idempotency-key reuse across types; future-function PUBLIC denial.
 
 ## Open gates
 

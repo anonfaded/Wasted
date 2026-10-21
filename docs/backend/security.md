@@ -6,13 +6,14 @@
 | --- | --- |
 | Someone learns the dashboard URL/publishable key | Expected: key is public. RLS limits data; Auth rate limits mitigate signup abuse. CAPTCHA optional |
 | Stolen owner password | Owner controls Supabase Auth; password never stored by the app/dashboard. Rotate password in Supabase |
-| Stolen/revoked device | `revoke_device` rejects pending commands and blocks reconciliation for that device |
-| Replay/duplicate command | Per-submission idempotency keys; server compare-and-set state transitions; local journal |
+| Stolen/revoked device | `revoke_device` rejects pending commands, terminalizes `executing` with an unknown-outcome result, and blocks reconciliation |
+| Replay/duplicate command | Per-submission idempotency keys bound to action type/scope; server compare-and-set state transitions; local journal |
 | Remote wipe bypass | Debug Mode re-read by `ResetExecutor`; remote Force Reset blocked while ON; only reset boundary |
 | Someone learns an enrollment token | Token is single-use, 10-minute, hashed at rest; owner can issue a new one (old ones revoked) |
 | Direct table tampering | No write policies/grants; writes only through SECURITY DEFINER RPCs |
 | Secret key leakage | Secret/service-role keys are rejected by validation and never shipped; docs forbid them |
 | Hosted dashboard contains secrets | False: the generated file contains only URL + publishable key |
+| Clickjacking of destructive confirmations | Production hosts must send `frame-ancestors 'none'`/`X-Frame-Options: DENY`; the page also ships a frame-busting fallback |
 
 ## Key boundaries
 

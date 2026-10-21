@@ -10,7 +10,7 @@ Wasted (Modded) is an Android app (minSdk 24) with Device Admin, local triggers,
 - remote Lock Timer / USB Trigger configuration,
 - Reset Timer and Force Reset commands,
 - device registration, timer/status reporting, and Debug Mode status,
-- optional local notifications,
+- local notifications (on by default, optional),
 - a lightweight, portable, self-hosted dashboard.
 
 The app remains fully functional offline. Remote sync is an optional layer.

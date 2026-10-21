@@ -5,14 +5,16 @@ Everything needed to set up, operate, upgrade, verify, and reason about the syst
 
 ## Start here
 
-1. [Architecture](./architecture.md) — system design, components, data flow, safety invariants.
-2. [Backend overview](./backend/README.md) — identities, backend component map, documentation map.
-3. Then the task-specific guide below.
+1. **[Quick start (6 steps)](./backend/quickstart.md)** — the shortest path to a working setup.
+2. [Architecture](./architecture.md) — system design, components, safety invariants.
+3. [Backend overview](./backend/README.md) — identities, backend component map, documentation map.
+4. Then the task-specific guide below.
 
 ## Backend
 
 | Document | Use it for |
 | --- | --- |
+| [backend/quickstart.md](./backend/quickstart.md) | **Six-step setup** (start here) |
 | [backend/README.md](./backend/README.md) | Backend overview and component map |
 | [backend/setup.md](./backend/setup.md) | Fresh Supabase project setup (SQL + Auth + dashboard + enrollment) |
 | [backend/migrations-and-releases.md](./backend/migrations-and-releases.md) | **Authoritative** migration/release organization, naming, upgrade policy, sources |

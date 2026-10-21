@@ -111,9 +111,11 @@ Full checklist: [release-checklist.md](./release-checklist.md).
 
 ## Upgrade policy
 
-- **Stepwise upgrades.** A user applies each release's update bundle in order; a bundle only covers
-  the delta from the immediately previous release. Supported window: previous release (N-1);
-  stepwise for older versions. Publish the window in release notes.
+- **Cumulative bundles.** A release generates one update bundle from every earlier release in
+  `releases.json` (e.g. `update-from-3.0.0-to-3.2.0.sql`). Users pick the bundle matching their
+  installed version; one file covers the whole jump.
+- **Tested window.** The release gate tests the previous release path; older jumps are generated but
+  best-effort. State the tested path in release notes.
 - **No downgrades.** Restore a backup instead.
 - **Additive/backward-compatible.** An older APK must still work against a newer schema; that is the
   rollback path for the app.
@@ -132,10 +134,49 @@ Full checklist: [release-checklist.md](./release-checklist.md).
 ## Verification
 
 - Fresh install: apply `setup.sql` to an empty project, run `verify.sql` and the SQL suites.
+  `verify.sql` fails closed on catalog invariants (FORCE RLS, exact policies/grants, RPC properties,
+  Realtime scope, cron, schema marker, future-function PUBLIC denial).
 - Upgrade: apply the previous release's setup to an empty project, then the new update bundle, run
   `verify.sql` and the suites; `db diff --linked` must be empty.
 - Generated files current: run the generator and `git diff --exit-code`.
 - More: [verification.md](./verification.md).
+
+The schema marker is `comment on schema public is 'wasted-remote-schema:<version>'`; it is updated by
+the relevant migration and checked by `verify.sql`. It gives operators a simple installed-version
+signal without an app-side update check.
+
+## Re-running migrations / raw SQL
+
+- `supabase db push` (or `supabase migration up`) is safe to run repeatedly: it compares timestamps
+  with `supabase_migrations.schema_migrations` and applies **only pending** migrations.
+- `supabase db reset` intentionally drops and recreates the database, then applies everything from
+  scratch. It is safe for local/test databases and destructive for a real project.
+- Running `setup.sql` or an old migration file manually in the SQL Editor is **not** idempotent. It
+  does not consult migration history and will fail (or partially apply) on existing objects.
+- Never edit an applied migration: history/checksums will not match, the change will not reach
+  databases that already ran it, and `db push` can stop with sync errors. Add a new forward-only
+  migration instead.
+- Users never run migrations individually: fresh installs run `setup.sql`; upgrades run one
+  generated update bundle. `setup.sql` is regenerated from all migrations, so it always represents
+  the full current schema.
+
+## Pre-release baseline (optional; wait for schema freeze)
+
+Migrations are developer history; users never see them. `setup.sql` is regenerated from all
+migrations, so it is already the latest complete schema. Do **not** delete migrations while the
+schema is still changing.
+
+At a schema freeze (release time), a clean baseline can be created deliberately:
+
+1. Freeze schema changes and verify `setup.sql` on a brand-new project.
+2. Generate a new baseline release and archive the old migration files.
+3. Reset/repair migration history in the same operation (or start a fresh project).
+4. Keep the old release folders/update bundles for supported upgrades.
+5. Re-run fresh-install and upgrade-path verification.
+
+Do not use a live schema dump as the baseline: it excludes managed schemas and can miss cron jobs,
+publication membership, default ACLs, and the schema marker. The generated `setup.sql` is the
+baseline.
 
 ## Common mistakes
 

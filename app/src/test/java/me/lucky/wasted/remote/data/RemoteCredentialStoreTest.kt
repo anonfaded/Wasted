@@ -35,13 +35,13 @@ class RemoteCredentialStoreTest {
     }
 
     @Test
-    fun `defaults are unenrolled with notifications off`() {
+    fun `defaults are unenrolled with notifications on`() {
         val store = store()
         assertFalse(store.enrolled)
         assertNull(store.deviceId)
         assertNull(store.accountId)
         assertNull(store.session)
-        assertFalse(store.notificationsEnabled)
+        assertTrue(store.notificationsEnabled)
     }
 
     @Test

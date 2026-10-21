@@ -35,6 +35,10 @@ begin
 end;
 $$;
 
+-- Default function ACL is locked down globally; grant helpers to the roles tests switch to.
+grant execute on function pg_temp.assert_true(boolean, text) to authenticated;
+grant execute on function pg_temp.expect_error(text, text, text) to authenticated;
+
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 
 insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_anonymous) values
@@ -104,9 +108,9 @@ reset role;
 do $$
 begin
     perform pg_temp.assert_true(
-        (select revoked_at is not null from private.device_enrollments
+        (select revoked_at is null and consumed_at is null from private.device_enrollments
           where id = (select enrollment_id from pg_temp.t_enroll_first)),
-        'older unused enrollment must be revoked when a new one is created'
+        'older unused enrollment must stay open (independent per-device tokens)'
     );
     perform pg_temp.assert_true(
         (select revoked_at is null and consumed_at is null from private.device_enrollments
@@ -345,6 +349,11 @@ begin
         (duplicate->>'device_count')::integer = 1,
         'duplicate key must not create additional commands'
     );
+
+    perform pg_temp.expect_error(
+        $sql$select public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000e1')$sql$,
+        'P0001', 'idempotency key reused'
+    );
 end;
 $$;
 
@@ -469,6 +478,9 @@ begin
 
     perform pg_temp.expect_error(
         format($sql$select public.set_device_debug_mode(%L, false, 'dd000000-0000-4000-8000-0000000000f1')$sql$, target_device),
+        'P0001', 'idempotency key reused');
+    perform pg_temp.expect_error(
+        format($sql$select public.set_device_debug_mode(%L, true, 'dd000000-0000-4000-8000-0000000000e1')$sql$, target_device),
         'P0001', 'idempotency key reused');
     perform pg_temp.expect_error(
         $sql$select public.set_device_debug_mode('ffffffff-0000-4000-8000-0000000000ff', true, 'dd000000-0000-4000-8000-0000000000f3')$sql$,
@@ -761,6 +773,25 @@ $$;
 
 -- ─── Revocation and clean re-enrollment ──────────────────────────────────────
 
+-- executing command fixture: revocation must terminalize it with an unknown outcome
+insert into public.account_actions (id, account_id, action_type, idempotency_key, expires_at)
+values ('ba000000-0000-4000-8000-0000000000e6', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'reset_timer', 'dd000000-0000-4000-8000-0000000000e6', now() + interval '24 hours');
+
+insert into public.device_commands
+    (id, action_id, device_id, account_id, command_type, state, expires_at, received_at, executing_at)
+values ('ee000000-0000-4000-8000-0000000000e6', 'ba000000-0000-4000-8000-0000000000e6',
+        (select id from pg_temp.t_claim), '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'reset_timer', 'executing', now() + interval '24 hours', now(), now());
+
+insert into public.command_events (command_id, device_id, account_id, event_type) values
+    ('ee000000-0000-4000-8000-0000000000e6', (select id from pg_temp.t_claim),
+     '0a0a0a0a-0000-4000-8000-0000000000a1', 'queued'),
+    ('ee000000-0000-4000-8000-0000000000e6', (select id from pg_temp.t_claim),
+     '0a0a0a0a-0000-4000-8000-0000000000a1', 'received'),
+    ('ee000000-0000-4000-8000-0000000000e6', (select id from pg_temp.t_claim),
+     '0a0a0a0a-0000-4000-8000-0000000000a1', 'executing');
+
 set local role authenticated;
 select set_config('request.jwt.claims',
     '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
@@ -805,6 +836,20 @@ begin
           where action_id = (select id from public.account_actions
                               where idempotency_key = 'dd000000-0000-4000-8000-0000000000e3')),
         'terminal commands must stay untouched by revocation'
+    );
+    perform pg_temp.assert_true(
+        (select state = 'failed' and result_code = 'device_revoked_during_execution'
+                and finished_at is not null
+           from public.device_commands
+          where id = 'ee000000-0000-4000-8000-0000000000e6'),
+        'executing commands must be terminalized on revocation'
+    );
+    perform pg_temp.assert_true(
+        (select count(*) from public.command_events
+          where command_id = 'ee000000-0000-4000-8000-0000000000e6'
+            and event_type = 'failed'
+            and result_code = 'device_revoked_during_execution') = 1,
+        'revocation must record exactly one unknown-outcome event'
     );
 end;
 $$;

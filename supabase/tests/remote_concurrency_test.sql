@@ -37,6 +37,10 @@ begin
 end;
 $$;
 
+-- Default function ACL is locked down globally; grant helpers to the roles tests switch to.
+grant execute on function pg_temp.assert_true(boolean, text) to authenticated;
+grant execute on function pg_temp.expect_error(text, text, text) to authenticated;
+
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 
 insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_anonymous) values

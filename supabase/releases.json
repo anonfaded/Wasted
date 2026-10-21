@@ -13,7 +13,10 @@
         "20261018133933_remote_private_enrollments_rls.sql",
         "20261018150719_remote_fk_indexes.sql",
         "20261018164537_remote_policy_merge.sql",
-        "20261020131724_remote_debug_mode_commands.sql"
+        "20261020131724_remote_debug_mode_commands.sql",
+        "20261021060654_remote_hardening.sql",
+        "20261021061300_remote_public_acl.sql",
+        "20261021070916_remote_multi_enrollment.sql"
       ]
     }
   ]

@@ -1,230 +1,501 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        app:navigationIcon="@drawable/ic_arrow_back_24"
+        app:navigationIconTint="?attr/colorOnSurface"
+        app:title="Remote setup"
+        app:titleTextAppearance="?attr/textAppearanceTitleMedium" />
 
     <LinearLayout
+        android:id="@+id/stepChrome"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingStart="16dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="16dp"
+        android:visibility="gone">
 
         <TextView
+            android:id="@+id/stepLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Remote setup"
-            android:textAppearance="?attr/textAppearanceTitleMedium" />
+            android:textAppearance="?attr/textAppearanceLabelLarge" />
 
-        <TextView
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/stepProgress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="This wizard connects the app to your own Supabase project and creates your dashboard. Everything stays on this device; nothing is sent until you enable Remote Management."
-            android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="1. Create a free Supabase project"
-            android:textAppearance="?attr/textAppearanceTitleSmall" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Open supabase.com, create a project, then open its Connect dialog (or Settings → API Keys). Copy the Project URL and the publishable key. Never copy the secret/service-role key."
-            android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/openProject"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Open Supabase dashboard" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="8dp" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/projectUrl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Project URL (https://xxxx.supabase.co)">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textUri" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="8dp" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/publishableKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Publishable key (sb_publishable_...)">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="text" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/saveDetails"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Save project details" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="2. Set up the database (one paste)"
-            android:textAppearance="?attr/textAppearanceTitleSmall" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Copy the setup SQL, open your project's SQL Editor, paste it, and press Run. This creates the tables, security rules, and functions. It takes about a minute."
-            android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/copySetupSql"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Copy setup SQL" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/openSqlEditor"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="Open SQL Editor" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="3. Turn on Authentication settings"
-            android:textAppearance="?attr/textAppearanceTitleSmall" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="In Authentication → Providers: enable “Allow anonymous sign-ins” (used by devices) and disable “Confirm email” (so your account works immediately). Keep the default rate limits."
-            android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/openAuthSettings"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Open Auth settings" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="4. Create your dashboard file"
-            android:textAppearance="?attr/textAppearanceTitleSmall" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="The app writes a ready-to-host HTML file containing your project URL and publishable key. Save it wherever you like. The publishable key is meant to be public; the file contains no passwords or secret keys."
-            android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/generateDashboard"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Generate dashboard file" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="5. Host it (free, one file)"
-            android:textAppearance="?attr/textAppearanceTitleSmall" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Open Netlify Drop, drag the saved file in, and copy the https://…netlify.app URL. Claim the site to keep it. Any HTTPS static host works."
-            android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/openNetlify"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Open Netlify Drop" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="6. Finish in Remote Management"
-            android:textAppearance="?attr/textAppearanceTitleSmall" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Return here, paste the hosted URL into “Dashboard website URL”, tap Save, then Enable Remote Management. Open the dashboard URL, create your account, create an enrollment token, and claim it in this screen."
-            android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Security: never share the Supabase account password or any secret/service-role key. The hosted dashboard only contains the project URL and publishable key, but anyone who opens it can attempt to create an account; keep it private if that matters to you."
-            android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/finishSetup"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="24dp"
-            android:text="Back to Remote Management" />
+            android:layout_marginTop="6dp"
+            android:indeterminate="false"
+            android:max="5"
+            android:progress="1"
+            app:trackThickness="4dp" />
     </LinearLayout>
-</ScrollView>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ScrollView
+            android:id="@+id/stepChoice"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="How do you want to start?"
+                    android:textAppearance="?attr/textAppearanceTitleLarge" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Choose one path. You can go back and change your choice at any time."
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/newSetupCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="?attr/colorOutlineVariant"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Set up from scratch"
+                            android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Create the Supabase database, Authentication settings, and dashboard file. Best for first-time setup."
+                            android:textAppearance="?attr/textAppearanceBodySmall" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/existingSetupCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="?attr/colorOutlineVariant"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="I already have a backend"
+                            android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="The Supabase project and dashboard already exist. Only add this device and claim a new enrollment token."
+                            android:textAppearance="?attr/textAppearanceBodySmall" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:text="Never share your Supabase password, secret key, or service-role key."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+            </LinearLayout>
+        </ScrollView>
+
+        <ScrollView
+            android:id="@+id/stepProject"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="1. Create a free Supabase project"
+                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Create a project at supabase.com. Then open Connect (or Settings → API Keys) and copy the Project URL and publishable key. Never copy the secret/service-role key."
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openProject"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Open Supabase dashboard" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/projectUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Project URL">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textUri" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/publishableKey"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Publishable key">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="These details stay on this device and are written into the dashboard file later. Tap Continue when both fields are filled in."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+            </LinearLayout>
+        </ScrollView>
+
+        <ScrollView
+            android:id="@+id/stepDatabase"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="2. Create the database"
+                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="This app generates a setup SQL file for you. SQL is simply the script that creates the tables, security rules, and functions this app needs. Open your Supabase project → SQL Editor, paste the setup SQL, and press Run. You do not need to write SQL yourself, and the app never runs it for you."
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/copySetupSql"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Copy setup SQL" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openSqlEditor"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Open Supabase SQL Editor" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/saveSetupSql"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Save setup SQL file" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Use “Save setup SQL file” only if you want to run it on a computer instead of pasting it from the phone."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+            </LinearLayout>
+        </ScrollView>
+
+        <ScrollView
+            android:id="@+id/stepAuth"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="3. Turn on Authentication settings"
+                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="In Supabase → Authentication:\n\n• Providers: enable “Allow anonymous sign-ins” (used by devices).\n• Providers: disable “Confirm email” (so your owner account works immediately).\n• Rate Limits: 10 anonymous/hour/IP and 10 sign-in/sign-up per 5 minutes/IP.\n\nCAPTCHA can stay off."
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openAuthSettings"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Open Authentication settings" />
+            </LinearLayout>
+        </ScrollView>
+
+        <ScrollView
+            android:id="@+id/stepDashboard"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="4. Create your dashboard file"
+                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Tap Generate dashboard file. The app reads the Project URL and publishable key you saved in step 1 and writes them into one HTML file. That file is the dashboard website you will host — it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/generateDashboard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Generate dashboard file" />
+
+                <TextView
+                    android:id="@+id/dashboardGeneratedStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+            </LinearLayout>
+        </ScrollView>
+
+        <ScrollView
+            android:id="@+id/stepHost"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="5. Host the dashboard"
+                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Upload the saved dashboard file to any HTTPS static host. Easiest is Netlify Drop: drag the file in and copy the https://… URL it gives you. GitHub Pages, Cloudflare Pages, and Vercel also work."
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openNetlify"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Open Netlify Drop" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/dashboardUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:hint="Dashboard URL (after hosting)">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textUri" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Paste the live URL to save it now. If you prefer, leave it blank and add it later in Remote Management → 2. Dashboard URL. Tap Finish setup when you are done."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+            </LinearLayout>
+        </ScrollView>
+
+        <ScrollView
+            android:id="@+id/stepExisting"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Add this device to an existing backend"
+                    android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Do not run setup.sql or change Auth settings again. The backend is already ready; this device only needs to be linked."
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="1. Go back to Remote Management.\n2. Enter the same Project URL, publishable key, and dashboard URL, then tap Save connection.\n3. Enable Remote Management.\n4. Create a token in the dashboard and claim it on this device. Each device needs its own token."
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/backToRemote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Back to Remote Management" />
+
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="24dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Updating an existing installation"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Skip this unless the release notes for your app version say a database update is needed. Save the update file for your current version, open the Supabase SQL Editor, and run it once. Each update file is cumulative and covers that upgrade. Never run setup.sql again on an existing project."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/saveUpdateSql"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Save database update file" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginBottom="24dp"
+                    android:text="Never share your Supabase password, secret key, or service-role key."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/wizardFooter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/wizardNext"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Continue" />
+    </LinearLayout>
+</LinearLayout>

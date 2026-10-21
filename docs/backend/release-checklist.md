@@ -7,8 +7,10 @@ Copy this into the release PR/issue. Do not skip steps; each line has a command 
 - [ ] New migrations are immutable, timestamped, additive, and follow the naming convention.
 - [ ] Applied migrations were not edited or renamed.
 - [ ] `supabase/releases.json` has an entry for this app version with the cumulative migration list.
+- [ ] Schema marker comment and `verify.sql` expected schema version match `releases.json`.
 - [ ] `schemaVersion` incremented **only** if SQL changed; app-only release repeats the list.
 - [ ] SQL suites pass (schema, RLS, RPC, concurrency) in rolled-back transactions.
+- [ ] `verify.sql` returns all PASS (FORCE RLS, grants/policies, RPC properties, Realtime, cron, ACLs).
 - [ ] `./gradlew :app:verifyRemoteSchema` reports no changes (Docker + linked project).
 - [ ] `supabase migration list --linked` has no local-only/remote-only versions.
 - [ ] Fresh-project setup path still works (apply `setup.sql` to an empty project).
@@ -22,13 +24,19 @@ Copy this into the release PR/issue. Do not skip steps; each line has a command 
 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
-./gradlew :app:assembleRelease
+./gradlew :app:assembleSignedRelease
 cd web && npm test && npm run build && npm run build:android-template
 ```
 
 - [ ] Android tests green (currently 92).
 - [ ] Web tests green (currently 19).
-- [ ] Release APK signed with the expected certificate; scan finds no key material/URLs.
+- [ ] `assembleSignedRelease` succeeds (fails closed without signing inputs); unsigned output is
+  named `-unsigned` and is not published.
+- [ ] `apksigner verify --print-certs` shows the expected certificate SHA-256.
+- [ ] Verify Auth settings in the dashboard: anonymous on, Confirm email off, rate limits as
+  documented; record the observed values.
+- [ ] Hosting headers observed: `frame-ancestors 'none'`/`X-Frame-Options: DENY`, nosniff,
+  no-referrer.
 - [ ] `supabase/releases/<version>/README.md` and `manifest.json` reviewed.
 - [ ] Generated SQL/APK/template are committed and current (`git diff --exit-code` after generation).
 

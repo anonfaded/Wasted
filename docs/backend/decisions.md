@@ -106,3 +106,37 @@ Cloudflare Pages, GitHub Pages, Vercel, and generic static hosts.
 installs, stepwise upgrades, backup-first, no downgrades, and a previous-release support window.
 **Consequences:** Users crossing multiple versions apply each release bundle in order; old release
 folders stay available. Squashing applied migrations is discouraged.
+
+## ADR-14 — Revocation terminalizes executing commands
+
+**Context:** A device revoked during `executing` could no longer report, leaving an unresolved
+destructive command forever.
+**Decision:** `revoke_device` atomically rejects `queued`/`received` commands and fails `executing`
+ones with `device_revoked_during_execution`; terminal rows are preserved.
+**Consequences:** Operators see a definitive terminal state, but the outcome is explicitly unknown
+because the device may have crossed the irreversible boundary. Tests cover the state transition.
+
+## ADR-15 — Fail-closed verification and schema marker
+
+**Context:** A weak post-install check can report PASS on a drifted, insecure database.
+**Decision:** `verify.sql` checks catalog invariants (FORCE RLS, exact policies/grants, RPC
+properties, Realtime scope, cron, schema marker, future-function PUBLIC denial) and raises on any
+FAIL. Migrations set a schema-version comment.
+**Consequences:** Setup/update operators get a meaningful check without a CLI. The full SQL suites
+remain required in the release gate.
+
+## ADR-16 — Anti-framing requires host headers
+
+**Context:** Meta CSP cannot set `frame-ancestors`; a single HTML file cannot prevent framing.
+**Decision:** Production hosting must send framing headers; the repo ships `web/_headers` for
+header-capable hosts, plus a frame-busting fallback in the page.
+**Consequences:** Netlify Drop of a lone file is insufficient for strict framing; deploy a folder
+with `_headers` or configure the host. This is documented as a deployment constraint.
+
+## ADR-17 — Notifications follow meaningful events, not heartbeats
+
+**Context:** The spec lists “device successfully synchronized”, but heartbeats run every 60 seconds.
+**Decision:** Notify on settings applied, Reset Timer, Force Reset outcomes, Debug Mode changes,
+command failures, manual-sync success, and sync failure. Heartbeat successes are silent.
+**Consequences:** “Sync success” is covered by user-requested syncs and failure recovery; no
+notification spam. This is a deliberate deviation recorded for the client.

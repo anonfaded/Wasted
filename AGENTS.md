@@ -58,6 +58,7 @@
 and `HANDOFF.md` (temporary development artifacts) are deleted.
 
 - `docs/README.md` — index of all documentation.
+- `docs/backend/quickstart.md` — six-step user setup (start here for onboarding).
 - `docs/architecture.md` — system architecture, components, safety invariants.
 - `docs/backend/migrations-and-releases.md` — **authoritative** migration/release policy; read
   before touching `supabase/migrations/`, `supabase/releases.json`, or generated release SQL.

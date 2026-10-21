@@ -24,6 +24,12 @@ events; events reference `(command_id, account_id, device_id)`.
 
 - Command/action consistency trigger: a command's `account_id`, `command_type`, and `expires_at`
   must match its action; per-device actions also require a matching `device_id`.
+- Idempotency keys are bound to the action type/scope: reusing a key for a different action/device
+  raises an error instead of returning the old action.
+- Revoking a device terminalizes `queued`/`received` commands as `rejected` and `executing` commands
+  as `failed` with `device_revoked_during_execution` (the outcome may be unknown).
+- `reset_initiated` is terminal and written before the destructive call; there is no post-wipe
+  acknowledgement (the device may be erased).
 - Command state allowlist and per-type terminal states (see [remote-protocol.md](./remote-protocol.md)).
 - Partial pending-command index `(device_id, created_at) where state in ('queued','received')`.
 - Status index `(account_id, last_seen_at desc)`; account action/command history indexes.
@@ -35,8 +41,9 @@ events; events reference `(command_id, account_id, device_id)`.
 - `authenticated` gets `SELECT` only; `anon` has no table access; `private` schema usage is revoked.
 - Policies:
   - owner sees rows where `account_id = auth.uid()`;
-  - device sees its own `devices`/`account_settings`/`device_commands`/`device_status` rows via
-    `devices.auth_user_id = auth.uid()` and `revoked_at is null`.
+  - a device sees its own `devices`, `account_settings`, and `device_commands` rows via
+    `devices.auth_user_id = auth.uid()` and `revoked_at is null`; devices do **not** read
+    `device_status`, `account_actions`, or `command_events` (they receive status via reconcile).
 - No INSERT/UPDATE/DELETE policies; all writes go through SECURITY DEFINER RPCs.
 - Default privileges are stripped so future tables are not auto-exposed.
 
@@ -51,9 +58,9 @@ from all roles.
 | RPC | Purpose / authorization |
 | --- | --- |
 | `initialize_owner_account(p_handle)` | Creates the account + settings row; idempotent per auth user |
-| `create_device_enrollment()` | Issues a 64-hex single-use token, 10-minute expiry; revokes older open tokens |
+| `create_device_enrollment()` | Issues a 64-hex single-use token, 10-minute expiry; tokens are independent per device |
 | `rename_device(p_device_id, p_name)` | Rename an owned active device |
-| `revoke_device(p_device_id)` | Revokes device; queued/received commands become `rejected`/`device_revoked` |
+| `revoke_device(p_device_id)` | Revokes device; queued/received commands become `rejected`/`device_revoked`; `executing` commands become `failed`/`device_revoked_during_execution` (outcome unknown); terminal rows are preserved |
 | `update_account_settings(p_expected_revision, p_lock_timer_minutes, p_usb_trigger_enabled)` | Revision-protected settings update |
 | `create_account_action(p_action_type, p_idempotency_key)` | Account-wide action (`reset_timer`/`force_reset`), fans out to active devices |
 | `set_device_debug_mode(p_device_id, p_debug_mode, p_idempotency_key)` | Per-device debug command, one command, owner-only |

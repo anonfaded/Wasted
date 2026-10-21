@@ -66,10 +66,43 @@ android {
 }
 
 android.applicationVariants.all { variant ->
-    def suffix = variant.buildType.name == 'release' ? '' : "-${variant.buildType.name}"
+    def suffix = variant.buildType.name == 'release'
+        ? (keystorePropertiesFile.exists() ? '' : '-unsigned')
+        : "-${variant.buildType.name}"
     variant.outputs.all {
         outputFileName = "Wasted-v${variant.versionName}${suffix}.apk"
     }
+}
+
+tasks.register('verifyReleaseSigning') {
+    group = 'verification'
+    description = 'Fails unless release signing inputs and the keystore file are present.'
+    doLast {
+        if (!keystorePropertiesFile.exists()) {
+            throw new GradleException(
+                'Release signing requires keystore.properties (copy keystore.properties.example).'
+            )
+        }
+        def store = keystoreProperties['storeFile']
+        if (!store || !rootProject.file(store).exists()) {
+            throw new GradleException("Release keystore not found: ${store}")
+        }
+        ['storePassword', 'keyAlias', 'keyPassword'].each { key ->
+            if (!keystoreProperties[key]) {
+                throw new GradleException("keystore.properties is missing ${key}")
+            }
+        }
+    }
+}
+
+tasks.register('assembleSignedRelease') {
+    group = 'build'
+    description = 'Verifies signing inputs, then assembles the signed release APK.'
+    dependsOn 'verifyReleaseSigning', 'assembleRelease'
+}
+
+tasks.matching { it.name == 'assembleRelease' }.configureEach {
+    mustRunAfter 'verifyReleaseSigning'
 }
 
 // ── Generated remote assets ─────────────────────────────────────────────────
@@ -147,6 +180,11 @@ tasks.register('generateSetupSql', Exec) {
 }
 
 tasks.matching { it.name.startsWith('merge') && it.name.endsWith('Assets') }.configureEach {
+    dependsOn 'generateDashboardTemplate', 'generateSetupSql'
+}
+
+// Lint model tasks read src/main/assets directly; declare the generated-asset dependency.
+tasks.matching { it.name.toLowerCase().contains('lint') }.configureEach {
     dependsOn 'generateDashboardTemplate', 'generateSetupSql'
 }
 

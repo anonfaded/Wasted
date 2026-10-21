@@ -80,6 +80,9 @@ Per-type terminal allowlist is enforced server-side. Each transition appends exa
 7. Call `ResetExecutor` exactly once (it re-reads Debug Mode again).
 8. Interrupted `executing` rows fail with `interrupted_before_reset`; never replay destructively.
 
+`reset_initiated` is the final state. There is no post-wipe acknowledgement because the device may
+be erased; the dashboard labels it “reset initiated — no completion signal after a wipe.”
+
 ### Debug Mode ON/OFF
 
 1. `queued → received → executing`.
@@ -93,12 +96,24 @@ Per-type terminal allowlist is enforced server-side. Each transition appends exa
 
 - Account actions are idempotent per `(account_id, idempotency_key)`; a replay returns the original
   action and does not create commands.
-- `set_device_debug_mode` additionally requires the same device/type on replay; reusing a key for a
-  different action is rejected.
+- Keys are bound to the action type/scope: reusing a key for a different type (or for a per-device
+  debug action) raises `idempotency key reused for a different action`.
+- `set_device_debug_mode` additionally requires the same device/type on replay.
 - Queuing `debug_mode_off` first expires that device's pending `force_reset` commands with
   `superseded_by_debug_off`, so a latent wipe cannot fire after the guard is removed.
 - Command/action consistency is enforced by trigger: type, account, expiry, and (when present)
   device must match.
+
+## Revocation semantics
+
+- `revoke_device` is atomic and terminalizes every nonterminal command for that device:
+  - `queued`/`received` → `rejected` with `device_revoked`;
+  - `executing` → `failed` with `device_revoked_during_execution` (the device may already have
+    crossed an irreversible boundary and can no longer report);
+  - terminal rows (`applied`, `reset_initiated`, `debug_blocked`, `rejected`, `failed`, `expired`)
+    are preserved.
+- A revoked device cannot reconcile or transition commands; its session/rows remain denied by RLS.
+- Re-enrollment requires a fresh token and creates a new device identity.
 
 ## Settings synchronization
 

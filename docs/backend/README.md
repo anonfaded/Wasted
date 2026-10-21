@@ -57,6 +57,7 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
 
 ## Documentation map
 
+- Quick start: [quickstart.md](./quickstart.md)
 - Architecture: [../architecture.md](../architecture.md)
 - Setup: [setup.md](./setup.md)
 - Database schema/RPCs: [database.md](./database.md)

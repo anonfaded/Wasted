@@ -9,8 +9,11 @@ Reproducible infrastructure for the optional Remote Management feature. Git is t
    policies, RPCs, grants, Realtime publication, and the cleanup job; it also ensures
    `pgcrypto`/`pg_cron` are available.
 3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** (device identities)
-   and disable **Confirm email** (instant account creation). Keep the default rate limits.
-4. Run `verify.sql`; every row must say PASS.
+   and disable **Confirm email** (instant account creation). In **Authentication → Rate Limits**,
+   set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your
+   chosen values). CAPTCHA is optional.
+4. Run `verify.sql`; every row must say PASS. The verifier checks FORCE RLS, exact policies/grants,
+   RPC properties, Realtime scope, the cleanup job, and the schema marker.
 5. The app setup wizard provides the same SQL and instructions.
 
 Do not run `setup.sql` twice, and do not mix it with `supabase db push` on the same project.

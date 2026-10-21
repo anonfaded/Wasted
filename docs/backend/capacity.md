@@ -43,6 +43,16 @@ Never promise unlimited free operation.
 - Command/status retention is measurable; define an export/retention policy before the database
   approaches the threshold.
 
+## Retention policy (recommended; implement before thresholds)
+
+- `device_status`: current row only (overwritten), no history.
+- `device_commands` / `command_events` / `account_actions`: retain **180 days** for auditability;
+  export older rows before deletion. Anonymous identities are cleaned daily by the existing job.
+- Revoked devices: retain while their command history is needed; after the export window, purge the
+  device (cascades its history) or keep it if storage allows. Never purge without an export.
+- Define and document a scheduled purge/export job before the database approaches 350 MB or the
+  command tables grow unbounded. A purge must be bounded, logged, and reversible via the export.
+
 ## What to monitor
 
 - Supabase Usage (database size, egress, MAU) and Realtime reports.
