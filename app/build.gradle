@@ -72,6 +72,91 @@ android.applicationVariants.all { variant ->
     }
 }
 
+// ── Generated remote assets ─────────────────────────────────────────────────
+// The dashboard template and setup SQL are build products of the tracked sources, so an APK
+// can never be assembled with stale assets. Node.js (>= 20) is required for the web bundle.
+
+def nodeBinary = System.getenv('NODE_BIN') ?: 'node'
+def npmBinary = System.getenv('NPM_BIN') ?: 'npm'
+def webProjectDir = rootProject.file('web')
+def dashboardTemplateAsset = file('src/main/assets/dashboard-template.html')
+def setupSqlAsset = file('src/main/assets/setup.sql')
+def setupSqlSource = rootProject.file('supabase/setup.sql')
+def supabaseMigrationsDir = rootProject.file('supabase/migrations')
+
+tasks.register('checkNode') {
+    doLast {
+        try {
+            def process = new ProcessBuilder(nodeBinary, '--version')
+                .directory(webProjectDir)
+                .redirectErrorStream(true)
+                .start()
+            def output = process.inputStream.text.trim()
+            if (process.waitFor() != 0) {
+                throw new GradleException("Node.js failed to start (${nodeBinary} ${output}).")
+            }
+            logger.info("Using Node.js ${output}")
+        } catch (IOException ignored) {
+            throw new GradleException(
+                "Node.js is required to generate the remote assets. " +
+                    "Install Node.js 20+ or set NODE_BIN/NPM_BIN."
+            )
+        }
+    }
+}
+
+tasks.register('ensureWebDependencies', Exec) {
+    dependsOn 'checkNode'
+    workingDir webProjectDir
+    commandLine npmBinary, 'ci', '--silent'
+    inputs.file(new File(webProjectDir, 'package-lock.json'))
+    outputs.dir(new File(webProjectDir, 'node_modules'))
+    onlyIf { !new File(webProjectDir, 'node_modules').exists() }
+}
+
+tasks.register('generateDashboardTemplate', Exec) {
+    group = 'build'
+    description = 'Bundles the single-file dashboard template used by the setup wizard.'
+    dependsOn 'ensureWebDependencies'
+    workingDir webProjectDir
+    commandLine nodeBinary, 'build-android-template.mjs'
+    inputs.files(
+        new File(webProjectDir, 'index.html'),
+        new File(webProjectDir, 'build-lib.mjs'),
+        new File(webProjectDir, 'build-android-template.mjs'),
+        new File(webProjectDir, 'package.json'),
+        new File(webProjectDir, 'package-lock.json'),
+    )
+    inputs.dir(new File(webProjectDir, 'src'))
+    inputs.dir(new File(webProjectDir, 'styles'))
+    outputs.file(dashboardTemplateAsset)
+}
+
+tasks.register('generateSetupSql', Exec) {
+    group = 'build'
+    description = 'Builds setup.sql from the ordered migrations and copies it into assets.'
+    dependsOn 'checkNode'
+    workingDir rootProject.projectDir
+    commandLine nodeBinary, 'supabase/build-setup-sql.mjs'
+    inputs.dir(supabaseMigrationsDir)
+    inputs.file(rootProject.file('supabase/build-setup-sql.mjs'))
+    inputs.file(rootProject.file('supabase/releases.json'))
+    outputs.files(setupSqlSource, setupSqlAsset)
+    outputs.dir(rootProject.file('supabase/updates'))
+    outputs.dir(new File(projectDir, 'src/main/assets/updates'))
+}
+
+tasks.matching { it.name.startsWith('merge') && it.name.endsWith('Assets') }.configureEach {
+    dependsOn 'generateDashboardTemplate', 'generateSetupSql'
+}
+
+tasks.register('verifyRemoteSchema', Exec) {
+    group = 'verification'
+    description = 'Diffs local migrations against the linked Supabase project. Requires Supabase CLI, Docker, and supabase link.'
+    workingDir rootProject.projectDir
+    commandLine 'supabase', 'db', 'diff', '--linked'
+}
+
 dependencies {
     implementation 'androidx.core:core-ktx:1.18.0'
     implementation 'androidx.appcompat:appcompat:1.7.1'

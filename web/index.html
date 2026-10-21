@@ -22,58 +22,189 @@
 <main id="main">
   <section id="auth-section" aria-labelledby="auth-title" class="panel narrow">
     <h2 id="auth-title">Sign in</h2>
-    <p class="muted">Sign in to manage your Wasted devices, or create an account.</p>
+    <p class="section-desc">
+      Sign in to manage the devices you added from the Wasted app. First time here?
+      Create an account below.
+    </p>
 
     <form id="auth-form" novalidate>
       <div class="field">
         <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="username" required>
+        <input id="email" name="email" type="email" autocomplete="username"
+               maxlength="254" placeholder="you@example.com"
+               aria-describedby="email-hint" required>
+        <p id="email-hint" class="hint">Use the email you want for this dashboard.</p>
       </div>
       <div class="field">
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" minlength="12" required>
+        <input id="password" name="password" type="password" autocomplete="current-password"
+               minlength="12" placeholder="Your password"
+               aria-describedby="password-hint" required>
+        <p id="password-hint" class="hint">
+          At least 12 characters, mixing letters, numbers, and symbols.
+        </p>
       </div>
       <div class="field" id="handle-field" hidden>
         <label for="handle">Account handle</label>
-        <input id="handle" name="handle" type="text" autocomplete="off"
+        <input id="handle" name="handle" type="text" autocomplete="off" maxlength="32"
                pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}"
-               title="3-32 characters: letters, digits, dot, dash, underscore">
-        <p class="hint">A display name for your account (letters, digits, dot, dash, underscore).</p>
+               placeholder="e.g. alex-wasted" aria-describedby="handle-hint"
+               title="3–32 characters: letters, digits, dot, dash, underscore">
+        <p id="handle-hint" class="hint">
+          A display name for this dashboard, 3–32 characters (letters, digits, dot,
+          dash, underscore). It is not a login name.
+        </p>
       </div>
       <div class="actions">
-        <button id="sign-in" type="submit" class="primary">Sign In</button>
-        <button id="create-account" type="button">Create Account</button>
+        <button id="sign-in" type="submit" class="primary"
+                title="Sign in with your existing account">Sign In</button>
+        <button id="create-account" type="button"
+                title="Create your dashboard account">Create Account</button>
       </div>
+      <p class="hint">First time? Choose <strong>Create Account</strong>. A failed sign-in never creates one.</p>
       <p id="auth-message" class="message" role="status"></p>
     </form>
+
+    <details class="help">
+      <summary>First time? Setup guide</summary>
+      <div class="help-body">
+        <ol>
+          <li><strong>Create a free Supabase project</strong> at supabase.com.</li>
+          <li>In the Wasted app, open <strong>Remote Management → Open setup wizard</strong>.
+            Paste the project URL and publishable key from the Supabase Connect dialog or
+            Settings → API Keys. Never use the secret/service-role key.</li>
+          <li>In Supabase, open <strong>SQL Editor</strong> and run the setup SQL copied from
+            the wizard (one paste). Then in <strong>Authentication → Providers</strong>:
+            enable “Allow anonymous sign-ins” and disable “Confirm email”.</li>
+          <li>In the wizard, <strong>generate the dashboard file</strong> and save it. Host it
+            by dragging it onto <strong>Netlify Drop</strong>; claim the site so it stays
+            online.</li>
+          <li>Open your new dashboard URL, create an account here, and sign in.</li>
+          <li>In the app, paste the hosted URL into Remote Management, Save, and Enable.
+            Create an enrollment token below and claim it in the app.</li>
+          <li>Send Reset Timer here and confirm the device card updates.</li>
+        </ol>
+        <p class="muted">
+          The dashboard file contains only your project URL and publishable key — these are
+          public by design, so sharing the file does not leak secrets. Anyone who can open the
+          hosted dashboard can attempt to create an account, though your data stays protected by
+          the database rules. Keep the URL private if you do not want that. Never share your
+          Supabase password or a secret key.
+        </p>
+      </div>
+    </details>
   </section>
 
   <section id="dashboard" hidden aria-labelledby="dashboard-title">
     <div class="dashboard-header">
-      <h2 id="dashboard-title">Devices</h2>
+      <div>
+        <h2 id="dashboard-title">Devices</h2>
+        <p class="section-desc">
+          Each card is a device enrolled from the Wasted app. Values are reported by the
+          device; commands are queued and applied at its next sync.
+        </p>
+      </div>
       <p id="account-line" class="muted"></p>
     </div>
 
+    <details class="help" id="how-it-works">
+      <summary>How this works</summary>
+      <div class="help-body">
+        <p>
+          This page was generated by the Wasted app and hosted by you. It connects directly from
+          your browser to your own Supabase project: sign-in, data, and commands all live there.
+          There is no dashboard server, and no wipe can be executed from the browser.
+        </p>
+        <ol>
+          <li>In Supabase, run the setup SQL and enable anonymous sign-ins
+            (disable “Confirm email”).</li>
+          <li>Create your account on this page.</li>
+          <li>In the app, paste this page's URL under Remote Management, Save, and Enable.</li>
+          <li>Create an enrollment token below, then claim it in the app.</li>
+          <li>The device appears below after its first sync.</li>
+        </ol>
+        <p class="muted">
+          The publishable key is public by design. Never paste a secret or service-role key here.
+        </p>
+      </div>
+    </details>
+
     <p id="offline-banner" class="banner error" role="alert" hidden>
-      Connection lost — showing the last known data.
+      Connection lost — showing the last known data. Values refresh automatically when the
+      connection returns.
     </p>
 
     <div id="devices" class="device-grid" aria-live="polite"></div>
 
+    <details class="help">
+      <summary>What each device field means</summary>
+      <div class="help-body">
+        <dl>
+          <dt>Connection</dt>
+          <dd>
+            <strong>Recently connected</strong> means the device contacted the server within the
+            last 150 seconds. Otherwise the exact last-contact time is shown and commands stay
+            queued until it reconnects.
+          </dd>
+          <dt>Timer</dt>
+          <dd>
+            The lock timer. While running, the remaining time between heartbeats is estimated
+            locally from the last reported sample.
+          </dd>
+          <dt>Lock timer</dt>
+          <dd>
+            “actual” is what the device reports; “desired” is the account value and revision it
+            applies at the next sync.
+          </dd>
+          <dt>USB trigger</dt>
+          <dd>The same actual-versus-desired comparison for the USB data-connection trigger.</dd>
+          <dt>Debug Mode</dt>
+          <dd>
+            ON blocks destructive remote commands (Force Reset). Reset Timer and settings sync
+            keep working. Enable/Disable sends a command to that device only.
+          </dd>
+          <dt>Reset support</dt>
+          <dd>Whether this device can perform a factory reset through Device Admin.</dd>
+          <dt>Last command</dt>
+          <dd>
+            The newest remote command for this device and its state (queued, executing,
+            applied, blocked, failed, …).
+          </dd>
+        </dl>
+      </div>
+    </details>
+
     <section class="panel" aria-labelledby="settings-title">
       <h3 id="settings-title">Account settings</h3>
-      <p class="muted">Applying changes synchronizes them to every enrolled device.</p>
+      <p class="section-desc">
+        Applied to every enrolled device at its next sync. Saving creates a new revision; devices
+        ignore older revisions, so edits converge without overwriting newer ones.
+      </p>
       <form id="settings-form" novalidate>
         <div class="field inline">
-          <label for="lock-minutes">Lock timer (minutes)</label>
-          <input id="lock-minutes" name="lockMinutes" type="number" min="1" max="525600" required>
+          <div class="field-label">
+            <label for="lock-minutes">Lock timer (minutes)</label>
+            <p id="lock-hint" class="hint">
+              How long to wait after a trigger before locking. 10080 = 7 days, 1440 = 1 day,
+              60 = 1 hour.
+            </p>
+          </div>
+          <input id="lock-minutes" name="lockMinutes" type="number" min="1" max="525600"
+                 step="1" inputmode="numeric" placeholder="10080" aria-describedby="lock-hint"
+                 title="1–525600 minutes (1 minute to 1 year)" required>
         </div>
         <div class="field inline">
-          <label for="usb-trigger">USB trigger enabled</label>
-          <input id="usb-trigger" name="usbTrigger" type="checkbox">
+          <div class="field-label">
+            <label for="usb-trigger">USB trigger enabled</label>
+            <p id="usb-hint" class="hint">
+              When enabled, connecting USB data while the device is locked can fire the trigger.
+            </p>
+          </div>
+          <input id="usb-trigger" name="usbTrigger" type="checkbox" aria-describedby="usb-hint">
         </div>
         <div class="actions">
-          <button type="submit" class="primary">Save settings</button>
+          <button type="submit" class="primary"
+                  title="Save these values and sync them to every enrolled device">Save settings</button>
           <span id="settings-revision" class="muted"></span>
         </div>
         <p id="settings-message" class="message" role="status"></p>
@@ -81,25 +212,52 @@
     </section>
 
     <section class="panel" aria-labelledby="commands-title">
-      <h3 id="commands-title">Actions</h3>
+      <h3 id="commands-title">Account actions</h3>
+      <p class="section-desc">
+        Commands target every active device in this account and are confirmed before sending.
+        Devices apply them at their next sync.
+      </p>
       <p class="muted" id="action-scope"></p>
-      <div class="actions">
-        <button id="reset-timer" type="button">Reset Timer</button>
-        <button id="force-reset" type="button" class="danger">Force Reset</button>
+      <div class="command-row">
+        <div>
+          <button id="reset-timer" type="button"
+                  title="Restart the lock timer on all active devices">Reset Timer</button>
+          <p class="hint">
+            Restarts the lock timer. Devices that are unlocked stay inactive. Safe to repeat.
+          </p>
+        </div>
+        <div>
+          <button id="force-reset" type="button" class="danger"
+                  title="Queue a factory reset; requires Debug Mode OFF and a typed confirmation">Force Reset</button>
+          <p class="hint">
+            Queues a factory reset. Only executes on devices with Debug Mode OFF; devices with
+            Debug Mode ON are blocked and reported. You must type RESET to confirm.
+          </p>
+        </div>
       </div>
       <p id="commands-message" class="message" role="status"></p>
     </section>
 
     <section class="panel" aria-labelledby="enroll-title">
       <h3 id="enroll-title">Enroll a device</h3>
-      <p class="muted">Create a one-time token (valid 10 minutes), then enter it in the Wasted app under Remote Management.</p>
+      <p class="section-desc">
+        Create a single-use token, then enter it in the app:
+        <strong>Remote Management → Enrollment token → Claim</strong>.
+      </p>
+      <ul class="hint-list">
+        <li>Valid for 10 minutes and usable once.</li>
+        <li>The app must use the same project URL and publishable key configured on this page.</li>
+        <li>Anyone with the token can enroll a device to this account — share it only with your own device.</li>
+      </ul>
       <div class="actions">
-        <button id="create-token" type="button">Create enrollment token</button>
+        <button id="create-token" type="button"
+                title="Create a 10-minute single-use enrollment token">Create enrollment token</button>
       </div>
       <div id="token-output" hidden>
         <p class="token" id="token-value"></p>
         <p class="muted" id="token-expiry"></p>
-        <button id="copy-token" type="button" class="quiet">Copy token</button>
+        <button id="copy-token" type="button" class="quiet"
+                title="Copy the token to the clipboard">Copy token</button>
       </div>
     </section>
   </section>

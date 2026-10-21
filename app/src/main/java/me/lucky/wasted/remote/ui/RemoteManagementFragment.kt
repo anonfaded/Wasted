@@ -67,11 +67,29 @@ class RemoteManagementFragment : Fragment() {
             projectUrl.editText?.setText(config.projectUrl)
             publishableKey.editText?.setText(config.publishableKey)
             websiteUrl.editText?.setText(config.websiteUrl)
+        } ?: configStore.loadDraft()?.let { draft ->
+            projectUrl.editText?.setText(draft.projectUrl)
+            publishableKey.editText?.setText(draft.publishableKey)
         }
         refreshState()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (configStore.isConfigured) return
+        val draft = configStore.loadDraft() ?: return
+        if (binding.projectUrl.editText?.text.isNullOrBlank()) {
+            binding.projectUrl.editText?.setText(draft.projectUrl)
+        }
+        if (binding.publishableKey.editText?.text.isNullOrBlank()) {
+            binding.publishableKey.editText?.setText(draft.publishableKey)
+        }
+    }
+
     private fun setup() = with(binding) {
+        setupWizard.setOnClickListener {
+            startActivity(Intent(requireContext(), RemoteSetupActivity::class.java))
+        }
         saveConfig.setOnClickListener { saveConfig() }
         testConnection.setOnClickListener { testConnection() }
         openWebsite.setOnClickListener { openWebsite() }

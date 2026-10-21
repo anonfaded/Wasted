@@ -178,10 +178,15 @@ function renderDevices() {
 
   if (!devices.length) {
     container.append(
-      el("p", {
-        className: "muted",
-        text: "No devices enrolled yet. Create an enrollment token below and claim it in the app.",
-      }),
+      el("div", { className: "empty-state" }, [
+        el("p", { text: "No devices enrolled yet." }),
+        el("p", {
+          className: "hint",
+          text:
+            "Enable Remote Management in the app, create an enrollment token below, " +
+            "and claim it in the app. The device appears here after its first sync.",
+        }),
+      ]),
     );
     return;
   }
@@ -195,12 +200,25 @@ function renderDevices() {
     const card = el("article", { className: "device-card" }, [
       el("h3", { text: device.name || "Unnamed device" }),
       el("p", { className: "device-id", text: `ID ${device.id}` }),
+      ...(status
+        ? []
+        : [
+            el("p", {
+              className: "hint",
+              text: "Waiting for this device's first sync.",
+            }),
+          ]),
       el("dl", {}, [
         el("dt", { text: "Connection" }),
         el("dd", {}, [
           el("span", {
             className: `badge ${fresh ? "fresh" : "stale"}`,
             text: fresh ? "recently connected" : "offline / stale",
+            attrs: {
+              title: fresh
+                ? "Contacted the server within the last 150 seconds."
+                : "No contact in the last 150 seconds. The exact time is shown below.",
+            },
           }),
         ]),
         el("dt", { text: "Last contact" }),
@@ -216,6 +234,13 @@ function renderDevices() {
           el("span", {
             className: "badge debug",
             text: !status ? "unknown" : status.debug_mode ? "ON (wipes blocked)" : "OFF",
+            attrs: {
+              title: !status
+                ? "Reported by the device after its first sync."
+                : status.debug_mode
+                  ? "ON blocks Force Reset; Reset Timer and settings sync still work."
+                  : "OFF allows destructive remote commands such as Force Reset.",
+            },
           }),
           el("span", { className: "inline-actions" }, [
             debugButton(device.id, true),
@@ -254,12 +279,20 @@ function desiredVsActual(desired, revision, actual, unit) {
   return `${actualText} actual · ${desiredText} desired`;
 }
 
+const COMMAND_LABELS = {
+  reset_timer: "Reset Timer",
+  force_reset: "Force Reset",
+  debug_mode_on: "Debug Mode ON",
+  debug_mode_off: "Debug Mode OFF",
+};
+
 function describeCommand(command) {
   if (!command) return "none";
+  const label = COMMAND_LABELS[command.command_type] ?? command.command_type;
   const result = command.result_code ? ` (${command.result_code})` : "";
   const when = Date.parse(command.created_at);
   const timestamp = Number.isNaN(when) ? command.created_at : new Date(when).toLocaleString();
-  return `${command.command_type} — ${command.state}${result} · ${timestamp}`;
+  return `${label} — ${command.state}${result} · ${timestamp}`;
 }
 
 function renderSettings() {
@@ -292,6 +325,9 @@ function debugButton(deviceId, enable) {
       type: "button",
       "data-debug-device": deviceId,
       "data-debug-enable": enable ? "true" : "false",
+      title: enable
+        ? "Turn Debug Mode ON for this device (blocks destructive commands)"
+        : "Turn Debug Mode OFF for this device (destructive commands can execute)",
     },
   });
 }

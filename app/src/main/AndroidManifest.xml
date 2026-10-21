@@ -52,6 +52,11 @@
         </activity>
 
         <activity
+            android:name=".remote.ui.RemoteSetupActivity"
+            android:exported="false"
+            android:label="Remote setup" />
+
+        <activity
             android:name=".p2p.PortraitCaptureActivity"
             android:screenOrientation="portrait"
             android:stateNotNeeded="true"

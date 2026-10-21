@@ -12,6 +12,12 @@ data class RemoteConfig(
     val websiteUrl: String,
 )
 
+/** Project URL + publishable key collected before the dashboard is hosted. */
+data class RemoteConnectionDraft(
+    val projectUrl: String,
+    val publishableKey: String,
+)
+
 enum class RemoteConfigField {
     PROJECT_URL,
     PUBLISHABLE_KEY,
@@ -39,14 +45,22 @@ object RemoteConfigValidator {
         publishableKey: String,
         websiteUrl: String,
     ): List<RemoteConfigError> = buildList {
+        addAll(validateConnection(projectUrl, publishableKey))
+        validateWebUrl(websiteUrl, MAX_URL_LENGTH)?.let {
+            add(RemoteConfigError(RemoteConfigField.WEBSITE_URL, it))
+        }
+    }
+
+    /** Validation for the setup wizard, where the dashboard URL is not known yet. */
+    fun validateConnection(
+        projectUrl: String,
+        publishableKey: String,
+    ): List<RemoteConfigError> = buildList {
         validateWebUrl(projectUrl, MAX_URL_LENGTH)?.let {
             add(RemoteConfigError(RemoteConfigField.PROJECT_URL, it))
         }
         validatePublishableKey(publishableKey)?.let {
             add(RemoteConfigError(RemoteConfigField.PUBLISHABLE_KEY, it))
-        }
-        validateWebUrl(websiteUrl, MAX_URL_LENGTH)?.let {
-            add(RemoteConfigError(RemoteConfigField.WEBSITE_URL, it))
         }
     }
 

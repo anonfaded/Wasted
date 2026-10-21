@@ -95,4 +95,29 @@ class RemoteConfigStoreTest {
         assertFalse(store.isConfigured)
         assertFalse(store.canStartRemoteWork())
     }
+
+    @Test
+    fun `draft round trips without a website url`() {
+        val store = store()
+        assertTrue(store.saveDraft(" ${validConfig.projectUrl} ", " ${validConfig.publishableKey} "))
+        assertEquals(validConfig.projectUrl, store.loadDraft()?.projectUrl)
+        assertEquals(validConfig.publishableKey, store.loadDraft()?.publishableKey)
+        assertNull(store.load())
+        assertFalse(store.isConfigured)
+    }
+
+    @Test
+    fun `invalid draft rejected`() {
+        val store = store()
+        assertFalse(store.saveDraft(validConfig.projectUrl, "sb_secret_nope"))
+        assertNull(store.loadDraft())
+    }
+
+    @Test
+    fun `clear configuration removes the draft`() {
+        val store = store()
+        assertTrue(store.saveDraft(validConfig.projectUrl, validConfig.publishableKey))
+        store.clearConfiguration()
+        assertNull(store.loadDraft())
+    }
 }

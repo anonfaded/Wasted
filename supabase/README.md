@@ -2,14 +2,44 @@
 
 Reproducible infrastructure for the optional Remote Management feature. Git is the source of truth for structure and configuration; it never contains project secrets or client data.
 
-## Bootstrap
+## For app users (no CLI, no Docker)
 
-1. Create a Supabase project and link it locally (`supabase link --project-ref <project-ref>`); keep credentials in the gitignored `.env` (copy `.env.example`).
-2. Apply migrations in order through Supabase MCP `apply_migration` (do not use the dashboard schema editor). The versions recorded in `supabase_migrations.schema_migrations` must match the filenames in `migrations/`.
-3. Apply the non-SQL settings in the hosted-project manifest below through the Auth dashboard.
-4. Run all four SQL suites in `tests/` inside rolled-back transactions (each file starts with `begin;` and ends with `rollback;`).
-5. Generate website types (`supabase gen types typescript --linked` or MCP `generate_typescript_types`) and refresh `web/src/database.types.ts`.
-6. Review security and performance advisors with MCP `get_advisors`.
+1. Create a free Supabase project.
+2. Open **SQL Editor**, paste `setup.sql`, and press **Run** once. It creates the schema, RLS
+   policies, RPCs, grants, Realtime publication, and the cleanup job; it also ensures
+   `pgcrypto`/`pg_cron` are available.
+3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** (device identities)
+   and disable **Confirm email** (instant account creation). Keep the default rate limits.
+4. Run `verify.sql`; every row must say PASS.
+5. The app setup wizard provides the same SQL and instructions.
+
+Do not run `setup.sql` twice, and do not mix it with `supabase db push` on the same project.
+
+## For developers (CLI/MCP)
+
+- Apply migrations in order with `supabase link` + `supabase db push`, or MCP `apply_migration`
+  for a hosted project.
+- Recorded versions in `supabase_migrations.schema_migrations` must match the filenames in
+  `migrations/`.
+- Run all four suites in `tests/` inside rolled-back transactions.
+- Regenerate `web/src/database.types.ts` when the schema changes.
+- Review advisors with MCP `get_advisors`.
+- Docker is only for local development (`supabase start` / `supabase db reset`). It is not
+  required for hosted projects and is not a deployment path.
+
+## Updating an existing project
+
+- Never re-run `setup.sql`.
+- `releases.json` maps each app release to its cumulative migration list and schema version;
+  `node build-setup-sql.mjs` regenerates `setup.sql`, `updates/update-from-<old>-to-<new>.sql`, and
+  `updates/manifest.json` (checksums). Never edit generated files.
+- Users apply the update bundle named in the release notes, once, after a backup, and stepwise for
+  skipped versions. CLI users: `supabase db push` applies only new migrations.
+- Migrations are immutable and additive; old app versions keep working with newer schemas.
+- Supported upgrade window: previous release (stepwise for older versions). Downgrades are not
+  supported; restore a backup instead.
+- Do not rewrite applied migrations. Supabase's `migration squash` omits data, cron jobs, storage
+  buckets, and vault secrets, so it does not replace these generated artifacts.
 
 ## Hosted project manifest (non-secret)
 
@@ -29,8 +59,12 @@ Record and verify these values for every project:
 
 ## Verification commands
 
-- Schema/RLS/RPC/concurrency: run each `tests/*.sql` against the linked database inside a transaction and `rollback`.
-- Migration history: compare `supabase_migrations.schema_migrations` with the filenames in `migrations/`.
+- Database parity: `./gradlew :app:verifyRemoteSchema` (`supabase db diff --linked`) must print no
+  schema changes; requires Docker and a linked project.
+- Migration history: `supabase migration list --linked` must show no local-only or remote-only
+  versions.
+- Schema/RLS/RPC/concurrency: run each `tests/*.sql` against the linked database inside a
+  transaction and `rollback`.
 - Types: regenerate and confirm `web/src/database.types.ts` only changes with schema changes.
 - Clean replay: `supabase db reset` (requires Docker) must succeed from migrations plus `seed.sql`; then `supabase db diff --linked` must be empty.
 - Secret scan: `git grep -nE 'sb_secret_|service_role|postgres(ql)?://[^ ]+@|BEGIN [A-Z ]*PRIVATE KEY'` must return only validator/test constants.
@@ -38,10 +72,11 @@ Record and verify these values for every project:
 ## Recreate on another account
 
 1. Create the target project and verify its identity through MCP.
-2. Apply the tracked migrations in order.
+2. Apply the tracked migrations in order (CLI/MCP), or run `setup.sql` once for a SQL-editor
+   install.
 3. Apply the Auth manifest above.
 4. Run all four test suites, the advisors, and the clean replay/diff checks.
-5. Deploy `web/dist/index.html` configured with the target URL and publishable key.
+5. Generate the dashboard in the app for the target project (or build `web/dist/index.html` and inject the target values).
 6. Create the first owner through the dashboard Create Account flow, then enroll a spare device with a fresh token.
 
 ## Rollback

@@ -125,6 +125,81 @@ h2::before, h3::before {
 .muted { color: var(--muted); }
 .hint { font-size: 0.82rem; color: var(--muted); margin: 0.3rem 0 0; }
 
+.section-desc {
+  margin: 0 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  max-width: 72ch;
+}
+.dashboard-header .section-desc { margin: 0.15rem 0 0; }
+
+/* Collapsible explanations */
+.help {
+  margin-top: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.help summary {
+  cursor: pointer;
+  padding: 0.65rem 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.71rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.help summary:hover { color: var(--text); }
+.help[open] summary {
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.help-body { padding: 0.85rem 0.95rem 0.95rem; font-size: 0.88rem; }
+.help-body p { margin: 0.45rem 0; }
+.help-body ol, .help-body ul { margin: 0.45rem 0; padding-left: 1.25rem; }
+.help-body li { margin: 0.2rem 0; }
+.help-body dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 0.9rem;
+  margin: 0;
+}
+.help-body dt {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding-top: 0.15rem;
+}
+.help-body dd { margin: 0; }
+
+.field-label { display: flex; flex-direction: column; gap: 0.15rem; }
+.field-label .hint { margin: 0; }
+
+.command-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.6rem; }
+.command-row > div { flex: 1 1 250px; }
+.command-row .hint { margin: 0.45rem 0 0; max-width: 42ch; }
+
+.hint-list {
+  margin: 0.35rem 0 0.6rem;
+  padding-left: 1.15rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.hint-list li { margin: 0.18rem 0; }
+
+.empty-state {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px dashed var(--rule);
+  border-radius: 3px;
+  padding: 1rem 1.1rem;
+}
+.empty-state p { margin: 0.2rem 0; }
+
+input::placeholder { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+
 .field { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.8rem 0; }
 .field.inline { flex-direction: row; align-items: center; justify-content: space-between; gap: 1rem; }
 .field.inline input[type="number"] { max-width: 10rem; }
@@ -367,9 +442,13 @@ footer a:hover { border-bottom-color: var(--ink); }
   .app-header h1 { font-size: 0.82rem; letter-spacing: 0.13em; }
   .panel { padding: 0.95rem 1rem; }
   .actions button { flex: 1 1 auto; }
+  .field.inline { flex-direction: column; align-items: stretch; }
+  .field.inline input[type="number"] { max-width: none; }
   .device-card dl { grid-template-columns: 1fr; gap: 0.1rem; }
   .device-card dt { padding-top: 0.5rem; }
   .device-card dt:first-of-type { padding-top: 0; }
+  .help-body dl { grid-template-columns: 1fr; gap: 0.15rem; }
+  .help-body dt { padding-top: 0.5rem; }
   .inline-actions { margin-left: 0.4rem; }
   .footer-links { margin-left: 0; }
 }

@@ -1,0 +1,20 @@
+{
+  "current": "3.0.0",
+  "releases": [
+    {
+      "appVersion": "3.0.0",
+      "schemaVersion": 1,
+      "migrations": [
+        "20261018125854_remote_schema.sql",
+        "20261018133312_remote_rpcs.sql",
+        "20261018133359_remote_rls_grants.sql",
+        "20261018133558_remote_realtime.sql",
+        "20261018133630_remote_maintenance.sql",
+        "20261018133933_remote_private_enrollments_rls.sql",
+        "20261018150719_remote_fk_indexes.sql",
+        "20261018164537_remote_policy_merge.sql",
+        "20261020131724_remote_debug_mode_commands.sql"
+      ]
+    }
+  ]
+}

@@ -58,22 +58,50 @@ This fork adds optional remote management through your own Supabase project. It 
 
 ### Backend setup
 
-1. Create a Supabase project and apply the migrations in `supabase/migrations/` in order (the linked project was built through the Supabase MCP `apply_migration` tool).
-2. Keep email/password sign-in for owner accounts and enable anonymous sign-ins for per-device identities. The repository's `supabase/config.toml` mirrors the required Auth settings and rate limits.
-3. The app and dashboard store only the project URL and a publishable (anon) key. Never use a secret or service-role key.
+1. Create a free Supabase project and open **SQL Editor**.
+2. Paste `supabase/setup.sql` and press **Run** once. It creates the tables, RLS policies, RPCs, grants, Realtime publication, and cleanup job. No CLI or Docker is required.
+3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and disable **Confirm email** (instant account creation). Keep the default rate limits.
+4. Run `supabase/verify.sql`; every row should say PASS.
+5. The app setup wizard provides the same SQL and instructions. Developers can instead use the CLI/MCP path documented in `supabase/README.md`.
+
+The app and dashboard store only the project URL and a publishable key. Never use a secret or service-role key.
 
 ### Android setup
 
-1. Open **Remote Management** and enter the project URL, publishable key, and dashboard URL; save the configuration.
+1. Open **Remote Management** and use **Open setup wizard** (or enter the project URL, publishable key, and dashboard URL manually); save the configuration.
 2. In the dashboard, create an enrollment token (valid 10 minutes).
 3. Enable Remote Management (this forces Debug Mode ON), enter the token, and claim it. The device appears in the dashboard after the first sync.
 
-### Dashboard
+### Hosting the dashboard
 
-* `cd web && npm install && npm test && npm run build` produces a single `dist/index.html`.
-* Edit the CONFIG block at the top of that file (project URL, publishable key, product/version/footer links) and copy it to any HTTPS static host. There is no CDN, server runtime, or build step at the host. `config.example.js` documents the fields for source builds.
-* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. For strict deployments, serve `config.js` externally and set CSP hashes plus `frame-ancestors 'none'` via response headers, since meta policies cannot set framing rules.
+The dashboard file is generated **by the app**, already configured with your own Supabase project URL and publishable key. There is no file editing and no dashboard server: the page talks directly to your Supabase project over HTTPS/WSS.
+
+1. In the app: **Remote Management → Open setup wizard**.
+2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
+3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and disable **Confirm email**. Keep the default rate limits.
+4. In the wizard, **generate the dashboard file** and save it wherever you like.
+5. Host it: drag the file onto **Netlify Drop** (no account needed to start), claim the site to keep it online, and copy the HTTPS URL. Alternatives: Cloudflare Pages direct upload, GitHub Pages, Vercel, any HTTPS static host.
+6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and Enable. Create an enrollment token in the dashboard and claim it in the app.
+
+### Building the APK
+
+`./gradlew assembleDebug` (or `assembleRelease`) requires Node.js 20+. Gradle regenerates the
+dashboard template, `supabase/setup.sql`, and the release update bundles from the tracked sources
+before packaging, so the APK never contains stale assets; set `NODE_BIN`/`NPM_BIN` if Node is not on
+`PATH`. Developers can verify the linked database against the migrations with
+`./gradlew :app:verifyRemoteSchema` (requires Supabase CLI, Docker, and `supabase link`).
+
+Release updates are organized by `supabase/releases.json`: each app release lists its cumulative
+migrations and schema version, and the build emits one `update-from-<old>-to-<new>.sql` bundle per
+supported upgrade path plus a checksummed manifest. There is no automatic update check; release
+notes name the exact bundle to run after a backup.
+
+No redirect URLs, CORS setup, or build step is needed at the host. Updating the dashboard means regenerating the file in the app and re-uploading it.
+
+The publishable key is public by design and safe to expose. Never embed a secret/service-role key or the database password. The generated file contains no secret, but anyone who can open the hosted page can attempt to create an account; the database rules protect all data.
+
 * Sign In and Create Account are explicit; a failed sign-in never creates an account.
+* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. For strict deployments, edit the CONFIG block into a separate `config.js` and use header-based CSP hashes plus `frame-ancestors 'none'`.
 
 ### Behavior and limits
 

@@ -28,6 +28,13 @@
                 android:text="Connect this device to your own Supabase project and dashboard. It is OFF by default and performs no network work until configured, enabled, and enrolled."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/setupWizard"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Open setup wizard (recommended)" />
+
             <Space
                 android:layout_width="match_parent"
                 android:layout_height="12dp" />

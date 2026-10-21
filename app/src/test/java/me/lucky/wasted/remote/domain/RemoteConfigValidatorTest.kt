@@ -118,6 +118,15 @@ class RemoteConfigValidatorTest {
         )
     }
 
+    @Test
+    fun `connection validation ignores the website url`() {
+        assertTrue(RemoteConfigValidator.validateConnection(projectUrl, publishableKey).isEmpty())
+        assertEquals(
+            2,
+            RemoteConfigValidator.validateConnection("http://localhost:54321", "sb_secret_x").size,
+        )
+    }
+
     private fun jwt(role: String): String {
         val encoder = java.util.Base64.getUrlEncoder().withoutPadding()
         fun segment(json: String) = encoder.encodeToString(json.toByteArray(Charsets.UTF_8))

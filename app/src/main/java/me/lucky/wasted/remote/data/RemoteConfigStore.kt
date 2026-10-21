@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import me.lucky.wasted.remote.domain.RemoteConfig
 import me.lucky.wasted.remote.domain.RemoteConfigValidator
+import me.lucky.wasted.remote.domain.RemoteConnectionDraft
 import me.lucky.wasted.security.TinkEncryptedSharedPreferences
 
 /**
@@ -18,6 +19,8 @@ class RemoteConfigStore(private val prefs: SharedPreferences) {
         private const val KEY_PUBLISHABLE_KEY = "publishable_key"
         private const val KEY_WEBSITE_URL = "website_url"
         private const val KEY_REMOTE_ENABLED = "remote_enabled"
+        private const val KEY_DRAFT_PROJECT_URL = "draft_project_url"
+        private const val KEY_DRAFT_PUBLISHABLE_KEY = "draft_publishable_key"
 
         fun new(ctx: Context): RemoteConfigStore = RemoteConfigStore(
             TinkEncryptedSharedPreferences.create(ctx.applicationContext, FILE_NAME),
@@ -70,10 +73,32 @@ class RemoteConfigStore(private val prefs: SharedPreferences) {
                 .remove(KEY_PROJECT_URL)
                 .remove(KEY_PUBLISHABLE_KEY)
                 .remove(KEY_WEBSITE_URL)
+                .remove(KEY_DRAFT_PROJECT_URL)
+                .remove(KEY_DRAFT_PUBLISHABLE_KEY)
                 .putBoolean(KEY_REMOTE_ENABLED, false)
                 .commit()
         }
     }
+
+    /** Setup wizard values, kept so the dashboard can be regenerated without retyping. */
+    fun saveDraft(projectUrl: String, publishableKey: String): Boolean = runCatching {
+        val url = projectUrl.trim()
+        val key = publishableKey.trim()
+        if (RemoteConfigValidator.validateConnection(url, key).isNotEmpty()) return@runCatching false
+        prefs.edit()
+            .putString(KEY_DRAFT_PROJECT_URL, url)
+            .putString(KEY_DRAFT_PUBLISHABLE_KEY, key)
+            .commit()
+    }.getOrDefault(false)
+
+    fun loadDraft(): RemoteConnectionDraft? = runCatching {
+        val url = prefs.getString(KEY_DRAFT_PROJECT_URL, null) ?: return@runCatching null
+        val key = prefs.getString(KEY_DRAFT_PUBLISHABLE_KEY, null) ?: return@runCatching null
+        if (RemoteConfigValidator.validateConnection(url, key).isNotEmpty()) {
+            return@runCatching null
+        }
+        RemoteConnectionDraft(url.trim(), key.trim())
+    }.getOrNull()
 
     fun canStartRemoteWork(): Boolean = remoteEnabled && load() != null
 }
