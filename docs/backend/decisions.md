@@ -1,0 +1,108 @@
+# Design decisions (ADR log)
+
+Short architecture decision records so context is not lost if development artifacts are removed.
+
+## ADR-01 — Per-user self-hosting
+
+**Context:** Client requires a portable, self-hosted website; the APK is free for everyone.
+**Decision:** Every user creates their own Supabase project and hosts their own dashboard. No
+shared backend or central dashboard.
+**Consequences:** No operator cost/control for the maintainer; users own data and updates.
+Onboarding/upgrades must be documented and guided by the app. A client-operated shared backend
+remains a future option if per-user maintenance is unacceptable.
+
+## ADR-02 — App-generated dashboard, no runtime connect screen
+
+**Context:** Users should not edit HTML or use a terminal.
+**Decision:** The app bundles a single-file dashboard template; the setup wizard injects the
+project URL + publishable key and exports the configured file via Android SAF. Users host it
+themselves.
+**Consequences:** No file editing, no shared URL, works offline. The file contains the public
+publishable key (not a secret). Changing keys requires regenerating/re-uploading. A runtime
+connection form was considered and rejected by the client.
+
+## ADR-03 — Fresh setup via one SQL file + Auth toggles
+
+**Context:** End users should not need CLI/Docker.
+**Decision:** `setup.sql` (generated from migrations) is pasted once into Supabase SQL Editor.
+Two Auth dashboard toggles are required: enable anonymous sign-ins, disable Confirm email.
+**Consequences:** No tooling; Auth settings cannot be set via SQL and remain a manual step.
+Docker/CLI stays a developer path only.
+
+## ADR-04 — Flat immutable migrations + per-release bundles
+
+**Context:** Migrations can pile up; Supabase CLI requires flat timestamped files.
+**Decision:** Keep `supabase/migrations/` flat and immutable (developer history). Map releases in
+`supabase/releases.json` and generate per-release folders: `setup.sql`, stepwise update bundles,
+`verify.sql`, checksums, and generated instructions.
+**Consequences:** Users never see granular migrations; upgrades are one file per release, stepwise.
+Generated artifacts must be regenerated on every release; applied files never change.
+
+## ADR-05 — No automatic update check
+
+**Context:** Client prefers release-notes-driven updates over in-app polling.
+**Decision:** The app does not check schema/app versions. Release notes name the exact SQL bundle;
+the APK bundles it.
+**Consequences:** Simple, no extra endpoint/permission; users must follow notes. Skipping versions
+requires applying each bundle in order.
+
+## ADR-06 — No Docker for end users
+
+**Context:** Docker was considered to “automate” updates.
+**Decision:** Docker is only for local development/replay. Hosted Supabase updates use SQL or CLI.
+**Consequences:** Avoids server administration (TLS, backups, monitoring) for users. Docker Compose
+for self-hosted Supabase remains an advanced operator path, not a product install.
+
+## ADR-07 — Publishable key is public; secret key never ships
+
+**Context:** The dashboard/app must talk to Supabase directly.
+**Decision:** Embed/accept only the project URL + publishable key; validate and reject
+`sb_secret_*`/`service_role`.
+**Consequences:** No secret leakage from the dashboard or APK. Security relies on RLS/RPCs and Auth;
+the dashboard URL is public and can receive signup attempts (rate-limited).
+
+## ADR-08 — Explicit Create Account (deviation from spec wording)
+
+**Context:** The client spec suggested auto-creating an account on sign-in “if technically
+feasible”.
+**Decision:** Keep explicit Sign In and Create Account; a failed sign-in never creates an account.
+**Consequences:** Prevents accidental accounts from typos; requires one extra action. Flagged for
+client confirmation.
+
+## ADR-09 — Debug Mode is fail-closed and locally stored
+
+**Context:** Remote wipe is dangerous; Debug Mode protects testing.
+**Decision:** Debug Mode is stored encrypted on-device, defaults ON, and is re-read inside
+`ResetExecutor`. The dashboard can toggle it per device (with confirmations); the device applies
+without a local dialog.
+**Consequences:** Remote Force Reset is impossible while ON; toggling OFF supersedes pending Force
+Resets. No remote path can bypass the reset boundary.
+
+## ADR-10 — Notifications are meaningful-event only
+
+**Context:** Spec lists sync success as a notification; heartbeats occur every 60 s.
+**Decision:** Notify on settings applied, Reset Timer, Force Reset outcomes, Debug Mode changes,
+command failures, manual-sync success, and sync failure. Heartbeat successes are silent.
+**Consequences:** No notification spam; “sync success” is covered by user-requested syncs.
+
+## ADR-11 — UI stack and compatibility
+
+**Context:** Existing app uses XML/ViewBinding; minSdk 24.
+**Decision:** Stay on Views/ViewBinding (no Compose rewrite); keep minSdk 24; no AVD downloads for
+legacy APIs unless needed.
+**Consequences:** Consistent UI and smaller APK; Compose-specific patterns are not used.
+
+## ADR-12 — Hosting recommendation: Netlify Drop
+
+**Context:** Users must host one HTML file easily.
+**Decision:** Recommend Netlify Drop (drag one file, HTTPS, no account needed to start); document
+Cloudflare Pages, GitHub Pages, Vercel, and generic static hosts.
+**Consequences:** Minimal steps; no server/CORS/redirect setup. Users must claim the site to keep it.
+
+## ADR-13 — Update research and support window
+
+**Context:** Self-hosted products need predictable upgrade paths.
+**Decision:** Follow the mature-OSS pattern: immutable versioned migrations, baselines for fresh
+installs, stepwise upgrades, backup-first, no downgrades, and a previous-release support window.
+**Consequences:** Users crossing multiple versions apply each release bundle in order; old release
+folders stay available. Squashing applied migrations is discouraged.

@@ -52,6 +52,33 @@
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
 
+## Documentation Map (read before backend/release work)
+
+`docs/` is the **canonical, self-sufficient** documentation set and must stay usable if `plan.md`
+and `HANDOFF.md` (temporary development artifacts) are deleted.
+
+- `docs/README.md` — index of all documentation.
+- `docs/architecture.md` — system architecture, components, safety invariants.
+- `docs/backend/migrations-and-releases.md` — **authoritative** migration/release policy; read
+  before touching `supabase/migrations/`, `supabase/releases.json`, or generated release SQL.
+- `docs/backend/database.md`, `remote-protocol.md`, `decisions.md` — schema/RPCs, wire contract,
+  and rationale.
+- `docs/backend/setup.md`, `updates.md`, `release-checklist.md`, `security.md`, `hosting.md`,
+  `troubleshooting.md`, `verification.md` — task-specific backend guides.
+- `HANDOFF.md` — temporary architecture/verification brief (may be removed; docs supersede it).
+- `plan.md` — temporary phase checklist/evidence (may be removed; docs supersede it).
+- `supabase/README.md` — backend operations quick reference.
+- `supabase/releases/<appVersion>/` — generated SQL per release (`setup.sql`, update bundles,
+  `verify.sql`, `manifest.json`, `README.md`); never hand-edit.
+- `supabase/migrations/` — flat, immutable, CLI-compatible history; never edit applied files.
+
+Rules:
+- Any release that changes SQL must update `supabase/releases.json`; Gradle regenerates the
+  release folders and APK assets automatically.
+- Keep docs in sync when workflow/architecture changes; link instead of duplicating, and do not
+  make docs depend on `plan.md` or `HANDOFF.md`.
+- Never put secrets, project refs, or real account/device data in docs.
+
 ---
 
 ## Wasted App 2026 Revival - Mandatory Rules

@@ -1,0 +1,48 @@
+# Release checklist
+
+Copy this into the release PR/issue. Do not skip steps; each line has a command or expected result.
+
+## Before building
+
+- [ ] New migrations are immutable, timestamped, additive, and follow the naming convention.
+- [ ] Applied migrations were not edited or renamed.
+- [ ] `supabase/releases.json` has an entry for this app version with the cumulative migration list.
+- [ ] `schemaVersion` incremented **only** if SQL changed; app-only release repeats the list.
+- [ ] SQL suites pass (schema, RLS, RPC, concurrency) in rolled-back transactions.
+- [ ] `./gradlew :app:verifyRemoteSchema` reports no changes (Docker + linked project).
+- [ ] `supabase migration list --linked` has no local-only/remote-only versions.
+- [ ] Fresh-project setup path still works (apply `setup.sql` to an empty project).
+- [ ] Upgrade path works: previous release schema + new update bundle → `verify.sql` PASS.
+- [ ] `node supabase/build-setup-sql.mjs` produces no unexpected diffs; checksums reviewed.
+- [ ] Docs updated (migrations/releases, updates, setup, troubleshooting as needed).
+- [ ] Security scans clean: tracked-secret grep, APK key/URL scan, no `.env`/keystore tracked.
+- [ ] Version bumped in `app/build.gradle`; APK name is `Wasted-v<version>[-debug].apk`.
+
+## Build
+
+```bash
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:assembleRelease
+cd web && npm test && npm run build && npm run build:android-template
+```
+
+- [ ] Android tests green (currently 92).
+- [ ] Web tests green (currently 19).
+- [ ] Release APK signed with the expected certificate; scan finds no key material/URLs.
+- [ ] `supabase/releases/<version>/README.md` and `manifest.json` reviewed.
+- [ ] Generated SQL/APK/template are committed and current (`git diff --exit-code` after generation).
+
+## Publish
+
+- [ ] Release notes include: app version, schema version, exact update bundle + SHA-256, backup
+  warning, stepwise instructions, dashboard regeneration note.
+- [ ] APK and SQL release folder attached/published.
+- [ ] Supported upgrade window stated (previous release; stepwise older).
+- [ ] Rollback notes included (app reinstall, dashboard re-upload, database restore).
+
+## After
+
+- [ ] Fresh install verified on an empty Supabase project.
+- [ ] Upgrade verified from the previous release on a copy.
+- [ ] Dashboard connects and enrollment works.
+- [ ] Evidence archived (`evidence/`, gitignored).

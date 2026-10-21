@@ -520,7 +520,8 @@ web/
 - [ ] Verify actual §17 Free-plan headroom in Supabase Usage/Realtime reports and prove projected monthly usage remains below every internal threshold.
   - Measured database size 12 MB against the 500 MB limit with zero residual device/command rows; Usage and Realtime reports to be captured during the soak.
 - [ ] Rebuild a fresh Supabase project from tracked migrations/config documentation, verify zero schema drift, and prove the same release APK can be configured and enrolled against it.
-- [x] Migration organization: immutable migrations + `releases.json` + generated setup/update bundles with checksums; Gradle validates coverage and bundles them; no app-side update check.
+- [x] Migration organization: immutable flat migrations + `releases.json` + per-release generated folders (`setup.sql`, stepwise update bundles, verify, checksums, README); Gradle validates coverage and bundles them; no app-side update check.
+- [x] Documentation: `docs/README.md` index + `docs/backend/*` (setup, migrations/releases, updates, release checklist, security, hosting, troubleshooting, verification), linked from `AGENTS.md`, `HANDOFF.md`, and READMEs.
 - [ ] Automate upgrade-path CI: apply each generated update bundle to the previous schema, then verify; fresh-project `setup.sql` replay remains pending (see `HANDOFF.md` §6).
 - [ ] Only with separate explicit approval, locally disable Debug Mode on an emulator (or an empty sacrificial phone) and perform one real wipe E2E test.
 - [ ] Gate: no security/advisor blocker, all regression/compatibility/soak evidence passes, docs match implementation, and release/rollback rehearsal succeeds.

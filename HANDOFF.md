@@ -5,7 +5,9 @@ critique this architecture without re-reading the whole conversation. No secrets
 
 **Status:** implementation complete for v3.0.0; validation gates (emulator/device, soak, Docker
 replay, fresh-project install, usage reports, wipe E2E) remain open. `plan.md` is the detailed
-checklist; this file is the summary and the "why".
+checklist; this file is the summary and the "why". Canonical documentation lives in
+[`docs/README.md`](docs/README.md) and is self-sufficient; this handoff and `plan.md` are temporary
+development artifacts that may be deleted without losing operational knowledge.
 
 ---
 
@@ -71,11 +73,16 @@ Android app ── HTTPS/WSS ──► Supabase project (Auth / PostgREST / Real
 - `app/src/main/assets/dashboard-template.html` — generated dashboard template (build product).
 - `app/src/main/assets/setup.sql` — generated database setup (build product).
 - `web/` — dashboard sources; `dist/index.html` is a build product.
-- `supabase/migrations/` — nine forward-only migrations (source of truth for schema).
-- `supabase/setup.sql` — generated from migrations for one-time SQL Editor install.
+- `supabase/migrations/` — nine forward-only migrations (flat, immutable, CLI-compatible history).
+- `supabase/releases.json` — release manifest (app version → schema version → migrations).
+- `supabase/releases/<appVersion>/` — generated SQL per release: `setup.sql`, update bundles,
+  `verify.sql`, `manifest.json`, generated `README.md`; `releases/README.md` is the index.
+- `supabase/setup.sql` — generated alias of the current release baseline.
 - `supabase/verify.sql` — post-install PASS/FAIL checks.
 - `supabase/tests/` — four SQL suites.
-- `supabase/README.md` — install/update/recreate/rollback.
+- `supabase/README.md` — install/update/recreate/rollback quick reference.
+- `docs/README.md` + `docs/backend/` — canonical setup, migration/release, update, security,
+  hosting, troubleshooting, and verification documentation.
 - `plan.md` — phase checklists and contract; `HANDOFF.md` — this file.
 - `evidence/` — gitignored validation logs.
 
@@ -141,11 +148,13 @@ DDL with a publishable key (and must not ship a secret key).
   offline); it is not edited by hand and Gradle regenerates it before every APK build.
 - `supabase/releases.json` maps every app release to its cumulative migration list and schema
   version. `supabase/build-setup-sql.mjs` validates that the manifest covers every migration
-  exactly once, then emits:
-  - `supabase/setup.sql` (current release, fresh installs),
-  - `supabase/updates/update-from-<old>-to-<new>.sql` (one cumulative bundle per prior release),
-  - `supabase/updates/manifest.json` (app/schema versions, migrations, SHA-256 checksums).
-  Both the setup and update SQL are copied into the APK assets.
+  exactly once, then emits per-release folders:
+  - `supabase/releases/<appVersion>/setup.sql` (fresh installs for that release),
+  - `supabase/releases/<appVersion>/update-from-<old>-to-<new>.sql` (stepwise bundles),
+  - `supabase/releases/<appVersion>/verify.sql`, `manifest.json` (SHA-256 checksums), and a
+    generated `README.md` with apply instructions.
+  The current release's setup and update SQL are copied into the APK assets; the root
+  `supabase/setup.sql` is a generated alias for the current baseline.
 - **No automatic update check** (client decision). Release notes state exactly which file to run.
 - The remote database is verified against the migrations (`supabase db diff --linked` plus
   `supabase migration list --linked`); an empty diff means the remote equals the tracked schema.

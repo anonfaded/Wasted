@@ -142,7 +142,7 @@ tasks.register('generateSetupSql', Exec) {
     inputs.file(rootProject.file('supabase/build-setup-sql.mjs'))
     inputs.file(rootProject.file('supabase/releases.json'))
     outputs.files(setupSqlSource, setupSqlAsset)
-    outputs.dir(rootProject.file('supabase/updates'))
+    outputs.dir(rootProject.file('supabase/releases'))
     outputs.dir(new File(projectDir, 'src/main/assets/updates'))
 }
 

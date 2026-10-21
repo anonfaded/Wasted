@@ -54,7 +54,7 @@ Be aware that the app does not work in _safe mode_.
 
 ## Remote Management
 
-This fork adds optional remote management through your own Supabase project. It is disabled by default and performs no network work until it is configured, enrolled, and enabled.
+This fork adds optional remote management through your own Supabase project. It is disabled by default and performs no network work until it is configured, enrolled, and enabled. Full backend documentation is indexed in [`docs/README.md`](docs/README.md).
 
 ### Backend setup
 
@@ -92,8 +92,9 @@ before packaging, so the APK never contains stale assets; set `NODE_BIN`/`NPM_BI
 `./gradlew :app:verifyRemoteSchema` (requires Supabase CLI, Docker, and `supabase link`).
 
 Release updates are organized by `supabase/releases.json`: each app release lists its cumulative
-migrations and schema version, and the build emits one `update-from-<old>-to-<new>.sql` bundle per
-supported upgrade path plus a checksummed manifest. There is no automatic update check; release
+migrations and schema version, and the build emits a folder per release
+(`supabase/releases/<version>/`) with `setup.sql`, stepwise update bundles, `verify.sql`, a
+checksummed manifest, and generated apply instructions. There is no automatic update check; release
 notes name the exact bundle to run after a backup.
 
 No redirect URLs, CORS setup, or build step is needed at the host. Updating the dashboard means regenerating the file in the app and re-uploading it.
