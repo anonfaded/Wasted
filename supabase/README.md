@@ -37,11 +37,12 @@ Do not run `setup.sql` twice, and do not mix it with `supabase db push` on the s
   `node build-setup-sql.mjs` regenerates per-release folders under `releases/<appVersion>/`
   (`setup.sql`, update bundles, `verify.sql`, `manifest.json`, `README.md`). Never edit generated
   files. Full policy: [`docs/backend/migrations-and-releases.md`](../docs/backend/migrations-and-releases.md).
-- Users apply the update bundle named in the release notes, once, after a backup, and stepwise for
-  skipped versions. CLI users: `supabase db push` applies only new migrations.
+- Users apply the cumulative update bundle named in the release notes once, after a backup. Apply
+  the bundle matching the installed version; no intermediate bundles are required. CLI users:
+  `supabase db push` applies only new migrations.
 - Migrations are immutable and additive; old app versions keep working with newer schemas.
-- Supported upgrade window: previous release (stepwise for older versions). Downgrades are not
-  supported; restore a backup instead.
+- Supported upgrade window: any declared prior release via its matching cumulative bundle.
+  Downgrades are not supported; restore a backup instead.
 - Do not rewrite applied migrations. Supabase's `migration squash` omits data, cron jobs, storage
   buckets, and vault secrets, so it does not replace these generated artifacts.
 

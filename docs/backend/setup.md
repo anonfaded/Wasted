@@ -19,6 +19,8 @@ Use this for a new installation. For upgrades, see [updates.md](./updates.md).
   and a device can be revoked independently.
 - **If anonymous sign-ins stay off:** your owner account and dashboard still work, but devices cannot
   enroll or sync. Enable the provider only if you want Remote Management.
+- **Owner guard:** only the first authenticated owner can initialize the dashboard account. Other
+  Auth users can exist but cannot access your account or devices.
 
 ## 1. Create the project
 
@@ -60,11 +62,12 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
 1. In the app: **Remote Management → Open setup wizard**.
 2. Paste the Project URL and publishable key → **Continue**.
 3. **Generate dashboard file** → save it as `index.html` via the Android file picker (the app
-   suggests this name; Netlify Drop needs an `index.html` home page).
-4. Host it: drag the file onto <https://app.netlify.com/drop>. The temporary site is
-   password-protected and expires after 1 hour until you click **Claim this site** and sign in or
-   sign up. Then copy the final `https://…netlify.app` URL. Alternatives: Cloudflare Pages, GitHub
-   Pages, Vercel, any HTTPS static host.
+   suggests this name; Netlify Drop needs an `index.html` home page). For strict framing headers,
+   use **Save deployable package (.zip)**: it contains `index.html` and `_headers`.
+4. Host it: drag the file, or the package contents, onto <https://app.netlify.com/drop>. The
+   temporary site is password-protected and expires after 1 hour until you click **Claim this
+   site** and sign in or sign up. Then copy the final `https://…netlify.app` URL. Alternatives:
+   Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static host.
 5. In **Authentication → URL Configuration**, set **Site URL** to that final dashboard URL so
    confirmation emails return there.
 
@@ -73,7 +76,10 @@ open the URL can attempt to create an account; RLS protects the data.
 
 ## 4. Create the owner and enroll the device
 
-1. Open the hosted dashboard → **Create Account** (email, password ≥ 12 characters, handle).
+Create the owner account before sharing the dashboard URL: the first authenticated owner claims the
+single-owner bootstrap.
+
+1. Open the hosted dashboard → **Create Account** (email, password ≥ 12 characters, account name).
 2. In the dashboard, **Enroll a device → Create enrollment token** (valid 10 minutes).
 3. In the app: paste the **Dashboard website URL**, Save.
 4. Enable **Remote Management** (forces Debug Mode ON) → paste the token → **Claim**.

@@ -511,7 +511,7 @@ web/
 - [ ] Run Android unit/instrumentation suites for validation, settings/timer behavior, service reconfigure, concurrency, retry, journal/outbox, Debug Mode, and log redaction.
   - Unit suites 92/92 green (validation, settings/timer, service reconfigure, retry, journal/outbox, Debug Mode). Instrumentation and log-redaction device runs remain in the final acceptance round.
 - [ ] Run Supabase clean migration, pgTAP/RLS/RPC/concurrency/Realtime tests and security/performance advisors.
-  - Tracked migrations 12/12 match the linked history; schema/RLS/RPC/concurrency suites 4/4; advisors reviewed. Clean replay and `db diff --linked` still require Docker.
+  - Tracked migrations 14/14 match the linked history; schema/RLS/RPC/concurrency suites 4/4 plus verifier drift test; advisors reviewed. Clean replay and `db diff --linked` still require Docker.
 - [ ] Run web unit/browser/accessibility/CSP/session/account-isolation tests and dependency/secret scans.
   - Web unit tests 22/22; CSP meta and `no-referrer` added; `npm audit` clean; tracked-source secret scan clean; single-file build verified. Browser/a11y suites remain in the final acceptance round.
 - [ ] Compatibility matrix on emulators (API 24, 33, 35 minimum): foreground/background/screen-off/Doze/OEM saver/offline/socket loss/process/service restart/reboot/user unlock/force-stop. Install the release build on the physical phone once at the end to confirm upgrade and launch.
@@ -520,7 +520,7 @@ web/
 - [ ] Verify actual §17 Free-plan headroom in Supabase Usage/Realtime reports and prove projected monthly usage remains below every internal threshold.
   - Measured database size 12 MB against the 500 MB limit with zero residual device/command rows; Usage and Realtime reports to be captured during the soak.
 - [ ] Rebuild a fresh Supabase project from tracked migrations/config documentation, verify zero schema drift, and prove the same release APK can be configured and enrolled against it.
-- [x] Migration organization: immutable flat migrations + `releases.json` + per-release generated folders (`setup.sql`, stepwise update bundles, verify, checksums, README); Gradle validates coverage and bundles them; no app-side update check.
+- [x] Migration organization: immutable flat migrations + `releases.json` + per-release generated folders (`setup.sql`, cumulative update bundles, verify, checksums, README); Gradle validates coverage and bundles them; no app-side update check.
 - [x] Audit hardening (2026-10-21): fail-closed verifier (FORCE RLS, exact policies/grants, RPC definer/owner/search_path/ACL, Realtime scope, cron, schema marker, PUBLIC defaults), revocation-during-execution terminalization, idempotency binding, global PUBLIC function ACL revoke, signed-release gate with explicit unsigned naming, dashboard token/link/owner-recovery fixes, anti-framing headers/fallback, rate-limit/backup/retention docs.
 - [x] Documentation: `docs/README.md` index + `docs/backend/*` (setup, migrations/releases, updates, release checklist, security, hosting, troubleshooting, verification), linked from `AGENTS.md`, `HANDOFF.md`, and READMEs.
 - [ ] Automate upgrade-path CI: apply each generated update bundle to the previous schema, then verify; fresh-project `setup.sql` replay remains pending (see `HANDOFF.md` §6).
@@ -558,8 +558,8 @@ Update policy (see `HANDOFF.md` §6):
 
 - Migrations remain the source of truth; the linked project is verified against them with `supabase db diff --linked` and `supabase migration list --linked`.
 - Never re-run `setup.sql`. Updates are incremental and additive; old app versions keep working with newer schemas.
-- Target UX for no-tool users: per-release generated update bundles named in release notes,
-  applied stepwise after a backup; no automatic update check.
+- Target UX for no-tool users: per-release generated cumulative update bundles named in release
+  notes, applied once after a backup; no automatic update check.
 - Migration history is organized by `supabase/releases.json` (app version → schema version →
   cumulative migrations); `setup.sql`, update bundles, and checksums are generated, never edited.
 - Docker is only for local development/replay; it is not an end-user update mechanism.

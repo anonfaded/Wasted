@@ -38,9 +38,10 @@ Docker/CLI stays a developer path only.
 
 **Context:** Migrations can pile up; Supabase CLI requires flat timestamped files.
 **Decision:** Keep `supabase/migrations/` flat and immutable (developer history). Map releases in
-`supabase/releases.json` and generate per-release folders: `setup.sql`, stepwise update bundles,
-`verify.sql`, checksums, and generated instructions.
-**Consequences:** Users never see granular migrations; upgrades are one file per release, stepwise.
+`supabase/releases.json` and generate per-release folders: `setup.sql`, cumulative update bundles,
+`verify.sql`, checksums, and instructions.
+**Consequences:** Users never see granular migrations; each install applies the cumulative bundle
+matching its version.
 Generated artifacts must be regenerated on every release; applied files never change.
 
 ## ADR-05 — No automatic update check
@@ -157,5 +158,6 @@ anonymously and is bound to the owner by a single-use, hashed, 10-minute enrollm
 distinguish owner and anonymous sessions; RLS scopes all data to the account.
 **Consequences:** Anonymous sign-ins must be enabled for Remote Management, but not for the rest of
 the app. Disabling them still allows owner sign-in/dashboard use; devices cannot enroll or sync.
-Anonymous endpoint abuse is bounded by rate limits and cleanup. Rename/revoke on the dashboard
-manage device records without changing this identity model.
+Anonymous endpoint abuse is bounded by rate limits and cleanup. A single-owner guard prevents a
+second usable dashboard account. Rename/revoke on the dashboard manage device records without
+changing this identity model.

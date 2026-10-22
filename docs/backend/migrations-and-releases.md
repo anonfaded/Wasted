@@ -79,10 +79,10 @@ Rules enforced by the generator:
 For every release folder:
 
 - `setup.sql` — fresh install baseline for that exact release.
-- `update-from-<older>-to-<release>.sql` — stepwise upgrade bundle containing only migrations added
-  since `<older>`.
+- `update-from-<older>-to-<release>.sql` — cumulative upgrade bundle containing every migration
+  added since `<older>`.
 - `verify.sql` — post-setup checks.
-- `manifest.json` — app/schema versions, setup and update hashes, migration lists.
+- `manifest.json` — app/schema versions, setup/update hashes, and update metadata.
 - `README.md` — apply instructions, Auth checklist, file checksums.
 
 Generate with `node supabase/build-setup-sql.mjs`, or automatically via Gradle before asset merging.
@@ -189,7 +189,7 @@ baseline.
 ## Industry practices and sources
 
 Mature self-hosted products converge on the same pattern used here: immutable versioned history,
-a generated baseline for fresh installs, stepwise release deltas, backups before upgrades, and a
+a generated baseline for fresh installs, cumulative release deltas, backups before upgrades, and a
 supported upgrade window.
 
 - **Flyway-style versioned migrations:** applied exactly once, tracked in a history table with

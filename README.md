@@ -79,13 +79,16 @@ The dashboard file is generated **by the app**, already configured with your own
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
 3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and leave **Confirm email** enabled. Anonymous sign-ins give each device its own private identity, so your email/password is never stored on the device. Confirm email is recommended: click the link in the email, then sign in. If you do not want Remote Management, you can leave anonymous sign-ins off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
-4. In the wizard, **generate the dashboard file** and save it as `index.html`. Netlify Drop requires
-   an `index.html` home page; another filename shows “page not found.”
-5. Host it: drag the file onto **Netlify Drop** (no account needed to start). The temporary site is
-   password-protected and expires after **1 hour** until you click **Claim this site** and sign in or
-   sign up. Copy the final HTTPS URL, then set Supabase → **Authentication → URL Configuration →
-   Site URL** to that URL so confirmation emails return to the dashboard. Alternatives: Cloudflare
-   Pages direct upload, GitHub Pages, Vercel, any HTTPS static host.
+4. In the wizard, **generate the dashboard file** and save it as `index.html`, or use **Save
+   deployable package (.zip)** when the host should send strict framing headers (`index.html` +
+   `_headers`). Netlify Drop requires an `index.html` home page; another filename shows “page not
+   found.”
+5. Host it: drag the file onto **Netlify Drop** (no account needed to start). Netlify Drop
+   currently password-protects the temporary site and expires it after **1 hour** until you click
+   **Claim this site** and sign in or sign up. Copy the final HTTPS URL, then set Supabase →
+   **Authentication → URL Configuration → Site URL** to that URL so confirmation emails return to
+   the dashboard. Alternatives: Cloudflare Pages direct upload, GitHub Pages, Vercel, any HTTPS
+   static host.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app.
 
@@ -104,16 +107,18 @@ can verify the linked database against the migrations with `./gradlew :app:verif
 
 Release updates are organized by `supabase/releases.json`: each app release lists its cumulative
 migrations and schema version, and the build emits a folder per release
-(`supabase/releases/<version>/`) with `setup.sql`, stepwise update bundles, `verify.sql`, a
+(`supabase/releases/<version>/`) with `setup.sql`, cumulative update bundles, `verify.sql`, a
 checksummed manifest, and generated apply instructions. There is no automatic update check; release
 notes name the exact bundle to run after a backup.
 
-No redirect URLs, CORS setup, or build step is needed at the host. Updating the dashboard means regenerating the file in the app and re-uploading it.
+No CORS setup or build step is needed at the host. With Confirm email enabled, set the Supabase Auth
+**Site URL** to the hosted dashboard URL. Updating the dashboard means replacing `index.html` in the
+same site; use the app's deployable ZIP when strict framing headers are required.
 
-The publishable key is public by design and safe to expose. Never embed a secret/service-role key or the database password. The generated file contains no secret, but anyone who can open the hosted page can attempt to create an account; the database rules protect all data.
+The publishable key is public by design and safe to expose. Never embed a secret/service-role key or the database password. The generated file contains no secret. Anyone who can open the hosted page can attempt to sign up, but only the first owner can initialize the dashboard; extra Auth users cannot access account data.
 
-* Sign In and Create Account are explicit; a failed sign-in never creates an account.
-* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. Meta policies cannot set `frame-ancestors`; production hosting must send `frame-ancestors 'none'` (or `X-Frame-Options: DENY`) via response headers. The repository includes `web/_headers` for header-capable hosts (Netlify/Cloudflare Pages) and a frame-busting fallback in the page.
+* Sign In and Create Account are explicit; a failed sign-in never creates an account. Confirm email is recommended and verifies ownership, but it is not a signup restriction.
+* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. Meta policies cannot set `frame-ancestors`; production hosting must send `frame-ancestors 'none'` (or `X-Frame-Options: DENY`) via response headers. Use the app's deployable ZIP (`index.html` + `_headers`) on a header-capable host, or configure the headers there. The page also has a frame-busting fallback.
 
 ### Behavior and limits
 
@@ -121,7 +126,7 @@ The publishable key is public by design and safe to expose. Never embed a secret
 * Lock Timer / USB Trigger changes are revision-protected and apply to every enrolled device.
 * Reset Timer restarts the lock timer. Force Reset sends a factory reset (typed confirmation in the dashboard) and only executes while Debug Mode is OFF.
 * Debug Mode is ON by default and blocks destructive remote commands. The dashboard asks for confirmation in both directions; the device applies remote toggles without a local dialog. Turning it OFF expires after 10 minutes if the device stays offline, and supersedes any pending Force Reset.
-* Optional notifications (off by default, `remote_events` channel) cover settings applied, Reset Timer, Force Reset, blocked or failed commands, manual-sync success, and sync failures. Repeated notices replace each other instead of stacking, and heartbeat successes never notify.
+* Local notifications (on by default, `remote_events` channel) cover settings applied, Reset Timer, Force Reset, blocked or failed commands, manual-sync success, and sync failures. Repeated notices replace each other instead of stacking, and heartbeat successes never notify.
 * Delivery is not push: an online device syncs over Realtime, otherwise at the next 60-second heartbeat or WorkManager recovery run. Nothing is queued forever: Reset Timer 24 h, Force Reset and Debug Mode OFF 10 min, Debug Mode ON 24 h.
 
 ### Troubleshooting and rollback

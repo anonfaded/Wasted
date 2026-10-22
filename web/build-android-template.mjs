@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { renderDashboardHtml } from "./build-lib.mjs";
 
 const html = await renderDashboardHtml({
@@ -7,6 +7,9 @@ const html = await renderDashboardHtml({
   version: "__WASTED_VERSION__",
 });
 
+const headers = await readFile("_headers", "utf8");
+
 await mkdir("../app/src/main/assets", { recursive: true });
 await writeFile("../app/src/main/assets/dashboard-template.html", html);
-console.log("Built app/src/main/assets/dashboard-template.html (placeholder template).");
+await writeFile("../app/src/main/assets/dashboard_headers.txt", headers);
+console.log("Built app/src/main/assets/dashboard-template.html and dashboard_headers.txt.");

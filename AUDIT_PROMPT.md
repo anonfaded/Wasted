@@ -20,11 +20,12 @@ new issues. Be very concise; do not restate fixed findings or the whole codebase
 ## Changes since the first audit (verify these)
 
 - **Migrations**: added and applied `20261021060654_remote_hardening.sql` and
-  `20261021061300_remote_public_acl.sql`; `supabase/releases.json` now lists 12 migrations; setup,
+  `20261021061300_remote_public_acl.sql`; `supabase/releases.json` now lists 14 migrations; setup,
   release folder, manifest, and verify were regenerated.
-- **M1 verifier**: `supabase/verify.sql` expanded to 18 fail-closed catalog checks (FORCE RLS,
-  exact policies/grants, RPC signatures/definer/owner/empty search_path/ACL, Realtime scope, cron,
-  schema marker `wasted-remote-schema:1`, PUBLIC default denial).
+- **M1 verifier**: `supabase/verify.sql` now performs exact policy matching, FORCE RLS, grants,
+  RPC properties, Realtime scope, schema marker, default-ACL presence, and an effective
+  create-function probe. Negative drift coverage is in
+  `supabase/tests/remote_verify_drift_test.sql`.
 - **M2 revocation**: `revoke_device` now terminalizes `executing` commands as
   `failed`/`device_revoked_during_execution`; test added.
 - **L2 idempotency**: `create_account_action` binds keys to action type/scope; cross-type tests.

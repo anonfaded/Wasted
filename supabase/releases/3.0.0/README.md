@@ -23,8 +23,8 @@ This is the initial release; there are no upgrade bundles.
 
 | File | SHA-256 |
 | --- | --- |
-| `setup.sql` | `d7fda5075dc78452c7137dc289b2cae6ef38915dda2e3de37ecaa255276ae0e0` |
-| `verify.sql` | `d749a27c6c7e3f33d5f1715c623a971d49b7e397139f78eb8cf4f5eaf0a21e72` |
+| `setup.sql` | `2042ef44a35ab00733fc237d8cba5cb89a74f2ab66a3f8d2fc7c8b38ac1cc4cb` |
+| `verify.sql` | `6724b7bc057b1738cdfda306633e557ff045c123e71e60c213fc09b3d3fa1f7c` |
 
 ## Authentication checklist
 

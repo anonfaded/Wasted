@@ -11,7 +11,7 @@
 | `pg_cron` extension error during setup | Extension unavailable | Database → Extensions → enable `pg_cron`, re-run setup on a fresh project |
 | `update failed: relation exists` | Ran `setup.sql` on an existing project | Do not re-run setup; apply the release update bundle instead |
 | Update bundle applied twice | Duplicate DDL | Restore backup and apply once; never re-run updates |
-| Schema mismatch after update | Wrong/out-of-order bundle | Follow release notes stepwise (previous → next), then `verify.sql` |
+| Schema mismatch after update | Wrong/out-of-order bundle | Apply the cumulative bundle matching the installed version, then `verify.sql` |
 | Device card shows “offline / stale” | No contact in 150 s | Bring the device online/unlocked; check heartbeat/network |
 | Device never appears | Not enrolled or wrong project | Create a fresh token, claim it, check the same URL/key in app |
 | Force Reset blocked | Debug Mode ON | Expected behavior; the owner can turn Debug Mode OFF remotely from the dashboard (with confirmation) or locally on the device |

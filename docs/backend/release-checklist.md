@@ -29,7 +29,7 @@ cd web && npm test && npm run build && npm run build:android-template
 ```
 
 - [ ] Android tests green (currently 92).
-- [ ] Web tests green (currently 19).
+- [ ] Web tests green (currently 22).
 - [ ] `assembleSignedRelease` succeeds (fails closed without signing inputs); unsigned output is
   named `-unsigned` and is not published.
 - [ ] `apksigner verify --print-certs` shows the expected certificate SHA-256.
@@ -43,9 +43,9 @@ cd web && npm test && npm run build && npm run build:android-template
 ## Publish
 
 - [ ] Release notes include: app version, schema version, exact update bundle + SHA-256, backup
-  warning, stepwise instructions, dashboard regeneration note.
+  warning, cumulative instructions, dashboard regeneration note.
 - [ ] APK and SQL release folder attached/published.
-- [ ] Supported upgrade window stated (previous release; stepwise older).
+- [ ] Supported upgrade window stated (any declared prior release via its matching cumulative bundle).
 - [ ] Rollback notes included (app reinstall, dashboard re-upload, database restore).
 
 ## After

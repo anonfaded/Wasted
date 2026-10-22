@@ -33,7 +33,8 @@ No automatic update check. Release notes name the exact SQL file; the APK bundle
 - File: `update-from-<previousVersion>-to-<appVersion>.sql`
 - SHA-256: `<hash from releases/<appVersion>/manifest.json>`
 - Back up your Supabase project first. Apply once in SQL Editor, then run `verify.sql`.
-- If you are on an older version, apply the intermediate release bundles in order.
+- If you are on an older version, apply the cumulative bundle named for your installed version;
+  you do not need to apply intermediate bundles.
 
 ### App
 - APK: `Wasted-v<appVersion>.apk`
@@ -83,8 +84,8 @@ device locally and never retry a wipe blindly.
 - **Dashboard URL change:** update Remote Management in the app; enrollment/session are unaffected.
 - **Supabase account password:** rotate in Supabase Auth; the app/dashboard never store it.
 - **Secret/service-role key:** never in the app/dashboard; rotate it only for server-side tooling.
-- **Enrollment token:** issue a new token (older open tokens are revoked) and claim again on the
-  device if needed.
+- **Enrollment token:** issue a new token and claim again on the device if needed. Open tokens are
+  independent; revoke unused ones explicitly if desired.
 
 ## Rollback
 

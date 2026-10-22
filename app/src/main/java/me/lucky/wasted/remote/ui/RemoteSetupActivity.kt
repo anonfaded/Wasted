@@ -30,7 +30,10 @@ import me.lucky.wasted.remote.domain.DashboardTemplate
 import me.lucky.wasted.remote.domain.RemoteConfig
 import me.lucky.wasted.remote.domain.RemoteConfigField
 import me.lucky.wasted.remote.domain.RemoteConfigValidator
+import java.io.BufferedOutputStream
 import java.net.URI
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * Guided, offline setup: choose a path, collect the project URL/key, provide the database SQL
@@ -57,6 +60,11 @@ class RemoteSetupActivity : AppCompatActivity() {
     private val createDocument =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri ->
             if (uri != null) writeDashboard(uri)
+        }
+
+    private val createPackage =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+            if (uri != null) writeDashboardPackage(uri)
         }
 
     private var pendingSqlAsset: String? = null
@@ -111,6 +119,9 @@ class RemoteSetupActivity : AppCompatActivity() {
         binding.openAuthSettings.setOnClickListener { openProjectPage("auth/providers") }
         binding.generateDashboard.setOnClickListener {
             if (saveDetails()) createDocument.launch("index.html")
+        }
+        binding.generateDashboardPackage.setOnClickListener {
+            if (saveDetails()) createPackage.launch("wasted-dashboard.zip")
         }
         binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/drop") }
         binding.skipToDashboard.setOnClickListener {
@@ -316,24 +327,13 @@ class RemoteSetupActivity : AppCompatActivity() {
             snackbar("Save valid project details first.")
             return
         }
-        val version = runCatching {
-            @Suppress("DEPRECATION")
-            packageManager.getPackageInfo(packageName, 0).versionName
-        }.getOrNull() ?: "3.0.0"
+        val version = appVersion()
 
         binding.dashboardGeneratedStatus.text = "Saving dashboard file…"
         scope.launch {
             val saved = withContext(Dispatchers.IO) {
                 runCatching {
-                    val template = assets.open("dashboard-template.html")
-                        .bufferedReader()
-                        .use { it.readText() }
-                    val html = DashboardTemplate.render(
-                        template,
-                        draft.projectUrl,
-                        draft.publishableKey,
-                        version,
-                    )
+                    val html = renderDashboardHtml(draft.projectUrl, draft.publishableKey, version)
                     contentResolver.openOutputStream(uri)?.use { stream ->
                         stream.write(html.toByteArray(Charsets.UTF_8))
                     } ?: error("no output stream")
@@ -356,6 +356,64 @@ class RemoteSetupActivity : AppCompatActivity() {
                 },
             )
         }
+    }
+
+    private fun writeDashboardPackage(uri: Uri) {
+        val draft = configStore.loadDraft() ?: run {
+            snackbar("Save valid project details first.")
+            return
+        }
+        val version = appVersion()
+
+        binding.dashboardGeneratedStatus.text = "Saving deployable package…"
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                runCatching {
+                    val html = renderDashboardHtml(draft.projectUrl, draft.publishableKey, version)
+                    val headers = assets.open("dashboard_headers.txt")
+                        .bufferedReader()
+                        .use { it.readText() }
+                    contentResolver.openOutputStream(uri)?.use { stream ->
+                        ZipOutputStream(BufferedOutputStream(stream)).use { zip ->
+                            zip.putNextEntry(ZipEntry("index.html"))
+                            zip.write(html.toByteArray(Charsets.UTF_8))
+                            zip.closeEntry()
+                            zip.putNextEntry(ZipEntry("_headers"))
+                            zip.write(headers.toByteArray(Charsets.UTF_8))
+                            zip.closeEntry()
+                        }
+                    } ?: error("no output stream")
+                }.isSuccess
+            }
+            dashboardGenerated = saved
+            binding.dashboardGeneratedStatus.text = if (saved) {
+                "Deployable package saved. Upload its contents to the same host/site."
+            } else {
+                "Could not save the deployable package. Try again."
+            }
+            if (currentStep == STEP_DASHBOARD) {
+                binding.wizardNext.isEnabled = dashboardGenerated
+            }
+            snackbar(
+                if (saved) {
+                    "Package saved with index.html and _headers."
+                } else {
+                    "Could not save the deployable package."
+                },
+            )
+        }
+    }
+
+    private fun appVersion(): String = runCatching {
+        @Suppress("DEPRECATION")
+        packageManager.getPackageInfo(packageName, 0).versionName
+    }.getOrNull() ?: "3.0.0"
+
+    private fun renderDashboardHtml(projectUrl: String, key: String, version: String): String {
+        val template = assets.open("dashboard-template.html")
+            .bufferedReader()
+            .use { it.readText() }
+        return DashboardTemplate.render(template, projectUrl, key, version)
     }
 
     private fun snackbar(message: String) {

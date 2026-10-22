@@ -28,9 +28,10 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
 
 ## 2. Current state
 
-- App v3.0.0 (versionCode 42); debug + release APKs build and are signed with the expected key.
-- Tests: Android **92/92**, web **22/22**, SQL suites **4/4** (schema, RLS, RPC, concurrency) run
-  against the linked project in rolled-back transactions.
+- App v3.0.0 (versionCode 42); debug APK builds. The signed-release task is fail-closed, but the
+  actual release certificate still needs release-gate verification.
+- Tests: Android **92/92**, web **22/22**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
+  the verifier drift negative test, run against the linked project in rolled-back transactions.
 - Implemented: Debug Mode boundary, ResetExecutor, reset ordering, per-device Debug Mode commands,
   notifications, Android Remote Management screen, setup wizard, dashboard, enrollment, sync,
   recovery worker, docs.
@@ -38,6 +39,9 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
   lowercasing, password visibility toggle, Confirm email + Site URL guidance, editable device names,
   dashboard rename/revoke, confirmation dialogs for settings/tokens/commands, setup-guide links, and
   a `npm run dev` source-testing path.
+- Latest audit fixes: exact verifier policy/ACL checks + negative drift test, single-owner account
+  guard, idempotent legacy command repair, deployable ZIP (`index.html` + `_headers`), Sign In accepts
+  existing passwords, clipboard warning, and cumulative update documentation.
 - Open: emulator matrix, 16 h soak, instrumentation/log-redaction, browser/a11y suites, latency and
   usage evidence, Docker clean replay, fresh-project `setup.sql` verification, wipe E2E (needs
   explicit approval), final acceptance gate.
@@ -79,13 +83,14 @@ Android app ── HTTPS/WSS ──► Supabase project (Auth / PostgREST / Real
 - `app/src/main/assets/dashboard-template.html` — generated dashboard template (build product).
 - `app/src/main/assets/setup.sql` — generated database setup (build product).
 - `web/` — dashboard sources; `dist/index.html` is a build product.
-- `supabase/migrations/` — nine forward-only migrations (flat, immutable, CLI-compatible history).
+- `supabase/migrations/` — fourteen forward-only migrations (flat, immutable, CLI-compatible
+  history).
 - `supabase/releases.json` — release manifest (app version → schema version → migrations).
 - `supabase/releases/<appVersion>/` — generated SQL per release: `setup.sql`, update bundles,
   `verify.sql`, `manifest.json`, generated `README.md`; `releases/README.md` is the index.
 - `supabase/setup.sql` — generated alias of the current release baseline.
 - `supabase/verify.sql` — post-install PASS/FAIL checks.
-- `supabase/tests/` — four SQL suites.
+- `supabase/tests/` — four SQL suites plus the verifier drift negative test.
 - `supabase/README.md` — install/update/recreate/rollback quick reference.
 - `docs/README.md` + `docs/backend/` — canonical setup, migration/release, update, security,
   hosting, troubleshooting, and verification documentation.
@@ -103,7 +108,8 @@ Android app ── HTTPS/WSS ──► Supabase project (Auth / PostgREST / Real
    Authentication → URL Configuration → **Site URL** to the dashboard URL so confirmation links
    return there.
 5. Run `verify.sql`; every row must say PASS.
-6. In the wizard: **Generate dashboard file** → save as `index.html` via SAF.
+6. In the wizard: **Generate dashboard file** → save as `index.html` via SAF, or use **Save
+   deployable package (.zip)** for `index.html` + `_headers`.
 7. Host the file (Netlify Drop recommended; any HTTPS static host), claim the site, and copy the
    final URL. When updating, replace `index.html` in the **same site**; a new site changes the URL.
 8. Open the dashboard → Create Account (confirm the email, then sign in, then choose an account
@@ -162,7 +168,8 @@ DDL with a publishable key (and must not ship a secret key).
   version. `supabase/build-setup-sql.mjs` validates that the manifest covers every migration
   exactly once, then emits per-release folders:
   - `supabase/releases/<appVersion>/setup.sql` (fresh installs for that release),
-  - `supabase/releases/<appVersion>/update-from-<old>-to-<new>.sql` (stepwise bundles),
+  - `supabase/releases/<appVersion>/update-from-<old>-to-<new>.sql` (cumulative bundles from each
+    earlier release),
   - `supabase/releases/<appVersion>/verify.sql`, `manifest.json` (SHA-256 checksums), and a
     generated `README.md` with apply instructions.
   The current release's setup and update SQL are copied into the APK assets; the root
@@ -181,8 +188,8 @@ DDL with a publishable key (and must not ship a secret key).
 2. The APK bundles the setup SQL and the update bundles, so the user can copy the file from the
    release/app without hunting through Git.
 3. Back up the project first (Database → Backups, or `supabase db dump`); Supabase Free has no PITR.
-4. Apply the bundle once in SQL Editor, run `verify.sql`, then repeat for each version crossed.
-   Upgrades are stepwise; skipping versions means running each release's bundle in order.
+4. Apply the cumulative bundle matching the installed version once in SQL Editor, then run
+   `verify.sql`; no intermediate bundles are required.
 5. Downgrades are not supported; restoring a backup is the rollback path. Keeping migrations
    additive means an older APK still works against a newer schema.
 
@@ -249,7 +256,7 @@ per-user update management, but it changes the current "everyone self-hosts" req
 4. Run `verify.sql`; every row must say PASS.
 5. Regenerate and replace `index.html` in the **same Netlify site** (do not create a new site);
    update the Dashboard URL in Remote Management only if the URL actually changed.
-6. For multiple versions skipped, apply each release's bundle in order (stepwise).
+6. Apply only the cumulative bundle matching the installed version, then run `verify.sql`.
 
 ### 6.6 Why not generate `setup.sql` from a live dump?
 
@@ -278,10 +285,10 @@ for production. Docker would add work, not remove it, for hosted Supabase users.
   impossible while ON.
 - No secrets in Git: `.env`, keystore, service keys, dumps, tokens. APK scan shows no key material
   or project URL/ref.
-- The generated dashboard URL is public; anyone with it can attempt signups. Confirm email verifies
+- The generated dashboard URL is public; anyone with it can attempt signups. A single-owner guard
+  prevents a second dashboard account; additional Auth users remain inert. Confirm email verifies
   ownership but does not restrict signups. RLS prevents cross-account access; rate limits and the
-  anonymous-identity cleanup limit abuse. A single-owner signup guard / host-level access control is
-  the recommended next hardening step, not yet implemented.
+  anonymous-identity cleanup limit abuse. Host-level access control remains optional hardening.
 
 ## 8. Verification checklist for the reviewing agent
 
@@ -304,15 +311,30 @@ for production. Docker would add work, not remove it, for hosted Supabase users.
 
 ## 9. Known gaps
 
-- Upgrade-path CI not wired: apply each generated update bundle to a database at the previous
+- **R2-M1 verifier:** exact policy/table/role/mode/predicate matching, extra-policy rejection,
+  default-ACL presence, and an effective create-function probe are implemented; verify against a
+  fresh database and run the negative drift test (`supabase/tests/remote_verify_drift_test.sql`).
+- **R2-M2 public signup:** a single-owner guard now rejects a second dashboard account, and the
+  dashboard maps the error to a sign-in prompt. Public Auth signups may still create inert users;
+  rate limits remain, and disabling email signups/host access control is still a deployment choice.
+  Verify the live Auth setting.
+- **Anti-framing deployment:** the app now exports a deployable ZIP with `index.html` + `_headers`.
+  Actual deployed response headers and a benign frame test remain to be verified.
+- **R2-L1 sign-in password:** Sign In accepts existing passwords; Create Account keeps the
+  12-character rule. Verify no client-side sign-in minimum remains.
+- **R2-L2 legacy revocation rows:** the linked project currently has zero `executing` commands;
+  the idempotent `private.repair_legacy_revoked_commands()` repair is applied and covered by the RPC
+  suite. Re-check on any earlier-schema deployment.
+- **R2-L3 docs:** token independence, test counts, notification default, migration count, manifest
+  contents, and cumulative update wording are corrected; audit for regressions.
+- **R2-L4 clipboard:** dashboard warns that copied tokens remain in OS clipboard/history.
+- Upgrade-path CI not wired: apply each generated cumulative bundle to a database at the previous
   release, then run `verify.sql` and the SQL suites.
 - Update bundles are in the APK assets but the setup wizard does not list/browse them yet; release
   notes are the current source of which file to run.
 - Fresh-project `setup.sql` execution not yet proven end-to-end.
 - Emulator/device matrix, soak, latency/battery, browser/a11y, instrumentation/log redaction,
   Docker clean replay + diff, Usage/Realtime reports, wipe E2E approval.
-- Single-owner signup guard / public-signup restriction is not implemented; Confirm email is not a
-  substitute. Host-level access control is also not configured.
 - Custom/self-hosted Supabase domains need a custom CSP/build (the shipped CSP allows
   `*.supabase.co`).
 - Auto-create-on-sign-in from the client spec is intentionally replaced by explicit Create Account

@@ -9,11 +9,11 @@
 | Stolen/revoked device | `revoke_device` rejects pending commands, terminalizes `executing` with an unknown-outcome result, and blocks reconciliation |
 | Replay/duplicate command | Per-submission idempotency keys bound to action type/scope; server compare-and-set state transitions; local journal |
 | Remote wipe bypass | Debug Mode re-read by `ResetExecutor`; remote Force Reset blocked while ON; only reset boundary |
-| Someone learns an enrollment token | Token is single-use, 10-minute, hashed at rest; owner can issue a new one (old ones revoked) |
+| Someone learns an enrollment token | Token is single-use, 10-minute, hashed at rest; open tokens are independent, so revoke unused ones explicitly if needed |
 | Direct table tampering | No write policies/grants; writes only through SECURITY DEFINER RPCs |
 | Secret key leakage | Secret/service-role keys are rejected by validation and never shipped; docs forbid them |
 | Hosted dashboard contains secrets | False: the generated file contains only URL + publishable key |
-| Clickjacking of destructive confirmations | Production hosts must send `frame-ancestors 'none'`/`X-Frame-Options: DENY`; the page also ships a frame-busting fallback |
+| Clickjacking of destructive confirmations | Use the app's deployable ZIP (`index.html` + `_headers`) on a header-capable host, or configure `frame-ancestors 'none'`/`X-Frame-Options: DENY`; the page also ships a frame-busting fallback |
 
 ## Key boundaries
 
@@ -65,13 +65,21 @@ URL + publishable key.
 
 - Emails are trimmed and lowercased before Supabase Auth; the dashboard uses `type=email`,
   `maxlength=254`, and native form validation. Supabase validates again server-side.
-- Passwords are never trimmed or altered. The UI enforces at least 12 characters; Supabase Auth
-  rate limits apply. Configure the project's minimum password length if you need a server-side
-  floor as well.
+- Passwords are never trimmed or altered. Create Account enforces at least 12 characters; Sign In
+  accepts existing passwords, including shorter ones if the project permits them. Configure the
+  project's minimum password length if you need a server-side floor as well.
 - Account names are validated against the documented 3–32 character charset; device names are
   1–80 characters.
 - Dynamic values are rendered with `textContent`, not HTML interpolation; RPC parameters are
   parameterized and RLS/RPC ownership checks remain the authorization boundary.
+
+## Single-owner guard
+
+- Only the first authenticated owner can initialize a dashboard account. Additional Auth users can
+  exist but cannot access an account, so public email signups cannot create a usable dashboard.
+- Create the owner account before sharing the dashboard URL: the first authenticated user wins the
+  bootstrap. Disabling email signups after bootstrap or host access control are optional additional
+  controls; Confirm email is not a signup restriction.
 
 ## Device lifecycle
 

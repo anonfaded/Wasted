@@ -4,20 +4,52 @@
 -- schema marker), not just table names.
 
 drop table if exists pg_temp.verify_results;
+drop function if exists pg_temp.verify_function_acl_probe();
+
+-- Effective check: a newly-created function must not inherit PUBLIC/anon/authenticated EXECUTE.
+create function pg_temp.verify_function_acl_probe()
+returns integer
+language sql
+as $$ select 1 $$;
 
 create temp table pg_temp.verify_results as
 with expected_tables(name) as (
     values ('accounts'), ('devices'), ('account_settings'), ('device_status'),
            ('account_actions'), ('device_commands'), ('command_events')
 ),
-expected_policies(name) as (
-    values ('accounts_select_owner'),
-           ('devices_select'),
-           ('account_settings_select'),
-           ('device_status_select_owner'),
-           ('account_actions_select_owner'),
-           ('device_commands_select'),
-           ('command_events_select_owner')
+expected_policies(tablename, policyname, cmd, roles, permissive, qual, with_check) as (
+    values
+        ('accounts', 'accounts_select_owner', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
+         '(id = ( SELECT auth.uid() AS uid))', null::text),
+        ('devices', 'devices_select', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
+         '((account_id = ( SELECT auth.uid() AS uid)) OR ((auth_user_id = ( SELECT auth.uid() AS uid)) AND (revoked_at IS NULL)))',
+         null::text),
+        ('account_settings', 'account_settings_select', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
+         '((account_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1 FROM devices d WHERE ((d.auth_user_id = ( SELECT auth.uid() AS uid)) AND (d.account_id = account_settings.account_id) AND (d.revoked_at IS NULL)))))',
+         null::text),
+        ('device_status', 'device_status_select_owner', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
+         '(account_id = ( SELECT auth.uid() AS uid))', null::text),
+        ('account_actions', 'account_actions_select_owner', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
+         '(account_id = ( SELECT auth.uid() AS uid))', null::text),
+        ('device_commands', 'device_commands_select', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
+         '((account_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1 FROM devices d WHERE ((d.id = device_commands.device_id) AND (d.auth_user_id = ( SELECT auth.uid() AS uid)) AND (d.revoked_at IS NULL)))))',
+         null::text),
+        ('command_events', 'command_events_select_owner', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
+         '(account_id = ( SELECT auth.uid() AS uid))', null::text)
+),
+actual_policies as (
+    select tablename, policyname, cmd, roles, permissive,
+           regexp_replace(coalesce(qual, ''), '\s+', ' ', 'g') as qual_norm,
+           regexp_replace(coalesce(with_check, ''), '\s+', ' ', 'g') as with_check_norm
+      from pg_policies
+     where schemaname = 'public'
 ),
 expected_rpcs(signature) as (
     values ('public.initialize_owner_account(text)'),
@@ -50,9 +82,27 @@ checks as (
        and c.relrowsecurity and c.relforcerowsecurity
     union all
     select 'SELECT-only policies', count(*), 7
-      from pg_policies
-     where schemaname = 'public' and tablename in (select name from expected_tables)
-       and cmd = 'SELECT' and policyname in (select name from expected_policies)
+      from expected_policies
+    union all
+    select 'policy set exact', count(*), 0
+      from (
+          select e.tablename, e.policyname
+            from expected_policies e
+            left join actual_policies a
+              on a.tablename = e.tablename and a.policyname = e.policyname
+           where a.policyname is null
+              or a.cmd is distinct from e.cmd
+              or a.roles is distinct from e.roles
+              or a.permissive is distinct from e.permissive
+              or a.qual_norm is distinct from regexp_replace(coalesce(e.qual, ''), '\s+', ' ', 'g')
+              or a.with_check_norm is distinct from regexp_replace(coalesce(e.with_check, ''), '\s+', ' ', 'g')
+          union all
+          select a.tablename, a.policyname
+            from actual_policies a
+            left join expected_policies e
+              on a.tablename = e.tablename and a.policyname = e.policyname
+           where e.policyname is null
+      ) drift
     union all
     select 'no write policies', count(*), 0
       from pg_policies
@@ -130,10 +180,35 @@ checks as (
        and d.defaclobjtype = 'f'
        and a.grantee = 0
        and a.privilege_type = 'EXECUTE'
+    union all
+    select 'global function default ACL present', count(*), 1
+      from pg_default_acl d
+     where d.defaclrole = 'postgres'::regrole
+       and d.defaclnamespace = 0
+       and d.defaclobjtype = 'f'
+    union all
+    select 'future functions deny app roles', count(*), 0
+      from pg_default_acl d
+      cross join lateral aclexplode(d.defaclacl) a
+     where d.defaclrole = 'postgres'::regrole
+       and d.defaclnamespace in (0, 'public'::regnamespace)
+       and d.defaclobjtype = 'f'
+       and a.privilege_type = 'EXECUTE'
+       and a.grantee in ('anon'::regrole::oid, 'authenticated'::regrole::oid)
+    union all
+    select 'future functions deny app roles (effective)', count(*), 0
+      from (values ('public'), ('anon'), ('authenticated')) roles(role_name)
+     where has_function_privilege(
+         role_name,
+         'pg_temp.verify_function_acl_probe()'::regprocedure,
+         'EXECUTE'
+     )
 )
 select check_name, found, expected,
        case when found = expected then 'PASS' else 'FAIL' end as result
   from checks;
+
+drop function if exists pg_temp.verify_function_acl_probe();
 
 do $$
 declare

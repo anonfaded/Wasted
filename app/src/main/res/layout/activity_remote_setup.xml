@@ -358,6 +358,21 @@
                     android:layout_marginTop="16dp"
                     android:text="Generate dashboard file" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/generateDashboardPackage"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Save deployable package (.zip)" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Recommended for Netlify/Cloudflare: the package contains index.html plus _headers for strict framing protection. Use the single file only for hosts where you can configure headers yourself."
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+
                 <TextView
                     android:id="@+id/dashboardGeneratedStatus"
                     android:layout_width="match_parent"

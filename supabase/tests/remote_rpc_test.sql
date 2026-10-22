@@ -43,6 +43,7 @@ grant execute on function pg_temp.expect_error(text, text, text) to authenticate
 
 insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_anonymous) values
     ('00000000-0000-0000-0000-000000000000', '0a0a0a0a-0000-4000-8000-0000000000a1', 'authenticated', 'authenticated', now(), now(), false),
+    ('00000000-0000-0000-0000-000000000000', '0a2a2a2a-0000-4000-8000-0000000000a2', 'authenticated', 'authenticated', now(), now(), false),
     ('00000000-0000-0000-0000-000000000000', '0a1a1a1a-0000-4000-8000-0000000000a1', 'authenticated', 'authenticated', now(), now(), true),
     ('00000000-0000-0000-0000-000000000000', '0c0c0c0c-0000-4000-8000-0000000000c1', 'authenticated', 'authenticated', now(), now(), true),
     ('00000000-0000-0000-0000-000000000000', '0c0c0c0c-0000-4000-8000-0000000000c2', 'authenticated', 'authenticated', now(), now(), true);
@@ -72,6 +73,14 @@ select set_config('request.jwt.claims',
 select pg_temp.expect_error(
     $$select public.initialize_owner_account('AnonAttempt')$$,
     'P0001', 'owner account required'
+);
+
+-- a second authenticated user cannot bootstrap another dashboard account
+select set_config('request.jwt.claims',
+    '{"sub":"0a2a2a2a-0000-4000-8000-0000000000a2","role":"authenticated","is_anonymous":false}', true);
+select pg_temp.expect_error(
+    $$select public.initialize_owner_account('SecondOwner')$$,
+    'P0001', 'owner account already initialized'
 );
 
 -- ─── Owner: enrollments ──────────────────────────────────────────────────────
@@ -917,6 +926,42 @@ begin
         (select revision = 2 and lock_timer_minutes = 2000
            from public.account_settings where account_id = '0a0a0a0a-0000-4000-8000-0000000000a1'),
         'initialized settings must not be overwritten by later claims'
+    );
+end;
+$$;
+
+-- legacy repair terminalizes executing commands on already-revoked devices, idempotently
+reset role;
+insert into public.devices (id, account_id, installation_id, name, revoked_at)
+values ('ef000000-0000-4000-8000-0000000000ef', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        '8f000000-0000-4000-8000-0000000000ef', 'Legacy Revoked', now());
+insert into public.account_actions (id, account_id, action_type, idempotency_key, expires_at)
+values ('ea000000-0000-4000-8000-0000000000ef', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'force_reset', 'ed000000-0000-4000-8000-0000000000ef', now() + interval '1 hour');
+insert into public.device_commands
+    (id, action_id, device_id, account_id, command_type, state, expires_at, executing_at)
+values ('ec000000-0000-4000-8000-0000000000ef', 'ea000000-0000-4000-8000-0000000000ef',
+        'ef000000-0000-4000-8000-0000000000ef', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'force_reset', 'executing', now() + interval '1 hour', now());
+
+do $$
+declare
+    first_repair integer;
+    second_repair integer;
+begin
+    first_repair := private.repair_legacy_revoked_commands();
+    second_repair := private.repair_legacy_revoked_commands();
+    perform pg_temp.assert_true(first_repair = 1, 'legacy repair must terminalize one command');
+    perform pg_temp.assert_true(second_repair = 0, 'legacy repair must be idempotent');
+    perform pg_temp.assert_true(
+        (select state = 'failed' and result_code = 'device_revoked_during_execution'
+           from public.device_commands where id = 'ec000000-0000-4000-8000-0000000000ef'),
+        'legacy command must be failed with an unknown-outcome result'
+    );
+    perform pg_temp.assert_true(
+        (select count(*) from public.command_events
+          where command_id = 'ec000000-0000-4000-8000-0000000000ef' and event_type = 'failed') = 1,
+        'legacy repair must insert exactly one failed audit event'
     );
 end;
 $$;

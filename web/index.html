@@ -42,7 +42,7 @@
         <label for="sign-in-password">Password</label>
         <div class="password-wrap">
           <input id="sign-in-password" name="password" type="password" autocomplete="current-password"
-                 minlength="12" placeholder="Your password" required>
+                 placeholder="Your password" required>
           <button type="button" class="password-toggle" data-password-toggle="sign-in-password"
                   aria-label="Show password" aria-pressed="false">
             <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -129,7 +129,8 @@
             <a id="setup-netlify-link" href="https://app.netlify.com/drop"
                target="_blank" rel="noopener noreferrer">Netlify Drop</a>; claim the site so it
             stays online.</li>
-          <li>Open your new dashboard URL, create an account here, and sign in.</li>
+          <li>Open your new dashboard URL and create the owner account before sharing the URL;
+            this project allows one owner.</li>
           <li>In the app, paste the hosted URL into Remote Management, Save, and Enable.
             Create an enrollment token below and claim it in the app.</li>
           <li>Send Reset Timer here and confirm the device card updates.</li>
@@ -361,6 +362,10 @@
         </p>
         <button id="copy-token" type="button" class="quiet"
                 title="Copy the token to the clipboard">Copy token</button>
+        <p class="hint">
+          Copied tokens remain in the operating-system clipboard/history. Overwrite the clipboard
+          after enrollment.
+        </p>
       </div>
     </section>
   </section>

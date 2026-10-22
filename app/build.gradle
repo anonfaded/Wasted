@@ -113,6 +113,7 @@ def nodeBinary = System.getenv('NODE_BIN') ?: 'node'
 def npmBinary = System.getenv('NPM_BIN') ?: 'npm'
 def webProjectDir = rootProject.file('web')
 def dashboardTemplateAsset = file('src/main/assets/dashboard-template.html')
+def dashboardHeadersAsset = file('src/main/assets/dashboard_headers.txt')
 def setupSqlAsset = file('src/main/assets/setup.sql')
 def setupSqlSource = rootProject.file('supabase/setup.sql')
 def supabaseMigrationsDir = rootProject.file('supabase/migrations')
@@ -162,7 +163,8 @@ tasks.register('generateDashboardTemplate', Exec) {
     )
     inputs.dir(new File(webProjectDir, 'src'))
     inputs.dir(new File(webProjectDir, 'styles'))
-    outputs.file(dashboardTemplateAsset)
+    inputs.file(new File(webProjectDir, '_headers'))
+    outputs.files(dashboardTemplateAsset, dashboardHeadersAsset)
 }
 
 tasks.register('generateSetupSql', Exec) {

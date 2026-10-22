@@ -153,8 +153,8 @@ function releaseReadme(release, updates, checksums) {
     lines.push("This is the initial release; there are no upgrade bundles.");
   } else {
     lines.push(
-      "Back up first, apply the bundle matching your current version, then run `verify.sql`.",
-      "Upgrades are stepwise — apply each release's bundle in order if you skipped versions.",
+      "Back up first, apply the cumulative bundle matching your installed version, then run `verify.sql`.",
+      "Each bundle contains every migration since its named release; no intermediate bundles are required.",
       "",
     );
     for (const update of updates) {

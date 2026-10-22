@@ -191,6 +191,9 @@ function friendlyAuthError(message) {
   if (/already registered|already exists/i.test(text)) {
     return "An account with this email already exists — sign in instead.";
   }
+  if (/owner account already initialized/i.test(text)) {
+    return "This dashboard already has an owner. Sign in instead.";
+  }
   if (/password should be|weak password/i.test(text)) {
     return "Password rejected: use at least 12 characters with mixed character classes.";
   }

@@ -16,7 +16,9 @@
         "20261020131724_remote_debug_mode_commands.sql",
         "20261021060654_remote_hardening.sql",
         "20261021061300_remote_public_acl.sql",
-        "20261021070916_remote_multi_enrollment.sql"
+        "20261021070916_remote_multi_enrollment.sql",
+        "20261021150306_remote_single_owner.sql",
+        "20261021150716_remote_legacy_revocation_repair.sql"
       ]
     }
   ]

@@ -10,7 +10,7 @@ Run these before claiming a release is ready. Docker is only needed for schema d
 cd web && npm test && npm run build && npm run build:android-template
 ```
 
-Expected: Android **92/92** unit tests (or the current count), web **19/19**, both APKs build, and
+Expected: Android **92/92** unit tests (or the current count), web **22/22**, both APKs build, and
 the signed release task fails unless signing inputs exist. Unsigned output is explicitly named
 `-unsigned`.
 
@@ -65,7 +65,8 @@ supabase migration list --linked      # no local-only/remote-only versions
 Run each file in `supabase/tests/` against the linked database inside a transaction; they end with
 `rollback;` so nothing persists.
 
-Expected: schema, RLS, RPC, and concurrency suites pass (4/4).
+Expected: schema, RLS, RPC, and concurrency suites pass (4/4), plus
+`remote_verify_drift_test.sql` for verifier negative coverage.
 
 ## Fresh install
 
@@ -73,7 +74,7 @@ Expected: schema, RLS, RPC, and concurrency suites pass (4/4).
 2. Run `supabase/releases/<current>/setup.sql`.
 3. Enable anonymous sign-ins and keep Confirm email enabled.
 4. Run `verify.sql` → all PASS.
-5. Run the four SQL suites.
+5. Run the four SQL suites and the verifier drift test.
 6. Generate the dashboard, create an owner, enroll a device.
 
 ## Upgrade path
