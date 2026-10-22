@@ -62,6 +62,7 @@ class MessageServer(
                 }
                 
                 serverSocket?.let { socket ->
+                    socket.needClientAuth = true
                     Log.i(TAG, "✓✓✓ SUCCESS: Server listening on port $P2P_PORT - READY FOR CONNECTIONS ✓✓✓")
                     socket.soTimeout = 60000 // 60 second accept timeout
                     
@@ -106,16 +107,28 @@ class MessageServer(
      * Handle a single peer connection: verify handshake, process messages, send ACKs.
      */
     private suspend fun handlePeerConnection(clientSocket: java.net.Socket) {
+        val sslSocket = clientSocket as? javax.net.ssl.SSLSocket ?: run {
+            clientSocket.close()
+            return
+        }
         try {
-            clientSocket.use { socket ->
-                // Set socket timeout to ensure blocking I/O respects timeouts
+            sslSocket.use { socket ->
                 socket.soTimeout = HANDSHAKE_TIMEOUT_MS.toInt()
-                
-                // Read handshake with timeout
+                withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) { socket.startHandshake() }
+                    ?: return@use
+
+                val peerCertificate = socket.session.peerCertificates
+                    .firstOrNull() as? java.security.cert.X509Certificate
+                    ?: run {
+                        Log.w(TAG, "Handshake rejected: no client certificate")
+                        return@use
+                    }
+                val actualCertHash = securityManager.certificateHash(peerCertificate)
+
                 val handshakeData = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) {
                     socket.inputStream.bufferedReader().readLine()
                 }
-                
+
                 if (handshakeData == null) {
                     Log.w(TAG, "Handshake failed: timeout")
                     return@use
@@ -129,11 +142,27 @@ class MessageServer(
 
                 val remotePeerId = parts[0]
                 val remotePeerName = parts[1]
-                val remoteCertHash = parts[2]
+                val claimedCertHash = parts[2]
+                if (!claimedCertHash.equals(actualCertHash, ignoreCase = true)) {
+                    Log.w(TAG, "Handshake rejected: certificate hash mismatch")
+                    return@use
+                }
+                if (remotePeerId.isBlank() || remotePeerName.length !in 1..80) {
+                    Log.w(TAG, "Handshake rejected: invalid peer identity")
+                    return@use
+                }
                 val remoteIpAddress = socket.inetAddress.hostAddress ?: return@use
 
                 val existingPeer = withContext(Dispatchers.IO) {
                     peerDao.getPeerById(remotePeerId)
+                }
+
+                if (existingPeer != null &&
+                    existingPeer.pairedAt > 0L &&
+                    !existingPeer.certificateHash.equals(actualCertHash, ignoreCase = true)
+                ) {
+                    Log.w(TAG, "Handshake rejected: paired peer certificate changed")
+                    return@use
                 }
 
                 val peerRecord = Peer(
@@ -141,7 +170,7 @@ class MessageServer(
                     deviceName = remotePeerName,
                     ipAddress = remoteIpAddress,
                     port = P2P_PORT,
-                    certificateHash = remoteCertHash,
+                    certificateHash = actualCertHash,
                     pairedAt = existingPeer?.pairedAt ?: 0L,
                     lastSeen = System.currentTimeMillis(),
                     isConnected = true,
@@ -154,17 +183,17 @@ class MessageServer(
                 }
 
                 if (existingPeer?.isConnected != true) {
-                    Log.d(TAG, "Peer handshake accepted: $remotePeerName")
+                    Log.d(TAG, "Peer handshake accepted")
                 }
 
                 // Send response handshake
-                val responseHandshake = "$deviceId|$deviceName|${securityManager.getAppSignatureCertificateHash()}\n"
+                val responseHandshake = "$deviceId|$deviceName|${securityManager.getTlsCertificateHash()}\n"
                 socket.outputStream.bufferedWriter().apply {
                     write(responseHandshake)
                     flush()
                 }
                 if (existingPeer?.isConnected != true) {
-                    Log.i(TAG, "Peer reachable: $remotePeerName")
+                    Log.i(TAG, "Peer reachable")
                 }
 
                 // Update socket timeout for message reads (longer than handshake timeout)
@@ -182,28 +211,33 @@ class MessageServer(
                             break
                         }
 
-                        // Deserialize message
                         val message = gson.fromJson(messageLine, Message::class.java)
+                        if (message.fromDeviceId != remotePeerId ||
+                            message.toDeviceId != deviceId
+                        ) {
+                            Log.w(TAG, "Message rejected: identity does not match the TLS peer")
+                            break
+                        }
                         if (message.type != MessageType.HEARTBEAT) {
-                            Log.d(TAG, "Message received from $remotePeerName: ${message.type}")
+                            Log.d(TAG, "Message received: ${message.type}")
                         }
 
                         onIncomingMessage(message)
 
                         // Send ACK back to sender
                         if (message.requiresAck) {
-                            sendAck(socket, message.messageId, remotePeerName)
+                            sendAck(socket, message.messageId, remotePeerId)
                         }
                     } catch (e: java.net.SocketTimeoutException) {
                         break
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error reading message from $remotePeerName: ${e.message}")
+                        Log.e(TAG, "Error reading peer message: ${e.javaClass.simpleName}")
                         break
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Connection error: ${e.message}", e)
+            Log.e(TAG, "Connection error: ${e.javaClass.simpleName}")
         }
     }
 
@@ -213,13 +247,13 @@ class MessageServer(
     private suspend fun sendAck(
         socket: java.net.Socket,
         messageId: String,
-        peerName: String
+        remotePeerId: String,
     ) {
         try {
             val ackMessage = Message(
                 messageId = messageId,
                 fromDeviceId = deviceId,
-                toDeviceId = messageId.substringBefore("_"),
+                toDeviceId = remotePeerId,
                 type = MessageType.HEARTBEAT,
                 payload = "ACK",
                 timestamp = System.currentTimeMillis(),
@@ -232,7 +266,7 @@ class MessageServer(
                 flush()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send ACK: ${e.message}")
+            Log.e(TAG, "Failed to send ACK: ${e.javaClass.simpleName}")
         }
     }
 }

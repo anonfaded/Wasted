@@ -9,7 +9,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
  * Layout:
  *   supabase/migrations/                      flat, immutable, CLI-compatible developer history
  *   supabase/releases/<appVersion>/setup.sql  fresh-install baseline for that release
- *   supabase/releases/<appVersion>/update-*   stepwise upgrade bundles
+ *   supabase/releases/<appVersion>/update-*   cumulative upgrade bundles
  *   supabase/releases/<appVersion>/verify.sql post-install checks
  *   supabase/releases/<appVersion>/manifest.json
  *   supabase/releases/<appVersion>/README.md  generated apply instructions + checksums
@@ -108,7 +108,7 @@ function updateHeader(from, to) {
 -- Back up your Supabase project first (Database -> Backups, or supabase db dump).
 -- Apply this file ONLY to a project that is already on ${from.appVersion}; never on a fresh
 -- project (use setup.sql there) and never twice. Paste into SQL Editor -> Run.
--- Upgrades are stepwise: apply each release's update file in order.`;
+-- Each bundle is cumulative from the named release; apply only the matching bundle.`;
 }
 
 function guard() {

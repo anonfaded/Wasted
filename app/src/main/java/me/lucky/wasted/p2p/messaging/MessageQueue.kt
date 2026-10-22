@@ -36,7 +36,7 @@ class MessageQueue {
      */
     fun enqueueMessage(message: Message, callback: MessageCallback? = null) {
         if (message.type != MessageType.HEARTBEAT) {
-            Log.d(TAG, "Queueing ${message.type} ${message.messageId} to ${message.toDeviceId}")
+            Log.d(TAG, "Queueing ${message.type}")
         }
         
         messageQueue.add(message)
@@ -62,7 +62,7 @@ class MessageQueue {
      * Mark message as failed.
      */
     fun failMessage(messageId: String, reason: String) {
-        Log.e(TAG, "Message $messageId failed: $reason")
+        Log.e(TAG, "Message delivery failed")
         
         pendingAcks.remove(messageId)
         messageCallbacks[messageId]?.onFailed(messageId, reason)
@@ -76,7 +76,7 @@ class MessageQueue {
      */
     suspend fun broadcastMessage(message: Message, connectedPeerCount: Int) {
         if (message.type != MessageType.HEARTBEAT) {
-            Log.d(TAG, "Broadcasting ${message.type} ${message.messageId} to $connectedPeerCount peer(s)")
+            Log.d(TAG, "Broadcasting ${message.type} to $connectedPeerCount peer(s)")
         }
     }
     
@@ -102,7 +102,7 @@ class MessageQueue {
         val expiredAcks = pendingAcks.filter { (_, expiryTime) -> now > expiryTime }
         
         expiredAcks.forEach { (messageId, _) ->
-            Log.w(TAG, "ACK timeout for message $messageId, retrying...")
+            Log.w(TAG, "ACK timeout, retrying")
             pendingAcks.remove(messageId)
             // Actual retry logic happens in P2PNetwork
         }

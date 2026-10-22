@@ -28,7 +28,7 @@ single-file dashboard saved via Android SAF. Supabase Cloud is the backend; Dock
 
 - App v3.0.0 (versionCode 42); debug APK builds. The signed-release task is fail-closed, but the
   actual release certificate still needs release-gate verification.
-- Android unit tests: 92/92. Web unit tests: 22/22. SQL suites: 4/4 (schema, RLS, RPC,
+- Android unit tests: 95/95. Web unit tests: 25/25. SQL suites: 4/4 (schema, RLS, RPC,
   concurrency) plus the verifier drift negative test, against the linked project in rolled-back
   transactions.
 - Static security checks: only `ResetExecutor` reaches `wipeData()`; Supabase client creation only
@@ -67,7 +67,8 @@ must verify them, not just the documentation:
 
 1. **R2-M1 verifier:** exact policy set (table/name/cmd/roles/mode/predicates), extra-policy
    rejection, explicit global default-ACL presence, and an effective create-function probe; negative
-   drift test in `supabase/tests/remote_verify_drift_test.sql`.
+   drift test in `supabase/tests/remote_verify_drift_test.sql` and real-verifier harness in
+   `supabase/tests/verify_negative.sh`.
 2. **R2-M2 public signup:** single-owner guard in `initialize_owner_account`; second authenticated
    user is rejected and mapped to a sign-in prompt. Public Auth signups can still create inert
    users; rate limits remain. Verify the live Auth setting and decide whether to disable email
@@ -82,6 +83,23 @@ must verify them, not just the documentation:
 7. **R2-L4:** clipboard-retention warning added to the token output.
 8. **Release gates:** fresh/upgrade SQL, signed APK certificate, Android/web tests, emulator/device
    matrix, browser auth/a11y, P2P regression, latency, 16 h soak, Free-plan/quota evidence.
+
+## Third-audit fixes (verify in audit 4)
+
+- **P2P High:** peer leaf certificates are pinned during pairing; client certificates are required;
+  handshake device IDs and every message are bound to the verified TLS peer; paired certificate
+  changes are rejected. The P2P Room database is SQLCipher-encrypted; legacy plaintext rows are
+  imported as unpaired and require re-pairing. Pairing PINs use `SecureRandom`, one-time consumption,
+  and attempt lockout. Runtime spoof/replay/two-device tests remain open.
+- **Verifier negative proof:** `supabase/tests/verify_negative.sh` runs the real `verify.sql` after
+  extra-policy, mismatched-predicate, and PUBLIC-default drift; `remote_verify_drift_test.sql`
+  remains as a quick static supplement.
+- **P2P privacy:** production logs no longer include peer names, IPs/ports, device/message IDs, or
+  command identifiers.
+- **Email low finding:** duplicate `@` is deduplicated for all insertion/paste paths; `normalizeEmail`
+  is covered by web tests (25/25).
+- **Docs:** notifications default ON, 25 web tests, cumulative update wording, and P2P encryption
+  are aligned.
 
 ## Key decisions (scrutinize these)
 
@@ -112,6 +130,9 @@ must verify them, not just the documentation:
 
 - RLS is enabled/forced; `anon` has no table access; `authenticated` is select-only; writes only via
   SECURITY DEFINER RPCs; default privileges hardened.
+- P2P TLS pins the peer leaf certificate, requires client certificates, and binds handshake/message
+  IDs to the verified peer; the P2P Room database is SQLCipher-encrypted; legacy rows require
+  re-pairing. Pairing PINs use `SecureRandom` with one-time consumption and attempt lockout.
 - Owner/device isolation, revocation behavior, enrollment token hashing/single-use/10-minute expiry,
   idempotency keys, command/action consistency trigger.
 - Force Reset ordering and terminal allowlists; interrupted `executing` rows never replay

@@ -30,7 +30,7 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
 
 - App v3.0.0 (versionCode 42); debug APK builds. The signed-release task is fail-closed, but the
   actual release certificate still needs release-gate verification.
-- Tests: Android **92/92**, web **22/22**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
+- Tests: Android **95/95**, web **25/25**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
   the verifier drift negative test, run against the linked project in rolled-back transactions.
 - Implemented: Debug Mode boundary, ResetExecutor, reset ordering, per-device Debug Mode commands,
   notifications, Android Remote Management screen, setup wizard, dashboard, enrollment, sync,
@@ -39,9 +39,10 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
   lowercasing, password visibility toggle, Confirm email + Site URL guidance, editable device names,
   dashboard rename/revoke, confirmation dialogs for settings/tokens/commands, setup-guide links, and
   a `npm run dev` source-testing path.
-- Latest audit fixes: exact verifier policy/ACL checks + negative drift test, single-owner account
-  guard, idempotent legacy command repair, deployable ZIP (`index.html` + `_headers`), Sign In accepts
-  existing passwords, clipboard warning, and cumulative update documentation.
+- Latest audit fixes: exact verifier policy/ACL checks + real-verifier negative harness, single-owner
+  account guard, idempotent legacy command repair, deployable ZIP (`index.html` + `_headers`), Sign In
+  accepts existing passwords, clipboard warning, cumulative update documentation, and P2P
+  certificate pinning/identity binding with an encrypted P2P database.
 - Open: emulator matrix, 16 h soak, instrumentation/log-redaction, browser/a11y suites, latency and
   usage evidence, Docker clean replay, fresh-project `setup.sql` verification, wipe E2E (needs
   explicit approval), final acceptance gate.
@@ -62,6 +63,10 @@ Android app ── HTTPS/WSS ──► Supabase project (Auth / PostgREST / Real
 - **Device identity:** separate Supabase anonymous Auth user per installation; bound to the owner
   only by a one-time enrollment token and the `claim_device_enrollment` RPC. The app sends an
   editable device name (prefilled with the phone model); the dashboard can rename it.
+- **P2P:** peer TLS leaf certificates are pinned during pairing; client certificates are required;
+  handshake and message identities are bound to the verified peer; the P2P Room database is
+  SQLCipher-encrypted and legacy rows require re-pairing. Pairing PINs use `SecureRandom` with
+  one-time consumption and attempt lockout.
 - **Writes:** only through SECURITY DEFINER RPCs; direct table writes are denied; RLS is forced.
 - **Realtime:** events are only "sync required" signals; both app and dashboard always refetch
   durable state.
@@ -313,7 +318,8 @@ for production. Docker would add work, not remove it, for hosted Supabase users.
 
 - **R2-M1 verifier:** exact policy/table/role/mode/predicate matching, extra-policy rejection,
   default-ACL presence, and an effective create-function probe are implemented; verify against a
-  fresh database and run the negative drift test (`supabase/tests/remote_verify_drift_test.sql`).
+  fresh database and run the negative drift test (`supabase/tests/remote_verify_drift_test.sql`)
+  plus the real-verifier harness (`supabase/tests/verify_negative.sh`).
 - **R2-M2 public signup:** a single-owner guard now rejects a second dashboard account, and the
   dashboard maps the error to a sign-in prompt. Public Auth signups may still create inert users;
   rate limits remain, and disabling email signups/host access control is still a deployment choice.
@@ -328,6 +334,9 @@ for production. Docker would add work, not remove it, for hosted Supabase users.
 - **R2-L3 docs:** token independence, test counts, notification default, migration count, manifest
   contents, and cumulative update wording are corrected; audit for regressions.
 - **R2-L4 clipboard:** dashboard warns that copied tokens remain in OS clipboard/history.
+- **P2P hostile-input/runtime tests:** certificate spoof, mismatched handshake/message ID, unpaired
+  certificate, replay, legitimate re-pair, encrypted P2P DB, and legacy import still need emulator/
+  two-device evidence.
 - Upgrade-path CI not wired: apply each generated cumulative bundle to a database at the previous
   release, then run `verify.sql` and the SQL suites.
 - Update bundles are in the APK assets but the setup wizard does not list/browse them yet; release

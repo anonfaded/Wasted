@@ -34,6 +34,7 @@ class P2PController private constructor(context: Context) {
         val deviceId: String,
         val deviceName: String,
         val pin: String,
+        val certificateHash: String,
     )
 
     companion object {
@@ -112,6 +113,7 @@ class P2PController private constructor(context: Context) {
                 deviceId = getDeviceId(),
                 deviceName = getDeviceName(),
                 pin = pin,
+                certificateHash = network.getTlsCertificateHash(),
             )
         )
     }
@@ -122,18 +124,41 @@ class P2PController private constructor(context: Context) {
             if (payload.deviceId == getDeviceId()) {
                 return ActionResult(false, "Scanned your own pairing code")
             }
+            if (payload.certificateHash.isBlank()) {
+                return ActionResult(false, "Update the app on both phones and show a fresh pairing code.")
+            }
 
             val peer = peerDao.getPeerById(payload.deviceId)
                 ?: return ActionResult(false, "Device not discovered yet. Keep both devices on the same network and try again.")
 
-            sendPairingRequest(peer, payload.pin)
+            if (peer.pairedAt > 0L && peer.certificateHash != payload.certificateHash) {
+                return ActionResult(false, "Pairing code does not match the paired device certificate.")
+            }
+            if (peer.certificateHash.isNotBlank() &&
+                peer.certificateHash != payload.certificateHash
+            ) {
+                return ActionResult(false, "Pairing code does not match the discovered device certificate.")
+            }
+
+            val pinnedPeer = if (peer.certificateHash == payload.certificateHash) {
+                peer
+            } else {
+                peer.copy(certificateHash = payload.certificateHash).also {
+                    peerDao.insertPeer(it)
+                }
+            }
+            sendPairingRequest(pinnedPeer, payload.pin, payload.certificateHash)
             ActionResult(true, "Pairing request sent to ${peer.deviceName}")
         } catch (e: Exception) {
             ActionResult(false, "Invalid QR payload")
         }
     }
 
-    fun sendPairingRequest(peer: Peer, pin: String) {
+    fun sendPairingRequest(
+        peer: Peer,
+        pin: String,
+        pinnedCertificateHash: String? = null,
+    ) {
         scope.launch {
             try {
                 val payload = mapOf(
@@ -150,16 +175,20 @@ class P2PController private constructor(context: Context) {
                     requiresAck = true,
                 )
 
-                val success = network.sendToPeerWithRetry(peer, message)
+                val success = network.sendToPeerWithRetry(
+                    peer,
+                    message,
+                    pinnedCertificateHash = pinnedCertificateHash,
+                )
                 if (success) {
-                    Log.i(TAG, "Pairing request sent to ${peer.deviceName}")
+                    Log.i(TAG, "Pairing request sent")
                     _uiMessages.emit("Pairing request sent to ${peer.deviceName}")
                 } else {
-                    Log.e(TAG, "Failed to send pairing request to ${peer.deviceName}")
+                    Log.e(TAG, "Failed to send pairing request")
                     _uiMessages.emit("Could not reach ${peer.deviceName} for pairing")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Pairing request error: ${e.message}", e)
+                Log.e(TAG, "Pairing request error: ${e.javaClass.simpleName}")
                 _uiMessages.emit("Pairing failed to start for ${peer.deviceName}")
             }
         }
@@ -247,7 +276,7 @@ class P2PController private constructor(context: Context) {
         val isPairedPeer = (peer?.pairedAt ?: 0L) > 0L
 
         when (message.type) {
-            MessageType.UNPAIR_REQUEST -> handleIncomingUnpairRequest(message)
+            MessageType.UNPAIR_REQUEST -> if (isPairedPeer) handleIncomingUnpairRequest(message)
             MessageType.SETTINGS_REQUEST -> if (isPairedPeer) settingsSyncManager.handleSettingsRequestMessage(message)
             MessageType.SETTINGS_RESPONSE -> if (isPairedPeer) settingsSyncManager.handleSettingsResponseMessage(message)
             MessageType.SETTINGS_CHANGE -> if (isPairedPeer) handleIncomingSettingsChange(message)
@@ -262,9 +291,10 @@ class P2PController private constructor(context: Context) {
     private suspend fun handleIncomingUnpairRequest(message: Message) {
         try {
             val peer = peerDao.getPeerById(message.fromDeviceId) ?: return
+            if (peer.pairedAt <= 0L) return
             pairingManager.unpairDevice(peer.deviceId)
             settingsSyncManager.forgetPeerSettings(peer.deviceId)
-            Log.i(TAG, "Unpair received from ${peer.deviceName}")
+            Log.i(TAG, "Unpair received from a paired peer")
             _uiMessages.emit("${peer.deviceName} removed this phone from approved devices")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to handle unpair request: ${e.message}", e)
@@ -293,7 +323,7 @@ class P2PController private constructor(context: Context) {
                 "failed" -> _uiMessages.emit(reason ?: "$deviceName could not start the reset")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to handle reset ACK: ${e.message}", e)
+            Log.e(TAG, "Failed to handle reset ACK: ${e.javaClass.simpleName}")
         }
     }
 
@@ -331,14 +361,14 @@ class P2PController private constructor(context: Context) {
             network.sendToPeerWithRetry(peer, response)
 
             if (isValid) {
-                Log.i(TAG, "Pairing approved for ${peer.deviceName}")
+                Log.i(TAG, "Pairing approved")
                 settingsSyncManager.announceLocalSettings(peer)
                 settingsSyncManager.requestPeerSettings(peer, force = true)
             } else {
-                Log.w(TAG, "Pairing rejected for ${peer.deviceName}")
+                Log.w(TAG, "Pairing rejected")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to handle pairing request: ${e.message}", e)
+            Log.e(TAG, "Failed to handle pairing request: ${e.javaClass.simpleName}")
         }
     }
 
@@ -356,16 +386,16 @@ class P2PController private constructor(context: Context) {
                     remotePort = peer.port,
                     remoteCertificateHash = peer.certificateHash,
                 )
-                Log.i(TAG, "Pairing completed with ${peer.deviceName}")
+                Log.i(TAG, "Pairing completed")
                 _uiMessages.emit("${peer.deviceName} approved this phone")
                 settingsSyncManager.announceLocalSettings(peer)
                 settingsSyncManager.requestPeerSettings(peer, force = true)
             } else {
-                Log.w(TAG, "Pairing denied by ${peer.deviceName}")
+                Log.w(TAG, "Pairing denied")
                 _uiMessages.emit("${peer.deviceName} rejected the pairing code")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to handle pairing response: ${e.message}", e)
+            Log.e(TAG, "Failed to handle pairing response: ${e.javaClass.simpleName}")
         }
     }
 

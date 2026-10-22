@@ -34,7 +34,7 @@ data class RemoteOutboxEntity(
 
 /**
  * Separate SQLCipher-encrypted database for remote journal/outbox state.
- * Never mixed with the plaintext P2P database; the passphrase is wrapped
+ * Kept separate from the encrypted P2P database; the passphrase is wrapped
  * by Tink/Android Keystore.
  */
 @Database(

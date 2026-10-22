@@ -8,7 +8,7 @@ import me.lucky.wasted.p2p.database.PeerDao
 import me.lucky.wasted.p2p.models.Peer
 import me.lucky.wasted.p2p.models.PairingState
 import java.security.MessageDigest
-import java.util.*
+import java.security.SecureRandom
 
 /**
  * Manages pairing process between two devices.
@@ -29,7 +29,13 @@ class PairingManager(
         private const val TAG = "PairingManager"
         private const val PIN_LENGTH = 6
         private const val PIN_VALIDITY_DURATION_MS = 5 * 60 * 1000 // 5 minutes
+        private const val MAX_PIN_ATTEMPTS = 5
+        private const val PIN_LOCKOUT_MS = 30 * 1000L
     }
+
+    private val secureRandom = SecureRandom()
+    private var pinAttempts = 0
+    private var pinLockoutUntil = 0L
     
     private val _pairingState = MutableStateFlow<PairingState>(PairingState.UNPAIRED)
     val pairingState: StateFlow<PairingState> = _pairingState
@@ -48,8 +54,10 @@ class PairingManager(
      */
     fun generatePairingPin(): String {
         Log.d(TAG, "Generating new pairing PIN")
+        pinAttempts = 0
+        pinLockoutUntil = 0L
         val pin = (0 until PIN_LENGTH)
-            .map { Random().nextInt(10) }
+            .map { secureRandom.nextInt(10) }
             .joinToString("")
         
         pinGeneratedTime = System.currentTimeMillis()
@@ -66,6 +74,11 @@ class PairingManager(
      */
     suspend fun validatePairingPin(remotePin: String): Boolean {
         Log.d(TAG, "PIN validation: comparing pins")
+        val now = System.currentTimeMillis()
+        if (now < pinLockoutUntil) {
+            _pairingError.value = "Too many attempts. Wait before trying again."
+            return false
+        }
         
         val currentPin = _currentPin.value
         if (currentPin == null) {
@@ -74,7 +87,7 @@ class PairingManager(
             return false
         }
         
-        val timeSinceGenerated = System.currentTimeMillis() - pinGeneratedTime
+        val timeSinceGenerated = now - pinGeneratedTime
         if (timeSinceGenerated > PIN_VALIDITY_DURATION_MS) {
             Log.w(TAG, "PIN validation: PIN expired after ${timeSinceGenerated}ms")
             _pairingError.value = "Pairing PIN expired"
@@ -82,10 +95,25 @@ class PairingManager(
             return false
         }
         
-        val isValid = currentPin == remotePin
+        val isValid = MessageDigest.isEqual(
+            currentPin.toByteArray(Charsets.UTF_8),
+            remotePin.toByteArray(Charsets.UTF_8),
+        )
         Log.d(TAG, "PIN validation: ${if (isValid) "PASS" else "FAIL"}")
         
-        return isValid
+        if (isValid) {
+            pinAttempts = 0
+            _currentPin.value = null
+            return true
+        }
+        
+        pinAttempts += 1
+        if (pinAttempts >= MAX_PIN_ATTEMPTS) {
+            pinLockoutUntil = now + PIN_LOCKOUT_MS
+            _currentPin.value = null
+            _pairingError.value = "Too many attempts. Generate a new PIN."
+        }
+        return false
     }
     
     /**
@@ -100,7 +128,7 @@ class PairingManager(
         remoteCertificateHash: String
     ): Boolean {
         return try {
-            Log.d(TAG, "Completing pairing with device: $remoteDeviceName")
+            Log.d(TAG, "Completing pairing")
             
             val peer = Peer(
                 deviceId = remoteDeviceId,
@@ -118,10 +146,10 @@ class PairingManager(
             _currentPin.value = null
             _pairingError.value = null
             
-            Log.i(TAG, "Pairing successful with $remoteDeviceName")
+            Log.i(TAG, "Pairing successful")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Pairing failed: ${e.message}", e)
+            Log.e(TAG, "Pairing failed: ${e.javaClass.simpleName}")
             _pairingState.value = PairingState.PAIRING_FAILED
             _pairingError.value = e.message
             false
@@ -142,27 +170,9 @@ class PairingManager(
      * Unpair a device.
      */
     suspend fun unpairDevice(deviceId: String) {
-        Log.d(TAG, "Unpairing device: $deviceId")
+        Log.d(TAG, "Unpairing device")
         peerDao.unpairDevice(deviceId)
     }
     
-    /**
-     * Get SHA-256 hash of a certificate (for verification).
-     */
-    fun getCertificateHash(certificateData: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(certificateData)
-        return hash.joinToString("") { "%02x".format(it) }
-    }
-    
-    /**
-     * Check if two certificate hashes match (APK signing verification).
-     */
-    fun verifyCertificateMatch(localHash: String, remoteHash: String): Boolean {
-        val matches = localHash == remoteHash
-        Log.d(TAG, "Certificate verification: ${if (matches) "PASS" else "FAIL"}")
-        return matches
-    }
-
     fun getCurrentPin(): String? = _currentPin.value
 }

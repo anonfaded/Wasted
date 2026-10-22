@@ -28,8 +28,8 @@ Copy this into the release PR/issue. Do not skip steps; each line has a command 
 cd web && npm test && npm run build && npm run build:android-template
 ```
 
-- [ ] Android tests green (currently 92).
-- [ ] Web tests green (currently 22).
+- [ ] Android tests green (currently 95).
+- [ ] Web tests green (currently 25).
 - [ ] `assembleSignedRelease` succeeds (fails closed without signing inputs); unsigned output is
   named `-unsigned` and is not published.
 - [ ] `apksigner verify --print-certs` shows the expected certificate SHA-256.

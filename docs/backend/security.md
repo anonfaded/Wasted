@@ -81,6 +81,19 @@ URL + publishable key.
   bootstrap. Disabling email signups after bootstrap or host access control are optional additional
   controls; Confirm email is not a signup restriction.
 
+## P2P peer authentication
+
+- Each device has a persisted self-signed TLS certificate. Pairing pins the peer leaf certificate
+  SHA-256; paired connections require the same certificate and the server requires a client
+  certificate.
+- The authenticated handshake binds the certificate to one device ID; every message must match that
+  ID and the local recipient before dispatch. A changed certificate is rejected and requires
+  re-pairing.
+- The P2P Room database is SQLCipher-encrypted with a separate Tink-wrapped passphrase. Legacy
+  plaintext peer rows are imported as unpaired rows so an old APK-signature hash is never trusted as
+  a TLS pin.
+- Pairing PINs use `SecureRandom`, are single-use, and have an attempt lockout.
+
 ## Device lifecycle
 
 - **Revoke** immediately stops commands for that device and hides it from the dashboard's active

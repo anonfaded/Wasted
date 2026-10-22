@@ -79,7 +79,7 @@ report.
   `private.repair_legacy_revoked_commands()`.
 - The app wizard exports a deployable ZIP with `index.html` + `_headers`.
 - Sign In no longer enforces a 12-character minimum; Create Account still does.
-- Documentation claims a single cumulative update contract, 22 web tests, and notifications ON.
+- Documentation claims a single cumulative update contract, 25 web tests, and notifications ON.
 
 ## Required fixes to verify
 
@@ -119,7 +119,7 @@ report.
 
 6. **R2-L3 — documentation consistency**
    - Independent enrollment tokens vs “new token revokes older” wording.
-   - Current test counts (web 22/22, Android 92/92; verify actual).
+   - Current test counts (web 25/25, Android 95/95; verify actual).
    - Notifications default (source says ON; README and docs must agree).
    - Migration count in HANDOFF vs `releases.json`.
    - Manifest contents (migration lists vs versions/hashes/update metadata).
@@ -134,7 +134,7 @@ report.
 8. **Release evidence gates** (mark Unverified if not executed)
    - Fresh-project `setup.sql`, `verify.sql`, all four SQL suites, migration parity, advisors, quota.
    - Upgrade replay from the prior schema, including legacy command repair.
-   - Android 92/92, web 22/22, clean build, signed-release certificate identity, secret scans,
+   - Android 95/95, web 25/25, clean build, signed-release certificate identity, secret scans,
      generated-artifact clean diff.
    - API 24/33/35 (and current target) emulator matrix; foreground/service/reboot/Doze/offline.
    - Two real devices: independent enroll, reconcile, rename/revoke/re-enroll, commands, settings

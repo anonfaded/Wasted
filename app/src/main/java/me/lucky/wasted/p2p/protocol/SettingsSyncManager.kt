@@ -240,7 +240,7 @@ class SettingsSyncManager(
     suspend fun handleSettingsRequestMessage(message: Message) {
         try {
             val peer = peerDao.getPeerById(message.fromDeviceId) ?: return
-            Log.d(TAG, "Sending current settings snapshot to ${peer.deviceName}")
+            Log.d(TAG, "Sending current settings snapshot")
             announceLocalSettings(peer)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to handle settings request: ${e.message}", e)

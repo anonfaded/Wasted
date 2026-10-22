@@ -58,6 +58,20 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
   the claim RPC binds the device row to the owner account.
 - Anonymous device identities never gain owner powers; RPCs check `is_anonymous`/ownership.
 
+## P2P trust
+
+- Each installation has a persisted self-signed TLS certificate. Pairing pins the peer's leaf
+  certificate SHA-256; paired connections require that exact certificate, and the server requires a
+  client certificate.
+- The authenticated handshake binds the TLS certificate to one device ID; every message must match
+  that ID and the local recipient before dispatch. A paired peer whose certificate changes is
+  rejected and must be re-paired.
+- The P2P Room database is SQLCipher-encrypted with a separate Tink-wrapped passphrase. Legacy
+  plaintext peer rows are imported as unpaired rows; users re-pair once so the old APK-signature
+  hash is never trusted as a TLS pin.
+- Pairing PINs use `SecureRandom`, are consumed after one successful use, and have a failed-attempt
+  lockout.
+
 ## Data flow and synchronization
 
 - Owner changes settings or queues commands in the dashboard through RPCs.

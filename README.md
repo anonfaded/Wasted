@@ -4,12 +4,14 @@
 
 ## What's New in This Fork
 
-- **P2P Network**: Remote factory reset via encrypted local Wi-Fi (TLS encrypted messaging on port 9876)
+- **P2P Network**: Remote factory reset via encrypted local Wi-Fi (TLS on port 9876) with mutual client certificates, pinned peer leaf-certificate hashes, identity-bound messages, and an encrypted peer database.
 - **Android 14+ Device Owner Setup**: Interactive Shizuku-based setup to make Wasted Device Owner for full factory reset capability
 - **Android 14+ Reset**: On Android 14+, eligible Device Owner installs use `wipeDevice()`; non-Device-Owner installs use the existing best-effort chain (Shizuku + manual cleanup). Android <14 uses the legacy `wipeData()` path. Debug Mode gates every path.
 - **Debug Mode**: Enabled by default. While enabled, dangerous commands never execute — they are logged locally, and remote commands are shown as a notification stating they were received but not executed. Disable it locally with a danger confirmation to allow real wipes.
 
 All original features remain unchanged and fully compatible with Android 7+.
+
+Release notes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 

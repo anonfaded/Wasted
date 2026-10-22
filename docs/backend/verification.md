@@ -10,7 +10,7 @@ Run these before claiming a release is ready. Docker is only needed for schema d
 cd web && npm test && npm run build && npm run build:android-template
 ```
 
-Expected: Android **92/92** unit tests (or the current count), web **22/22**, both APKs build, and
+Expected: Android **95/95** unit tests (or the current count), web **25/25**, both APKs build, and
 the signed release task fails unless signing inputs exist. Unsigned output is explicitly named
 `-unsigned`.
 
@@ -68,6 +68,16 @@ Run each file in `supabase/tests/` against the linked database inside a transact
 Expected: schema, RLS, RPC, and concurrency suites pass (4/4), plus
 `remote_verify_drift_test.sql` for verifier negative coverage.
 
+Run the actual verifier failure harness against a disposable database:
+
+```bash
+DATABASE_URL='postgresql://...' bash supabase/tests/verify_negative.sh
+```
+
+It introduces an extra policy, a mismatched policy predicate, and a PUBLIC default function grant,
+runs the real `verify.sql`, and requires each drift case to fail; it then proves the undrifted
+verifier passes.
+
 ## Fresh install
 
 1. Create an empty Supabase project.
@@ -110,6 +120,8 @@ Expected: only validator/test constants in source; no real key/URL in the APK.
 ## Open gates
 
 - Emulator matrix (API 24/33/35): lifecycle, Doze, offline/socket loss, restart/reboot.
+- P2P hostile-input/auth tests: certificate spoof, mismatched handshake/message ID, unpaired
+  certificate, replay, legitimate re-pair; verify the encrypted P2P database and legacy import.
 - ≥16-hour soak with Debug Mode ON; prove Force Reset is blocked and wipe count is zero.
 - Instrumentation/log-redaction and browser/a11y suites.
 - Docker clean replay (`supabase db reset` + `db diff --linked`).

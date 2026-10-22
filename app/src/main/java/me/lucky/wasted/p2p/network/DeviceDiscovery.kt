@@ -47,7 +47,7 @@ class DeviceDiscovery(
             val localSubnet = getLocalNetworkSubnet()
             
             if (localSubnet != null) {
-                Log.d(TAG, "Scanning network: $localSubnet")
+                Log.d(TAG, "Scanning local subnet")
                 discoveredPeers.addAll(scanSubnet(localSubnet))
             } else {
                 Log.w(TAG, "Could not determine local network subnet")
@@ -68,7 +68,7 @@ class DeviceDiscovery(
             val localIpAddress = getLocalIpAddress()
             val localDeviceId = getDeviceId()
             val localDeviceName = getDeviceName()
-            val certificateHash = securityManager.getAppSignatureCertificateHash()
+            val certificateHash = securityManager.getTlsCertificateHash()
             val sslSocketFactory = securityManager.createSecureTlsClientSocketFactory()
             
             // Scan IPs in subnet (e.g., 192.168.1.1 - 192.168.1.254)
@@ -134,7 +134,7 @@ class DeviceDiscovery(
                     val discoveredPeer = withContext(Dispatchers.IO) {
                         socket.outputStream.write(handshake.toByteArray())
                         socket.outputStream.flush()
-                        
+
                         val response = socket.inputStream.bufferedReader().readLine()
                         if (response != null) {
                             val parts = response.split("|")
@@ -143,20 +143,25 @@ class DeviceDiscovery(
                                     return@withContext null
                                 }
 
-                                Log.d(TAG, "Peer found: ${parts[1]}")
+                                val serverCertificate = socket.session.peerCertificates
+                                    .firstOrNull() as? java.security.cert.X509Certificate
+                                    ?: return@withContext null
+                                val serverCertHash = securityManager.certificateHash(serverCertificate)
+
+                                Log.d(TAG, "Peer found")
                                 return@withContext Peer(
                                     deviceId = parts[0],
                                     deviceName = parts[1],
                                     ipAddress = ip,
                                     port = P2P_PORT,
-                                    certificateHash = parts[2],
+                                    certificateHash = serverCertHash,
                                     pairedAt = 0L,
                                     lastSeen = System.currentTimeMillis(),
                                     isConnected = true
                                 )
                             }
                         } else {
-                            Log.d(TAG, "$ip:$P2P_PORT - peer accepted TLS but returned no handshake response")
+                            Log.d(TAG, "Peer accepted TLS but returned no handshake response")
                         }
 
                         null
@@ -167,7 +172,7 @@ class DeviceDiscovery(
             }
         } catch (e: Exception) {
             if (shouldLogFailure(e.message)) {
-                Log.w(TAG, "$ip:$P2P_PORT - connection failed: ${e.message}")
+                Log.w(TAG, "Peer connection failed: ${e.javaClass.simpleName}")
             }
             null
         }

@@ -158,16 +158,20 @@ export async function signOut(client) {
   await client.auth.signOut();
 }
 
-function normalizeEmail(value) {
-  return String(value ?? "")
+export function normalizeEmail(value) {
+  let cleaned = String(value ?? "")
     .replace(/\s+/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9@._%+-]/g, "");
+  const at = cleaned.indexOf("@");
+  if (at >= 0) {
+    cleaned = cleaned.slice(0, at + 1) + cleaned.slice(at + 1).replace(/@/g, "");
+  }
+  return cleaned;
 }
 
 function cleanEmailInsertion(input, data, start, end) {
-  let cleaned = String(data).replace(/\s+/g, "").toLowerCase()
-    .replace(/[^a-z0-9@._%+-]/g, "");
+  let cleaned = normalizeEmail(data);
   const base = input.value.slice(0, start) + input.value.slice(end);
   if (base.includes("@")) cleaned = cleaned.replace(/@/g, "");
   if (!base && cleaned.startsWith("@")) cleaned = cleaned.replace(/^@+/, "");

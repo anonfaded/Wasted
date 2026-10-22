@@ -79,12 +79,12 @@ class RemoteControlManager(
 
                 val success = p2pNetwork.sendToPeerWithRetry(peer, message)
                 if (success) {
-                    Log.i(TAG, "Reset command sent to ${peer.deviceName}")
+                    Log.i(TAG, "Reset command sent")
                 } else {
-                    Log.e(TAG, "Failed to send reset command to ${peer.deviceName}")
+                    Log.e(TAG, "Failed to send reset command")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to send reset command to ${peer.deviceName}: ${e.message}", e)
+                Log.e(TAG, "Failed to send reset command: ${e.javaClass.simpleName}")
             }
         }
     }
@@ -132,7 +132,7 @@ class RemoteControlManager(
     suspend fun handleResetCommandMessage(message: Message) {
         try {
             val payload = gson.fromJson(message.payload, Map::class.java)
-            Log.d(TAG, "Reset command received from ${message.fromDeviceId}")
+            Log.d(TAG, "Reset command received from a paired peer")
 
             val peerName = payload["deviceName"] as? String ?: "Remote Device"
             if (!prefs.remoteResetConfirmationEnabled) {
@@ -177,12 +177,12 @@ class RemoteControlManager(
             try {
                 val (peerId, peerName) = _pendingReset.value ?: return@launch
                 
-                Log.d(TAG, "User confirmed reset from $peerName")
+                Log.d(TAG, "User confirmed remote reset")
                 val result = executeLocalReset()
                 sendResetAck(peerId, peerName, result.ackStatus, result.ackReason)
                 _pendingReset.value = null
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to confirm remote reset: ${e.message}", e)
+                Log.e(TAG, "Failed to confirm remote reset: ${e.javaClass.simpleName}")
             }
         }
     }
@@ -255,7 +255,7 @@ class RemoteControlManager(
         )
         val delivered = p2pNetwork.sendToPeerWithRetry(peer, message)
         if (delivered) {
-            Log.i(TAG, "Reset $status ACK sent to $peerName")
+            Log.i(TAG, "Reset $status ACK sent")
         }
     }
 }
