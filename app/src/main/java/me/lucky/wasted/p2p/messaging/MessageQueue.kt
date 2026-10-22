@@ -36,7 +36,7 @@ class MessageQueue {
      */
     fun enqueueMessage(message: Message, callback: MessageCallback? = null) {
         if (message.type != MessageType.HEARTBEAT) {
-            Log.d(TAG, "Queueing ${message.type}")
+            Log.d(TAG, "Queueing message")
         }
         
         messageQueue.add(message)
@@ -76,7 +76,7 @@ class MessageQueue {
      */
     suspend fun broadcastMessage(message: Message, connectedPeerCount: Int) {
         if (message.type != MessageType.HEARTBEAT) {
-            Log.d(TAG, "Broadcasting ${message.type} to $connectedPeerCount peer(s)")
+            Log.d(TAG, "Broadcasting to $connectedPeerCount peer(s)")
         }
     }
     

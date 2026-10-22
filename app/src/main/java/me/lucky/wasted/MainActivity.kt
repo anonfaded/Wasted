@@ -167,6 +167,12 @@ open class MainActivity : AppCompatActivity() {
             .commit()
     }
 
+    fun openP2pScreen() {
+        binding.navigation.menu.findItem(R.id.nav_p2p)?.isChecked = true
+        replaceFragment(P2PNetworkFragment())
+        binding.drawer.close()
+    }
+
     private fun getFragment(id: Int) = when (id) {
         R.id.nav_main -> MainFragment()
         R.id.nav_trigger_tile -> TileFragment()

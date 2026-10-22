@@ -3,6 +3,7 @@ package me.lucky.wasted.testing
 import android.content.SharedPreferences
 
 class InMemorySharedPreferences : SharedPreferences {
+    var commitResult = true
     private val values = mutableMapOf<String, Any?>()
     private val listeners = mutableSetOf<SharedPreferences.OnSharedPreferenceChangeListener>()
 
@@ -69,6 +70,7 @@ class InMemorySharedPreferences : SharedPreferences {
         }
 
         override fun commit(): Boolean {
+            if (!commitResult) return false
             if (clearRequested) values.clear()
             removals.forEach { values.remove(it) }
             pending.forEach { (key, value) ->

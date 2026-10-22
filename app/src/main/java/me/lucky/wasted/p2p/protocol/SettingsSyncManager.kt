@@ -116,7 +116,7 @@ class SettingsSyncManager(
         usbDetectionEnabled: Boolean,
         autoLockEnabled: Boolean,
     ) {
-        Log.d(TAG, "Saving local settings: inactivityTimeout=$inactivityTimeout usbDetection=$usbDetectionEnabled autoLock=$autoLockEnabled")
+        Log.d(TAG, "Saving local state")
         scope.launch {
             applyLocalSettings(
                 withContext(Dispatchers.IO) { currentSettingsSnapshot() }.copy(
@@ -131,7 +131,7 @@ class SettingsSyncManager(
     }
 
     fun saveLocalSettings(settings: DeviceSettingsSnapshot) {
-        Log.d(TAG, "Saving full local settings snapshot")
+        Log.d(TAG, "Saving full local state")
         scope.launch {
             applyLocalSettings(settings.copy(updatedAt = System.currentTimeMillis()))
             announceLocalSettings()
@@ -221,16 +221,14 @@ class SettingsSyncManager(
             )
 
             if (targetPeer == null) {
-                val startTime = System.currentTimeMillis()
                 p2pNetwork.broadcastToPeers(message)
-                val latency = System.currentTimeMillis() - startTime
                 _lastSyncTime.value = System.currentTimeMillis()
-                Log.i(TAG, "Settings snapshot announced (latency: ${latency}ms)")
+                Log.i(TAG, "P2P state announced")
             } else {
                 p2pNetwork.sendToPeerWithRetry(targetPeer, message)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to announce local settings: ${e.message}", e)
+            Log.e(TAG, "P2P state update failed: ${e.javaClass.simpleName}")
         }
     }
 
@@ -240,10 +238,10 @@ class SettingsSyncManager(
     suspend fun handleSettingsRequestMessage(message: Message) {
         try {
             val peer = peerDao.getPeerById(message.fromDeviceId) ?: return
-            Log.d(TAG, "Sending current settings snapshot")
+            Log.d(TAG, "Sending P2P state")
             announceLocalSettings(peer)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to handle settings request: ${e.message}", e)
+            Log.e(TAG, "P2P state update failed: ${e.javaClass.simpleName}")
         }
     }
 
@@ -257,9 +255,9 @@ class SettingsSyncManager(
                 put(snapshot.ownerDeviceId, snapshot)
             }
             recentSettingsRequests.remove(snapshot.ownerDeviceId)
-            Log.d(TAG, "Stored settings snapshot for ${snapshot.ownerDeviceName}")
+            Log.d(TAG, "Stored P2P state")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to handle settings response: ${e.message}", e)
+            Log.e(TAG, "P2P state update failed: ${e.javaClass.simpleName}")
         }
     }
 
@@ -269,10 +267,7 @@ class SettingsSyncManager(
     suspend fun handleSettingsChangeMessage(message: Message): String? {
         try {
             val payload = gson.fromJson(message.payload, SettingsUpdateCommand::class.java)
-            Log.d(
-                TAG,
-                "Applying remote settings from ${payload.requestedByDeviceName}",
-            )
+            Log.d(TAG, "Applying remote update")
             applyLocalSettings(
                 withContext(Dispatchers.IO) { currentSettingsSnapshot() }.copy(
                     appEnabled = payload.appEnabled,
@@ -294,10 +289,10 @@ class SettingsSyncManager(
                 )
             )
             announceLocalSettings()
-            Log.d(TAG, "Remote settings applied locally")
+            Log.d(TAG, "Remote update applied locally")
             return payload.requestedByDeviceName
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to handle settings change: ${e.message}", e)
+            Log.e(TAG, "P2P state update failed: ${e.javaClass.simpleName}")
         }
         return null
     }
@@ -315,7 +310,7 @@ class SettingsSyncManager(
      * that can take 100-500ms each — must NEVER run on the main thread.
      */
     private suspend fun applyLocalSettings(settings: DeviceSettingsSnapshot) {
-        Log.d(TAG, "applyLocalSettings: applying via LocalSettingsApplier (IO dispatch)")
+        Log.d(TAG, "Applying local state")
         withContext(Dispatchers.IO) {
             applier.applySnapshot(settings)
         }
@@ -324,7 +319,7 @@ class SettingsSyncManager(
         _usbDetectionEnabled.value = settings.usbDetectionEnabled
         _autoLockEnabled.value = settings.autoLockEnabled
         _localSettings.value = withContext(Dispatchers.IO) { currentSettingsSnapshot() }
-        Log.d(TAG, "applyLocalSettings: complete")
+        Log.d(TAG, "Local state applied")
     }
 
     private fun currentSettingsSnapshot(): DeviceSettingsSnapshot {

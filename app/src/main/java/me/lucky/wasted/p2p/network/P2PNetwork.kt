@@ -13,6 +13,7 @@ import me.lucky.wasted.p2p.models.MessageType
 import me.lucky.wasted.p2p.models.Peer
 import me.lucky.wasted.p2p.security.SecurityManager
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Orchestrates all P2P network operations.
@@ -44,6 +45,7 @@ class P2PNetwork(
     private val discovery = DeviceDiscovery(context, peerDao, securityManager)
     private val messageQueue = MessageQueue()
     var onIncomingMessage: suspend (Message) -> Unit = {}
+    private val stagedEndpoints = ConcurrentHashMap<String, Pair<String, Int>>()
 
     private val messageServer = MessageServer(
         peerDao = peerDao,
@@ -120,16 +122,19 @@ class P2PNetwork(
                             if (existingPeer == null) {
                                 Log.i(TAG, "Discovered peer")
                                 peerDao.insertPeer(discovered)
+                            } else if (existingPeer.pairedAt > 0L) {
+                                // Only stage candidates presenting the pinned certificate; full
+                                // identity validation still happens before promotion.
+                                if (discovered.certificateHash == existingPeer.certificateHash) {
+                                    stagedEndpoints[existingPeer.deviceId] =
+                                        discovered.ipAddress to discovered.port
+                                }
                             } else {
                                 peerDao.insertPeer(
                                     existingPeer.copy(
                                         ipAddress = discovered.ipAddress,
                                         port = discovered.port,
-                                        certificateHash = if (existingPeer.pairedAt > 0L) {
-                                            existingPeer.certificateHash
-                                        } else {
-                                            discovered.certificateHash
-                                        },
+                                        certificateHash = discovered.certificateHash,
                                         lastSeen = System.currentTimeMillis(),
                                         isConnected = true
                                     )
@@ -141,7 +146,7 @@ class P2PNetwork(
                     }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.e(TAG, "Discovery error: ${e.message}", e)
+                    Log.e(TAG, "Discovery error: ${e.javaClass.simpleName}")
                 }
                 
                 delay(DISCOVERY_INTERVAL_MS)
@@ -181,7 +186,7 @@ class P2PNetwork(
                     }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.e(TAG, "Heartbeat cycle error: ${e.message}", e)
+                    Log.e(TAG, "Heartbeat cycle error: ${e.javaClass.simpleName}")
                 }
                 
                 delay(HEARTBEAT_INTERVAL_MS)
@@ -199,7 +204,7 @@ class P2PNetwork(
                     messageQueue.checkAndRetryFailedMessages()
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.e(TAG, "Message delivery error: ${e.message}", e)
+                    Log.e(TAG, "Message delivery error: ${e.javaClass.simpleName}")
                 }
                 
                 delay(MESSAGE_DELIVERY_INTERVAL_MS)
@@ -210,6 +215,7 @@ class P2PNetwork(
     /**
      * Send message to peer.
      */
+    @OptIn(InternalCoroutinesApi::class)
     suspend fun sendToPeer(
         peer: Peer,
         message: Message,
@@ -217,15 +223,23 @@ class P2PNetwork(
     ): Boolean {
         return withContext(Dispatchers.IO) {
             var socket: javax.net.ssl.SSLSocket? = null
+            val cancellationHandle = coroutineContext[Job]?.invokeOnCompletion(onCancelling = true) {
+                runCatching { socket?.close() }
+            }
             try {
                 if (message.type != MessageType.HEARTBEAT) {
-                    Log.d(TAG, "Sending ${message.type}")
+                    Log.d(TAG, "Sending message")
                 }
                 val startTime = System.currentTimeMillis()
                 val currentPeer = withContext(Dispatchers.IO) {
                     peerDao.getPeerById(peer.deviceId)
                 } ?: peer
                 val explicitPin = pinnedCertificateHash?.takeIf { it.isNotBlank() }
+                val stagedEndpoint = currentPeer
+                    .takeIf { currentPeer.pairedAt > 0L }
+                    ?.let { stagedEndpoints.remove(it.deviceId) }
+                val endpointIp = stagedEndpoint?.first ?: currentPeer.ipAddress
+                val endpointPort = stagedEndpoint?.second ?: currentPeer.port
                 val effectiveHash = explicitPin ?: currentPeer.certificateHash
                 val requirePin = currentPeer.pairedAt > 0L || explicitPin != null
                 if (requirePin && effectiveHash.isBlank()) {
@@ -234,20 +248,22 @@ class P2PNetwork(
                 val socketFactory = securityManager.createSecureTlsClientSocketFactory(
                     effectiveHash.takeIf { requirePin },
                 )
-                socket = socketFactory.createSocket(currentPeer.ipAddress, currentPeer.port) as javax.net.ssl.SSLSocket
-                socket.soTimeout = 10000  // Match server's MESSAGE_READ_TIMEOUT_MS
-                socket.startHandshake()
+                val sslSocket = socketFactory.createSocket() as javax.net.ssl.SSLSocket
+                socket = sslSocket
+                coroutineContext.ensureActive()
+                sslSocket.connect(
+                    java.net.InetSocketAddress(endpointIp, endpointPort),
+                    10000,
+                )
+                coroutineContext.ensureActive()
+                sslSocket.soTimeout = 10000  // Match server's MESSAGE_READ_TIMEOUT_MS
+                sslSocket.startHandshake()
+                coroutineContext.ensureActive()
 
                 val serverCertificate = socket.session.peerCertificates
                     .firstOrNull() as? java.security.cert.X509Certificate
                     ?: throw IOException("Peer presented no TLS certificate")
                 val serverCertHash = securityManager.certificateHash(serverCertificate)
-                if (currentPeer.certificateHash != serverCertHash &&
-                    (currentPeer.pairedAt == 0L || explicitPin != null)
-                ) {
-                    peerDao.insertPeer(currentPeer.copy(certificateHash = serverCertHash))
-                }
-
                 val writer = socket.outputStream.bufferedWriter()
                 val reader = socket.inputStream.bufferedReader()
 
@@ -266,6 +282,21 @@ class P2PNetwork(
                 ) {
                     throw IOException("Peer handshake identity mismatch")
                 }
+                if (currentPeer.certificateHash != serverCertHash &&
+                    (currentPeer.pairedAt == 0L || explicitPin != null)
+                ) {
+                    peerDao.insertPeer(currentPeer.copy(certificateHash = serverCertHash))
+                }
+                if (stagedEndpoint != null) {
+                    peerDao.insertPeer(
+                        currentPeer.copy(
+                            ipAddress = endpointIp,
+                            port = endpointPort,
+                            lastSeen = System.currentTimeMillis(),
+                            isConnected = true,
+                        )
+                    )
+                }
 
                 val payload = com.google.gson.Gson().toJson(message) + "\n"
                 writer.write(payload)
@@ -280,23 +311,28 @@ class P2PNetwork(
 
                 val latency = System.currentTimeMillis() - startTime
                 if (message.type != MessageType.HEARTBEAT) {
-                    Log.i(TAG, "${message.type} delivered (${latency}ms)")
+                    Log.i(TAG, "Message delivered (${latency}ms)")
                 }
                 messageQueue.acknowledgeMessage(message.messageId)
                 messageQueue.removeFromQueue(message.messageId)
                 peerDao.updateConnectionStatus(peer.deviceId, true, System.currentTimeMillis())
                 true
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: IOException) {
+                coroutineContext.ensureActive()
                 Log.e(TAG, "Network error: ${e.javaClass.simpleName}")
                 messageQueue.failMessage(message.messageId, e.message ?: "IO error")
                 peerDao.updateConnectionStatus(peer.deviceId, false, System.currentTimeMillis())
                 false
             } catch (e: Exception) {
+                coroutineContext.ensureActive()
                 Log.e(TAG, "Message send failed: ${e.javaClass.simpleName}")
                 messageQueue.failMessage(message.messageId, e.message ?: "Unknown error")
                 peerDao.updateConnectionStatus(peer.deviceId, false, System.currentTimeMillis())
                 false
             } finally {
+                cancellationHandle?.dispose()
                 try {
                     socket?.close()
                 } catch (_: Exception) {
@@ -319,7 +355,7 @@ class P2PNetwork(
             }
 
             if (attempt < maxAttempts && message.type != MessageType.HEARTBEAT) {
-                Log.w(TAG, "Retrying ${message.type} (attempt ${attempt + 1}/$maxAttempts)")
+                Log.w(TAG, "Retrying message (attempt ${attempt + 1}/$maxAttempts)")
                 delay(COMMAND_RETRY_DELAY_MS)
             }
             attempt += 1

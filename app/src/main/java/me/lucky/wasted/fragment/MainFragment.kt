@@ -247,7 +247,7 @@ class MainFragment : Fragment() {
             }
 
             else -> {
-                binding.setupTitle.text = "🔒 Upgrade to Device Owner"
+                binding.setupTitle.text = "🔒 Set up Device Owner"
                 binding.setupBody.text =
                     "Shizuku is active — TRIM + app data clear is armed.\n\n" +
                     "For FULL factory-reset capability, make Wasted the Device Owner:\n\n" +
@@ -257,9 +257,9 @@ class MainFragment : Fragment() {
                     "1. Settings → Accounts → remove every account\n" +
                     "2. Settings → Apps → open Gmail, Samsung Account, Google → remove accounts\n" +
                     "3. Reboot the phone\n" +
-                    "4. Come back and tap Set Device Owner"
+                    "4. Come back and tap 'Set up Device Owner'"
                 binding.setupAction.apply {
-                    text = "Set Device Owner"
+                    text = "Set up Device Owner"
                     visibility = View.VISIBLE
                     setOnClickListener { showDeviceOwnerConfirmDialog() }
                 }
@@ -281,7 +281,7 @@ class MainFragment : Fragment() {
 
     private fun showDeviceOwnerConfirmDialog() {
         AlertDialog.Builder(ctx)
-            .setTitle("Set Device Owner — Full Factory Reset")
+            .setTitle("Set up Device Owner — Full Factory Reset")
             .setMessage(
                 "✓ This enables FULL data destruction capability.\n" +
                 "✓ Wasted will format the device on trigger.\n\n" +
@@ -296,7 +296,7 @@ class MainFragment : Fragment() {
                 "To undo later: disable Device Admin in Wasted settings."
             )
             .setNeutralButton("Check Accounts") { _, _ -> showCheckAccountsDialog() }
-            .setPositiveButton("Set Device Owner") { _, _ -> doBecomeDeviceOwner() }
+            .setPositiveButton("Set up Device Owner") { _, _ -> doBecomeDeviceOwner() }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }

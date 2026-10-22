@@ -245,7 +245,7 @@ class ShizukuManager(private val ctx: Context) {
                 "3. Check hidden accounts: on a second phone use Termux → pkg install android-tools → " +
                 "adb connect <this phone IP> → adb shell dumpsys account list\n" +
                 "4. Reboot this phone\n" +
-                "5. Come back and tap Become Device Owner again"
+                "5. Come back and tap 'Set up Device Owner' again"
             )
             output.contains("already", ignoreCase = true) && output.contains("owner", ignoreCase = true) -> throw Exception(
                 "A device or profile owner is already set on this phone.\n\n" +

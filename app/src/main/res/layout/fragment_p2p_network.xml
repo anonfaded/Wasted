@@ -62,7 +62,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Device Owner Setup Status Card -->
+        <!-- Set up Device Owner Status Card -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/p2pSetupCard"
             android:layout_width="match_parent"
@@ -82,7 +82,7 @@
                     android:id="@+id/p2pSetupTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⚠️ Setup Required"
+                    android:text="⚠️ Device Owner setup required"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -91,7 +91,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Tap 'Setup Device Owner' to complete setup steps right here."
+                    android:text="Tap 'Set up Device Owner' to complete setup steps right here."
                     android:textSize="13sp" />
 
                 <com.google.android.material.button.MaterialButton
@@ -100,7 +100,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="Setup Device Owner" />
+                    android:text="Set up Device Owner" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

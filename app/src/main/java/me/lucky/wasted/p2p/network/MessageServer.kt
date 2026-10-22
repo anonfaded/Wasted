@@ -46,24 +46,24 @@ class MessageServer(
      * Runs in background until stop() is called.
      */
     fun start() {
-        Log.d(TAG, "Starting TLS message server on port $P2P_PORT")
+        Log.d(TAG, "Starting TLS message server")
         serverJob = launch {
             try {
                 Log.d(TAG, "Creating SSL server socket factory")
                 val sslSocketFactory = securityManager.createSecureTlsServerSocketFactory()
-                Log.d(TAG, "SSL factory created, binding to port $P2P_PORT")
+                Log.d(TAG, "SSL factory created")
                 
                 try {
                     serverSocket = sslSocketFactory.createServerSocket(P2P_PORT) as SSLServerSocket
                 } catch (e: java.net.BindException) {
-                    Log.e(TAG, "CRITICAL: Cannot bind to port $P2P_PORT - ${e.message}", e)
+                    Log.e(TAG, "CRITICAL: Cannot bind message server")
                     Log.e(TAG, "This means MessageServer cannot listen for incoming peer connections!")
                     throw e
                 }
                 
                 serverSocket?.let { socket ->
                     socket.needClientAuth = true
-                    Log.i(TAG, "✓✓✓ SUCCESS: Server listening on port $P2P_PORT - READY FOR CONNECTIONS ✓✓✓")
+                    Log.i(TAG, "Message server listening")
                     socket.soTimeout = 60000 // 60 second accept timeout
                     
                     while (isActive) {
@@ -79,14 +79,14 @@ class MessageServer(
                             Log.d(TAG, "Accept timeout, continuing...")
                         } catch (e: Exception) {
                             if (isActive) {
-                                Log.e(TAG, "Error accepting connection: ${e.message}")
+                                Log.e(TAG, "Error accepting connection: ${e.javaClass.simpleName}")
                             }
                         }
                     }
                 } ?: Log.e(TAG, "ERROR: ServerSocket creation returned null!")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "✗ Server startup FAILED: ${e.javaClass.simpleName}: ${e.message}", e)
+                Log.e(TAG, "Server startup failed: ${e.javaClass.simpleName}")
             } finally {
                 serverSocket?.close()
                 Log.d(TAG, "Message server stopped")
@@ -219,7 +219,7 @@ class MessageServer(
                             break
                         }
                         if (message.type != MessageType.HEARTBEAT) {
-                            Log.d(TAG, "Message received: ${message.type}")
+                            Log.d(TAG, "Message received")
                         }
 
                         onIncomingMessage(message)

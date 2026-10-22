@@ -53,6 +53,7 @@ import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
 import me.lucky.wasted.admin.DeviceAdminManager
 import me.lucky.wasted.databinding.FragmentP2pNetworkBinding
+import me.lucky.wasted.p2p.database.WastedP2PDatabase
 import me.lucky.wasted.p2p.models.DeviceSettingsSnapshot
 import me.lucky.wasted.p2p.models.PairingState
 import me.lucky.wasted.p2p.models.Peer
@@ -115,8 +116,17 @@ class P2PNetworkFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        controller = P2PController.getInstance(requireContext())
+        val controllerResult = P2PController.tryGetInstance(requireContext())
+        if (controllerResult.isFailure) {
+            showP2PStorageUnavailableDialog()
+            return
+        }
+        controller = controllerResult.getOrThrow()
         adminManager = DeviceAdminManager(requireContext())
+        if (controller.isRevocationBlocked()) {
+            showP2PStorageUnavailableDialog()
+            return
+        }
         // Only start P2P network if the user has explicitly enabled it
         if (Preferences.new(requireContext()).p2pEnabled) {
             controller.start()
@@ -124,6 +134,28 @@ class P2PNetworkFragment : Fragment() {
         setupUi()
         observeState()
         updateLocalDeviceActionsState()
+    }
+
+    private fun showP2PStorageUnavailableDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("P2P storage unavailable")
+            .setMessage(
+                "P2P pairing data can't be opened or is blocked on this phone. Reset local P2P data " +
+                    "to repair it? This clears P2P peers on this phone only; Remote Management is not affected.",
+            )
+            .setCancelable(false)
+            .setNegativeButton("Not now", null)
+            .setPositiveButton("Reset P2P data") { _, _ ->
+                val reset = WastedP2PDatabase.resetLocalState(requireContext())
+                if (reset) {
+                    P2PController.resetInstance()
+                    showMessage("P2P data reset. Reopening…")
+                    requireActivity().recreate()
+                } else {
+                    showMessage("Could not reset P2P data. Try again from app settings.")
+                }
+            }
+            .show()
     }
 
     override fun onResume() {
@@ -191,7 +223,10 @@ class P2PNetworkFragment : Fragment() {
             val pin = controller.generatePairingPin()
             pairingPinValue.text = pin.chunked(3).joinToString(" ")
             pairingStatusText.text = "Share this PIN or QR with a device you trust. It stays valid for 5 minutes."
-            showMessage("Pairing PIN ready")
+            val currentView = view ?: return@setOnClickListener
+            Snackbar.make(currentView, "Pairing PIN ready", Snackbar.LENGTH_LONG)
+                .setAction("Cancel") { controller.cancelPairing() }
+                .show()
         }
 
         showQrButton.setOnClickListener {
@@ -349,7 +384,7 @@ class P2PNetworkFragment : Fragment() {
                         binding.pairingStatusText.text = when (state) {
                             PairingState.UNPAIRED -> "🔓 Ready to pair. Tap 'Generate PIN' or 'Show QR' to start. Tap on info icon for full setup guide."
                             PairingState.PAIRING -> "⏳ Pairing active. Ask the other device to enter this PIN or scan the QR. Valid for 5 minutes."
-                            PairingState.PAIRED -> "✓ Paired! Both phones can now sync settings. To enable full factory reset: set Device Owner on BOTH phones (see setup guide)."
+                            PairingState.PAIRED -> "✓ Paired! Both phones can now sync settings. To enable full factory reset: set up Device Owner on BOTH phones (see setup guide)."
                             PairingState.PAIRING_FAILED -> "❌ Pairing failed. Check the PIN/QR and network connection, then try again."
                         }
                     }
@@ -848,8 +883,11 @@ class P2PNetworkFragment : Fragment() {
             if (pin.length != 6) {
                 showMessage("PIN must be 6 digits")
             } else {
-                controller.sendPairingRequest(peer, pin)
-                dialog.dismiss()
+                val result = controller.sendPairingRequest(peer, pin)
+                showMessage(result.message)
+                if (result.ok) {
+                    dialog.dismiss()
+                }
             }
         }
     }
@@ -876,6 +914,15 @@ class P2PNetworkFragment : Fragment() {
             setPadding(0, 12.dp, 0, 0)
         }
 
+        val dialog = BottomSheetDialog(requireContext())
+        val cancelButton = MaterialButton(requireContext()).apply {
+            text = "Cancel pairing"
+            setOnClickListener {
+                controller.cancelPairing()
+                dialog.dismiss()
+            }
+        }
+
         val content = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(20.dp, 20.dp, 20.dp, 28.dp)
@@ -883,9 +930,9 @@ class P2PNetworkFragment : Fragment() {
             addView(imageView)
             addView(pinText)
             addView(bodyText)
+            addView(cancelButton)
         }
 
-        val dialog = BottomSheetDialog(requireContext())
         dialog.setContentView(content)
         dialog.show()
     }
@@ -936,7 +983,7 @@ class P2PNetworkFragment : Fragment() {
                 "   • Enter the PIN code\n" +
                 "3. Pairing completes automatically — both phones exchange settings\n\n" +
                 "📌 DEVICE OWNER (Android 14+ only):\n" +
-                "If you want factory reset to work via P2P on Android 14+, set up Device Owner using the 'Setup Device Owner' guide card at the top of the P2P screen.\n\n" +
+                "If you want factory reset to work via P2P on Android 14+, set up Device Owner using the 'Set up Device Owner' guide card at the top of the P2P screen.\n\n" +
                 "💬 RESET CONFIRMATION:\n" +
                 "By default, remote resets execute immediately. To require confirmation, toggle 'Require confirmation before remote reset' in This Device Settings.\n\n" +
                 "🔐 FULL CONTROL:\n" +
@@ -970,7 +1017,7 @@ class P2PNetworkFragment : Fragment() {
                 "• Android 14+: Locking only (reset requires Device Owner via P2P setup)\n" +
                 "• Android 13 and below: Locking AND factory reset\n\n" +
                 "🔒 DEVICE OWNER SETUP (Android 14+ ONLY):\n" +
-                "Only needed on Android 14 and above. Use the 'Setup Device Owner' guide at the top of the P2P screen. Once set up:\n" +
+                "Only needed on Android 14 and above. Use the 'Set up Device Owner' guide at the top of the P2P screen. Once set up:\n" +
                 "• Enables full factory reset capability\n" +
                 "• Works reliably for local and remote resets\n" +
                 "• Required for P2P remote control on Android 14+\n\n" +
@@ -1091,14 +1138,14 @@ class P2PNetworkFragment : Fragment() {
                 binding.p2pSetupCard.visibility = View.VISIBLE
                 binding.p2pSetupTitle.text = "✓ Device Owner Active"
                 binding.p2pSetupBody.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone and all paired peers.\n\nShizuku is no longer needed — Wasted will work reliably with factory reset capability enabled."
-                binding.p2pSetupAction.text = "Setup Complete"
+                binding.p2pSetupAction.text = "Device Owner Active"
                 binding.p2pSetupAction.isEnabled = false
             } else {
                 binding.p2pSetupCard.visibility = View.VISIBLE
-                binding.p2pSetupTitle.text = "⚠️ Setup Required"
-                binding.p2pSetupBody.text = "Tap 'Setup Device Owner' to complete setup steps.\n\nThis enables full factory reset capability."
+                binding.p2pSetupTitle.text = "⚠️ Device Owner setup required"
+                binding.p2pSetupBody.text = "Tap 'Set up Device Owner' to complete setup steps.\n\nThis enables full factory reset capability."
                 binding.p2pSetupAction.apply {
-                    text = "Setup Device Owner"
+                    text = "Set up Device Owner"
                     isEnabled = true
                 }
             }
@@ -1123,7 +1170,7 @@ class P2PNetworkFragment : Fragment() {
         }
 
         val title = TextView(ctx).apply {
-            text = "🔒 Device Owner Setup"
+            text = "🔒 Set up Device Owner"
             textSize = 20f
             setTypeface(null, android.graphics.Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(
@@ -1249,11 +1296,11 @@ class P2PNetworkFragment : Fragment() {
             }
 
             else -> {
-                title.text = "🔒 Set Device Owner"
+                title.text = "🔒 Set up Device Owner"
                 body.text = "Remove all linked accounts first from your phone, else we cannot set Wasted as Device Owner:\n" +
                     "Settings → Accounts → remove each one (Gmail etc.)\n" +
-                    "Then tap 'Set Device Owner'.\n" +
-                    "Reboot phone (only if 'Set Device Owner' option doesn't work)\n\n"
+                    "Then tap 'Set up Device Owner'.\n" +
+                    "Reboot phone (only if 'Set up Device Owner' option doesn't work)\n\n"
                 button.apply {
                     text = "Check Accounts First"
                     setOnClickListener { 
@@ -1263,7 +1310,7 @@ class P2PNetworkFragment : Fragment() {
                 }
 
                 val setDeviceOwnerBtn = MaterialButton(ctx).apply {
-                    text = "Set Device Owner"
+                    text = "Set up Device Owner"
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1313,7 +1360,7 @@ class P2PNetworkFragment : Fragment() {
 
     private fun showDeviceOwnerConfirmDialog(shizuku: ShizukuManager) {
         AlertDialog.Builder(requireContext())
-            .setTitle("Set Device Owner — Full Factory Reset")
+            .setTitle("Set up Device Owner — Full Factory Reset")
             .setMessage(
                 "✓ This enables FULL data destruction capability.\n" +
                 "✓ This phone will format on trigger.\n\n" +
@@ -1321,7 +1368,7 @@ class P2PNetworkFragment : Fragment() {
                 "  dpm set-device-owner me.lucky.wasted/.admin.DeviceAdminReceiver\n\n" +
                 "To undo later: disable Device Admin in Wasted settings."
             )
-            .setPositiveButton("Set Device Owner") { _, _ -> doBecomeDeviceOwner(shizuku) }
+            .setPositiveButton("Set up Device Owner") { _, _ -> doBecomeDeviceOwner(shizuku) }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
@@ -1339,7 +1386,7 @@ class P2PNetworkFragment : Fragment() {
                     checkError = "MANAGED_PROFILES"
                 }
             } catch (e: Exception) {
-                Log.w("P2PNetworkFragment", "Could not check managed profiles: ${e.message}")
+                Log.w("P2PNetworkFragment", "Could not check managed profiles: ${e.javaClass.simpleName}")
             }
 
             if (checkError == null) {
@@ -1427,14 +1474,14 @@ class P2PNetworkFragment : Fragment() {
                 try {
                     success = shizuku.removeManagedProfile(userId)
                     if (success) {
-                        Log.i("P2PNetworkFragment", "Profile $userId removed successfully")
+                        Log.i("P2PNetworkFragment", "Profile removed successfully")
                         break
                     } else {
                         errorMsg = "Failed to remove profile $userId"
                     }
                 } catch (e: Exception) {
                     errorMsg = e.message ?: "Unknown error"
-                    Log.e("P2PNetworkFragment", "Remove profile failed: ${e.message}")
+                    Log.e("P2PNetworkFragment", "Remove profile failed: ${e.javaClass.simpleName}")
                 }
             }
 
@@ -1445,7 +1492,7 @@ class P2PNetworkFragment : Fragment() {
                 if (success) {
                     AlertDialog.Builder(requireContext())
                         .setTitle("✓ Profile Removed")
-                        .setMessage("Managed profile has been removed.\n\nNow you can tap 'Become Device Owner' to proceed.")
+                        .setMessage("Managed profile has been removed.\n\nNow you can tap 'Set up Device Owner' to proceed.")
                         .setPositiveButton("OK") { _, _ ->
                             // Don't auto-retry; let user do it manually
                         }
@@ -1485,7 +1532,7 @@ class P2PNetworkFragment : Fragment() {
                 } else if (packages.isEmpty()) {
                     AlertDialog.Builder(requireContext())
                         .setTitle("No Accounts Found")
-                        .setMessage("No account provider packages detected.\n\nTry running 'Become Device Owner' again.")
+                        .setMessage("No account provider packages detected.\n\nTry running 'Set up Device Owner' again.")
                         .setPositiveButton("OK", null)
                         .show()
                 } else {
@@ -1514,7 +1561,7 @@ class P2PNetworkFragment : Fragment() {
         val ctx = requireContext()
         AlertDialog.Builder(ctx)
             .setTitle("Disable Package?")
-            .setMessage("Package: $packageName\n\nThis will disable the package and remove its accounts.\n\nAfter disabling, REBOOT your device, then tap 'Become Device Owner' again.")
+            .setMessage("Package: $packageName\n\nThis will disable the package and remove its accounts.\n\nAfter disabling, REBOOT your device, then tap 'Set up Device Owner' again.")
             .setPositiveButton("Disable & Reboot Instructions") { _, _ ->
                 disablePackageAndShowInstructions(shizuku, packageName)
             }
@@ -1528,7 +1575,7 @@ class P2PNetworkFragment : Fragment() {
             val success = try {
                 shizuku.disablePackage(packageName)
             } catch (e: Exception) {
-                Log.e("P2PNetworkFragment", "Disable failed: ${e.message}")
+                Log.e("P2PNetworkFragment", "Disable failed: ${e.javaClass.simpleName}")
                 false
             }
 
@@ -1544,7 +1591,7 @@ class P2PNetworkFragment : Fragment() {
                             "After rebooting:\n" +
                             "1. Open Wasted\n" +
                             "2. Go to p2p screen's setup\n" +
-                            "3. Tap 'Become Device Owner' again"
+                            "3. Tap 'Set up Device Owner' again"
                         else
                             "Failed to disable package. Try manual entry or check Shizuku."
                     )

@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 
@@ -23,6 +24,7 @@ import me.lucky.wasted.Preferences
 import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
+import me.lucky.wasted.admin.DeviceAdminManager
 import me.lucky.wasted.databinding.FragmentRemoteManagementBinding
 import me.lucky.wasted.remote.RemoteEngine
 import me.lucky.wasted.remote.data.RemoteConfigStore
@@ -48,6 +50,7 @@ class RemoteManagementFragment : Fragment() {
     private lateinit var prefs: Preferences
     private lateinit var configStore: RemoteConfigStore
     private lateinit var credentials: RemoteCredentialStore
+    private lateinit var adminManager: DeviceAdminManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var defaultDashboardStrokeColor = 0
     private var defaultDashboardStatusColor = 0
@@ -63,6 +66,7 @@ class RemoteManagementFragment : Fragment() {
         prefs = Preferences.new(requireContext())
         configStore = RemoteConfigStore.new(requireContext())
         credentials = RemoteCredentialStore.new(requireContext())
+        adminManager = DeviceAdminManager(requireContext())
         init()
         setup()
         return binding.root
@@ -121,6 +125,9 @@ class RemoteManagementFragment : Fragment() {
         testDashboard.setOnClickListener { testDashboard() }
         openSupabase.setOnClickListener { openUrl("https://supabase.com/dashboard") }
         openWebsite.setOnClickListener { openWebsite() }
+        openDeviceOwnerSetup.setOnClickListener {
+            (activity as? me.lucky.wasted.MainActivity)?.openP2pScreen()
+        }
         claimEnrollment.setOnClickListener { claimEnrollment() }
         manualSync.setOnClickListener { manualSync() }
         resetEnrollment.setOnClickListener { confirmResetEnrollment() }
@@ -177,7 +184,19 @@ class RemoteManagementFragment : Fragment() {
             }
         }
         enrollmentStatus.text = message
+        refreshDeviceOwnerHint()
         attachListeners()
+    }
+
+    private fun refreshDeviceOwnerHint() {
+        lifecycleScope.launch {
+            val isOwner = withContext(Dispatchers.IO) {
+                adminManager.isDeviceOwner() || adminManager.isOrgOwnedProfileOwner()
+            }
+            val needsDeviceOwner = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            binding.deviceOwnerHint.visibility =
+                if (needsDeviceOwner && !isOwner) View.VISIBLE else View.GONE
+        }
     }
 
     private fun saveConfig() = with(binding) {

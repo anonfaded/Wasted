@@ -74,6 +74,8 @@ The app and dashboard store only the project URL and a publishable key. Never us
 2. In the dashboard, create an enrollment token (valid 10 minutes).
 3. Enable Remote Management (this forces Debug Mode ON), enter the token, and claim it. The device appears in the dashboard after the first sync.
 
+If Wasted is not the Device Owner on Android 14+, Remote Management shows a **Device Owner setup required** card. Full factory reset commands (remote or local) need that role; tap **Open P2P Device Owner setup** and follow **Set up Device Owner** there. The same label is used on the P2P and main setup screens.
+
 ### Hosting the dashboard
 
 The dashboard file is generated **by the app**, already configured with your own Supabase project URL and publishable key. There is no file editing and no dashboard server: the page talks directly to your Supabase project over HTTPS/WSS.

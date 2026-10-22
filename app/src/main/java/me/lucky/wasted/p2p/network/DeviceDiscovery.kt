@@ -247,7 +247,7 @@ class DeviceDiscovery(
                     !address.isLoopbackAddress && address.isSiteLocalAddress
                 }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get local IP address: ${e.message}")
+            Log.e(TAG, "Failed to resolve local network address")
             null
         }
     }

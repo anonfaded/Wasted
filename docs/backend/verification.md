@@ -10,7 +10,7 @@ Run these before claiming a release is ready. Docker is only needed for schema d
 cd web && npm test && npm run build && npm run build:android-template
 ```
 
-Expected: Android **95/95** unit tests (or the current count), web **25/25**, both APKs build, and
+Expected: Android **110/110** unit tests (or the current count), web **25/25**, both APKs build, and
 the signed release task fails unless signing inputs exist. Unsigned output is explicitly named
 `-unsigned`.
 
@@ -74,9 +74,10 @@ Run the actual verifier failure harness against a disposable database:
 DATABASE_URL='postgresql://...' bash supabase/tests/verify_negative.sh
 ```
 
-It introduces an extra policy, a mismatched policy predicate, and a PUBLIC default function grant,
-runs the real `verify.sql`, and requires each drift case to fail; it then proves the undrifted
-verifier passes.
+It introduces an extra policy, mismatched predicates/roles/modes, and a PUBLIC default function
+grant. Each case must print `__DRIFT_APPLIED__`, then the real `verify.sql` must fail with its
+`verification failed` signature; an unrelated setup or `psql` failure is reported as a harness
+failure, not a passing negative. It then proves the undrifted verifier passes.
 
 ## Fresh install
 

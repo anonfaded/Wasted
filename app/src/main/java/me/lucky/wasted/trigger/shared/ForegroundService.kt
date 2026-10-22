@@ -125,8 +125,15 @@ class ForegroundService : Service() {
     private fun syncP2p(wanted: Boolean) {
         if (wanted == p2pStarted) return
         if (wanted) {
-            P2PController.getInstance(this).start()
-            p2pStarted = true
+            P2PController.tryGetInstance(this)
+                .onSuccess {
+                    it.start()
+                    p2pStarted = true
+                }
+                .onFailure {
+                    p2pStarted = false
+                    Log.e(TAG, "P2P storage unavailable; P2P disabled")
+                }
         } else {
             stopP2p()
         }
@@ -180,7 +187,7 @@ class ForegroundService : Service() {
                             scope.launch { runSync() }
                         }
                     }
-                }.onFailure { Log.w(TAG, "Realtime start failed: ${it.message}") }
+                }.onFailure { Log.w(TAG, "Realtime start failed") }
             }
 
             // Heartbeat: reconcile every 60s while enabled, enrolled, unlocked, and connected.
@@ -202,14 +209,14 @@ class ForegroundService : Service() {
             runCatching {
                 getSystemService(ConnectivityManager::class.java)
                     .registerDefaultNetworkCallback(callback)
-            }.onFailure { Log.w(TAG, "Network callback registration failed: ${it.message}") }
+            }.onFailure { Log.w(TAG, "Network callback registration failed") }
             remoteNetworkCallback = callback
 
             RemoteRecoveryWorker.schedulePeriodic(this)
 
             Log.i(TAG, "Remote subsystem started")
         } catch (e: Exception) {
-            Log.e(TAG, "Remote subsystem failed to start: ${e.message}")
+            Log.e(TAG, "Remote subsystem failed to start: ${e.javaClass.simpleName}")
             remoteStarted = false
             remoteScope?.cancel()
             remoteScope = null

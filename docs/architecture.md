@@ -65,7 +65,8 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
   client certificate.
 - The authenticated handshake binds the TLS certificate to one device ID; every message must match
   that ID and the local recipient before dispatch. A paired peer whose certificate changes is
-  rejected and must be re-paired.
+  rejected and must be re-paired. Pairing responses require a pending, unexpired, single-use nonce
+  bound to the expected peer and certificate.
 - The P2P Room database is SQLCipher-encrypted with a separate Tink-wrapped passphrase. Legacy
   plaintext peer rows are imported as unpaired rows; users re-pair once so the old APK-signature
   hash is never trusted as a TLS pin.
@@ -107,7 +108,7 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
 
 ## Notifications
 
-Optional (default OFF), gated by the stored preference. Meaningful events only: settings applied,
+Optional (default ON), gated by the stored preference. Meaningful events only: settings applied,
 Reset Timer applied, Force Reset initiated/blocked/rejected, Debug Mode changed, command failures,
 manual-sync success, sync failure. Heartbeat successes never notify; stable notification IDs replace
 instead of stacking.
