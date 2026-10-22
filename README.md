@@ -8,6 +8,7 @@
 - **Android 14+ Device Owner Setup**: Interactive Shizuku-based setup to make Wasted Device Owner for full factory reset capability
 - **Android 14+ Reset**: On Android 14+, eligible Device Owner installs use `wipeDevice()`; non-Device-Owner installs use the existing best-effort chain (Shizuku + manual cleanup). Android <14 uses the legacy `wipeData()` path. Debug Mode gates every path.
 - **Debug Mode**: Enabled by default. While enabled, dangerous commands never execute — they are logged locally, and remote commands are shown as a notification stating they were received but not executed. Disable it locally with a danger confirmation to allow real wipes.
+- **Biometric App Unlock**: Optional biometric/device-credential prompt when Wasted opens. It is enabled by default and can be turned off under **Settings → Security**. When disabled, Wasted opens without an authentication prompt.
 
 All original features remain unchanged and fully compatible with Android 7+.
 

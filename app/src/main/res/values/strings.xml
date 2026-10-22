@@ -60,6 +60,11 @@
     <string name="protection_tier_3">📁 Partial — Photos and files deleted on trigger</string>
     <string name="protection_tier_4">⚠️ Minimal — Only Wasted data cleared</string>
 
+    <!-- Security / app lock -->
+    <string name="security_settings">Security</string>
+    <string name="biometric_unlock">Biometric app unlock</string>
+    <string name="biometric_unlock_description">Ask for biometrics or your device credential when Wasted opens. Turn this off to open the app without a prompt.</string>
+
     <!-- Setup card -->
     <string name="setup_card_header">Enhance Protection</string>
     <string name="files_access_hint">Also: grant All Files Access for file deletion on wipe</string>

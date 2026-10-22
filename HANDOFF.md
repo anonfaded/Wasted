@@ -81,6 +81,8 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
 - Remote Management now shows a **Device Owner setup required** card when Wasted is not
   Device Owner/profile owner, with a button that opens the P2P screen. The canonical user-facing label
   is **Set up Device Owner**, used consistently on the Remote Management, P2P, and main setup screens.
+- Biometric app lock is now optional: **Settings → Security → Biometric app unlock**. Default ON
+  preserves the previous launch prompt; turning it off skips `initBiometric()` on the next launch.
 - Open: emulator matrix, 16 h soak, instrumentation/log-redaction, browser/a11y suites, latency and
   usage evidence, Docker clean replay, fresh-project `setup.sql` verification, wipe E2E (needs
   explicit approval), final acceptance gate.

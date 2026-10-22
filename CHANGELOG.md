@@ -4,6 +4,7 @@
 
 ### New Features
 - Self-hosted Remote Management with your own Supabase project and dashboard.
+- Biometric app unlock setting, so the launch prompt can be turned off.
 
 ### Enhancements
 - P2P security now uses certificate pinning and an encrypted peer database (re-pair existing peers once).

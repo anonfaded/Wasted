@@ -79,6 +79,7 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun initBiometric(): Boolean {
+        if (!prefs.isBiometricUnlockEnabled) return false
         val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
         when (BiometricManager

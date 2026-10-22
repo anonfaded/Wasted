@@ -25,6 +25,7 @@ class Preferences(ctx: Context, encrypted: Boolean = true) {
         private const val RECAST_EXTRA_KEY = "recast_extra_key"
         private const val RECAST_EXTRA_VALUE = "recast_extra_value"
         private const val REMOTE_RESET_CONFIRMATION = "remote_reset_confirmation"
+        private const val BIOMETRIC_UNLOCK = "biometric_unlock"
         private const val DEBUG_MODE = "debug_mode"
         private const val TIMER_SCHEDULED_AT = "timer_scheduled_at"
         private const val TIMER_DURATION_MINUTES = "timer_duration_minutes"
@@ -128,6 +129,11 @@ class Preferences(ctx: Context, encrypted: Boolean = true) {
     var remoteResetConfirmationEnabled: Boolean
         get() = prefs.getBoolean(REMOTE_RESET_CONFIRMATION, false)
         set(value) = prefs.edit { putBoolean(REMOTE_RESET_CONFIRMATION, value) }
+
+    /** Defaults ON to preserve the existing app-lock behavior. */
+    var isBiometricUnlockEnabled: Boolean
+        get() = runCatching { prefs.getBoolean(BIOMETRIC_UNLOCK, true) }.getOrDefault(true)
+        set(value) = prefs.edit { putBoolean(BIOMETRIC_UNLOCK, value) }
 
     /** Fail-closed: ON when missing, corrupt, or unreadable. */
     var isDebugMode: Boolean

@@ -51,6 +51,7 @@ class SettingsFragment : Fragment() {
         prefs = Preferences(ctx)
         prefsdb = Preferences(ctx, encrypted = false)
         binding.apply {
+            biometricUnlock.isChecked = prefs.isBiometricUnlockEnabled
             val triggers = prefs.triggers
             panicKit.isChecked = triggers.and(Trigger.PANIC_KIT.value) != 0
             tile.isEnabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
@@ -65,6 +66,9 @@ class SettingsFragment : Fragment() {
     }
 
     private fun setup() = binding.apply {
+        biometricUnlock.setOnCheckedChangeListener { _, isChecked ->
+            prefs.isBiometricUnlockEnabled = isChecked
+        }
         panicKit.setOnCheckedChangeListener { _, isChecked ->
             applier.setTrigger(Trigger.PANIC_KIT, isChecked)
         }
