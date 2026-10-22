@@ -30,7 +30,7 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
 
 - App v3.0.0 (versionCode 42); debug APK builds. The signed-release task is fail-closed, but the
   actual release certificate still needs release-gate verification.
-- Tests: Android **95/95**, web **25/25**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
+- Tests: Android **110/110**, web **25/25**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
   the verifier drift negative test, run against the linked project in rolled-back transactions.
 - Implemented: Debug Mode boundary, ResetExecutor, reset ordering, per-device Debug Mode commands,
   notifications, Android Remote Management screen, setup wizard, dashboard, enrollment, sync,
@@ -43,6 +43,44 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
   account guard, idempotent legacy command repair, deployable ZIP (`index.html` + `_headers`), Sign In
   accepts existing passwords, clipboard warning, cumulative update documentation, and P2P
   certificate pinning/identity binding with an encrypted P2P database.
+- Audit 6 fixes: unavailable P2P storage is now a typed failure caught by both the service and P2P
+  screen, with an explicit confirmed local-reset recovery path; legacy import clears the obsolete
+  certificate hash, deletes residual plaintext on the completed-marker path, and reports marker
+  failures accurately; pairing cancellation is nonce-qualified and outbound pairing now has
+  PAIRING/failed/timeout states plus a UI cancel action; remaining device/peer names and profile IDs
+  were removed from logs; the verifier harness uses a temp directory and a relative `\i` path.
+  Endpoint retry falls back to the last trusted address on the next attempt.
+- Audit 7 fixes: local reset now deletes both secure and legacy database families and treats absent
+  artifacts as clean; the secure database is synchronously opened before publishing the singleton so
+  wrong-key/corruption surfaces through the typed recovery path; legacy sidecars are cleaned on the
+  marker/no-main paths; pairing success is sent only after durable persistence, QR pairing propagates
+  the start result, concurrent outbound pairing is rejected, cancellation rethrows and does not
+  report failure, and raw service exception messages were removed.
+- Audit 8 fixes: outbound pairing is a locked peer/nonce/job record; a consumed response
+  cancels/clears only that attempt, user cancel is scoped, inbound PIN sessions block outbound
+  starts, and cancellation is rethrown in all pairing paths. A failed pairing-response delivery rolls
+  back the local pairing and skips settings exchange; manual PIN and QR starts report the real result.
+- Audit 9 fixes: PIN generation atomically detaches the exact observed outbound attempt, stale
+  send-failure UI is gated on the matching nonce, response rollback is exception-safe with a durable
+  pending-revocation block if unpair cannot be confirmed, and `P2PNetwork.sendToPeer` rethrows
+  cancellation and closes the socket on cancellation. Linkage failures are wrapped as the typed
+  storage error, manual pairing always shows its result, and the plan no longer claims release
+  certificate verification.
+- Audit 10 fixes: PIN publication is atomic under the pairing lock; revocation reads/writes are typed
+  and fail closed, with a plain app-private fallback marker set and revocation reconciliation before
+  network initialization; all message dispatch is blocked for pending revocations; post-persistence
+  cancellation runs rollback under `NonCancellable`; socket cancellation uses an on-cancelling close
+  handler plus an explicit connect timeout.
+- Audit 11 fixes: revocation additions/removals are serialized through one store across the
+  encrypted and fallback backends with readback verification; both-write failure writes a durable
+  fail-closed latch, startup refuses to initialize P2P while the latch or unresolved markers exist,
+  and local P2P reset clears markers/latch.
+- Audit 12 fix: local P2P reset now returns success only after encrypted markers, fallback markers,
+  and the fail-closed latch are all verified empty/absent; a failed cleanup leaves the failure UI in
+  place instead of claiming recovery.
+- Remote Management now shows a **Device Owner setup required** card when Wasted is not
+  Device Owner/profile owner, with a button that opens the P2P screen. The canonical user-facing label
+  is **Set up Device Owner**, used consistently on the Remote Management, P2P, and main setup screens.
 - Open: emulator matrix, 16 h soak, instrumentation/log-redaction, browser/a11y suites, latency and
   usage evidence, Docker clean replay, fresh-project `setup.sql` verification, wipe E2E (needs
   explicit approval), final acceptance gate.
@@ -64,8 +102,9 @@ Android app ── HTTPS/WSS ──► Supabase project (Auth / PostgREST / Real
   only by a one-time enrollment token and the `claim_device_enrollment` RPC. The app sends an
   editable device name (prefilled with the phone model); the dashboard can rename it.
 - **P2P:** peer TLS leaf certificates are pinned during pairing; client certificates are required;
-  handshake and message identities are bound to the verified peer; the P2P Room database is
-  SQLCipher-encrypted and legacy rows require re-pairing. Pairing PINs use `SecureRandom` with
+  handshake and message identities are bound to the verified peer; pairing responses require a
+  pending, unexpired, single-use nonce bound to the expected peer/certificate; the P2P Room database
+  is SQLCipher-encrypted and legacy rows require re-pairing. Pairing PINs use `SecureRandom` with
   one-time consumption and attempt lockout.
 - **Writes:** only through SECURITY DEFINER RPCs; direct table writes are denied; RLS is forced.
 - **Realtime:** events are only "sync required" signals; both app and dashboard always refetch
