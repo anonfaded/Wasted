@@ -128,6 +128,8 @@ class RemoteManagementFragment : Fragment() {
         openDeviceOwnerSetup.setOnClickListener {
             (activity as? me.lucky.wasted.MainActivity)?.openP2pScreen()
         }
+        enrollmentHelp.setOnClickListener { showEnrollmentHelp() }
+        openDashboardFromEnrollment.setOnClickListener { openWebsite() }
         claimEnrollment.setOnClickListener { claimEnrollment() }
         manualSync.setOnClickListener { manualSync() }
         resetEnrollment.setOnClickListener { confirmResetEnrollment() }
@@ -157,6 +159,7 @@ class RemoteManagementFragment : Fragment() {
         notifications.isChecked = credentials.notificationsEnabled
         enrollmentSection.visibility = if (configStore.remoteEnabled) View.VISIBLE else View.GONE
         openWebsite.isEnabled = !config?.websiteUrl.isNullOrBlank()
+        openDashboardFromEnrollment.isEnabled = !config?.websiteUrl.isNullOrBlank()
 
         val message = buildString {
             if (config == null) {
@@ -383,6 +386,19 @@ class RemoteManagementFragment : Fragment() {
             "Supabase rejected the request. Check the Project URL and publishable key, and make sure the backend setup is complete."
         is RemoteError.Unknown ->
             "unexpected Supabase error. Check the Project URL/key and Auth settings."
+    }
+
+    private fun showEnrollmentHelp() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Enrollment buttons")
+            .setMessage(
+                "Claim enrollment — paste the one-time token from the dashboard. It links this phone to your owner account. Each token works once and expires after 10 minutes.\n\n" +
+                    "Sync now — asks the app to reconcile with Supabase immediately instead of waiting for the next automatic sync.\n\n" +
+                    "Reset enrollment — removes this phone's device identity and saved remote session. It does not wipe the phone; you need a new token to enroll again.\n\n" +
+                    "Open dashboard — opens your hosted dashboard to create a token or manage this device.",
+            )
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun openWebsite() {

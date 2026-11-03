@@ -302,6 +302,23 @@
                     android:text="In the dashboard, open Enroll a device → Create enrollment token, then paste it here. Each device needs its own token; it expires after 10 minutes."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/enrollmentHelp"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="What do these buttons do?"
+                    app:icon="@drawable/ic_baseline_help_outline_24"
+                    app:iconGravity="textStart" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openDashboardFromEnrollment"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Open dashboard" />
+
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/deviceName"
                     android:layout_width="match_parent"
