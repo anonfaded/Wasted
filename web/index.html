@@ -124,11 +124,11 @@
             <a id="setup-auth-link" href="https://supabase.com/dashboard"
                target="_blank" rel="noopener noreferrer">Authentication → Providers</a>:
             enable “Allow anonymous sign-ins” and leave “Confirm email” enabled.</li>
-          <li>In the wizard, <strong>generate the dashboard file</strong> and save it. Host it
-            by dragging it onto
-            <a id="setup-netlify-link" href="https://app.netlify.com/drop"
-               target="_blank" rel="noopener noreferrer">Netlify Drop</a>; claim the site so it
-            stays online.</li>
+          <li>In the wizard, <strong>save the deployable ZIP</strong>. In
+            <a id="setup-netlify-link" href="https://app.netlify.com/"
+               target="_blank" rel="noopener noreferrer">Netlify</a>, create a project with
+            <strong>Add new project → Deploy manually</strong> and upload the ZIP. For later
+            updates, use that same project → <strong>Deploys</strong> and drop the new ZIP.</li>
           <li>Open your new dashboard URL and create the owner account before sharing the URL;
             this project allows one owner.</li>
           <li>In the app, paste the hosted URL into Remote Management, Save, and Enable.
@@ -140,7 +140,9 @@
           Create Account, click the confirmation link in the email, then sign in. Set the
           <a id="setup-url-link" href="https://supabase.com/dashboard"
              target="_blank" rel="noopener noreferrer">Authentication → URL Configuration</a>
-          Site URL to this dashboard, or the confirmation link may redirect elsewhere. That email
+          Site URL to this dashboard, replacing the default http://localhost:3000, and add the exact
+          same URL under <strong>Redirect URLs</strong>; both must match including the final slash,
+          or email confirmation links may fail or redirect elsewhere. That email
           is for the owner account only; devices never use it.
         </p>
         <p class="muted">

@@ -98,12 +98,14 @@ command failures, manual-sync success, and sync failure. Heartbeat successes are
 legacy APIs unless needed.
 **Consequences:** Consistent UI and smaller APK; Compose-specific patterns are not used.
 
-## ADR-12 — Hosting recommendation: Netlify Drop
+## ADR-12 — Hosting recommendation: signed-in Netlify project
 
-**Context:** Users must host one HTML file easily.
-**Decision:** Recommend Netlify Drop (drag one file, HTTPS, no account needed to start); document
-Cloudflare Pages, GitHub Pages, Vercel, and generic static hosts.
-**Consequences:** Minimal steps; no server/CORS/redirect setup. Users must claim the site to keep it.
+**Context:** Users must host one HTML file easily, and later updates must keep the same URL.
+**Decision:** Recommend one signed-in Netlify project: **Add new project → Deploy manually**, upload
+the ZIP, and update the same project through **Deploys**. Document Cloudflare Pages, GitHub Pages,
+Vercel, and generic static hosts.
+**Consequences:** The project appears immediately in the user's team and has no anonymous claim or
+one-hour expiry. Updates reuse the same URL; creating a new project changes it.
 
 ## ADR-13 — Update research and support window
 
@@ -136,8 +138,9 @@ remain required in the release gate.
 **Context:** Meta CSP cannot set `frame-ancestors`; a single HTML file cannot prevent framing.
 **Decision:** Production hosting must send framing headers; the repo ships `web/_headers` for
 header-capable hosts, plus a frame-busting fallback in the page.
-**Consequences:** Netlify Drop of a lone file is insufficient for strict framing; deploy a folder
-with `_headers` or configure the host. This is documented as a deployment constraint.
+**Consequences:** A lone `index.html` is insufficient for strict framing; upload the ZIP with
+`_headers` to the Netlify project or configure the host. This is documented as a deployment
+constraint.
 
 ## ADR-17 — Notifications follow meaningful events, not heartbeats
 

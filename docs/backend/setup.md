@@ -6,7 +6,7 @@ Use this for a new installation. For upgrades, see [updates.md](./updates.md).
 
 - The Wasted app (v3.0.0+) installed.
 - A free Supabase account.
-- A place to host one HTML file over HTTPS (Netlify Drop is the simplest).
+- A place to host one HTML file over HTTPS (Netlify is the simplest).
 
 ## Accounts vs devices
 
@@ -62,17 +62,17 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
 1. In the app: **Remote Management → Open setup wizard**.
 2. Paste the Project URL and publishable key → **Continue**.
 3. **Save deployable package (.zip)** — the app suggests `wasted-dashboard.zip`; it contains
-   `index.html` and `_headers`. Use this package for Netlify Drop, Cloudflare Pages, GitHub Pages, or
+   `index.html` and `_headers`. Use this package for Netlify, Cloudflare Pages, GitHub Pages, or
    Vercel. Use **Download index.html only** only when the host lets you configure security headers
    yourself.
-4. First publish: sign in to Netlify, then drop the ZIP directly onto
-   <https://app.netlify.com/drop>. Confirm it appears in your Netlify projects and copy the final
-   `https://…netlify.app` URL. A signed-out Drop is temporary and is removed after 1 hour unless
-   claimed. To update later, use that same project → **Deploys** and drop the new ZIP there; do not
-   create another project. Alternatives: Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static
-   host.
-5. In **Authentication → URL Configuration**, set **Site URL** to that final dashboard URL so
-   confirmation emails return there.
+4. In Netlify, sign in and create one project: **Add new project → Deploy manually**, then upload the
+   ZIP. Confirm the project appears in your team and copy its final `https://…` URL. If it starts
+   private, make it public. To update later, use that same project → **Deploys** and drop the new ZIP;
+   do not create another project. Alternatives: Cloudflare Pages, GitHub Pages, Vercel, any HTTPS
+   static host.
+5. In **Authentication → URL Configuration**, replace the default `http://localhost:3000` with the
+   dashboard URL in **Site URL**, and add the exact same URL to **Redirect URLs**. Both must match
+   including the final slash, then save.
 
 The file contains only the project URL + publishable key. It is not a secret, but anyone who can
 open the URL can attempt to create an account; RLS protects the data.

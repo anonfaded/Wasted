@@ -55,7 +55,6 @@ class RemoteSetupActivity : AppCompatActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private var currentStep = STEP_CHOICE
-    private var dashboardGenerated = false
 
     private val createDocument =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri ->
@@ -123,8 +122,10 @@ class RemoteSetupActivity : AppCompatActivity() {
         binding.generateDashboardPackage.setOnClickListener {
             if (saveDetails()) createPackage.launch("wasted-dashboard.zip")
         }
-        binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/drop") }
-        binding.openNetlifyProjects.setOnClickListener { openUrl("https://app.netlify.com/") }
+        binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/") }
+        binding.openAuthUrlConfiguration.setOnClickListener {
+            openProjectPage("auth/url-configuration")
+        }
         binding.skipToDashboard.setOnClickListener {
             if (saveDetails()) showStep(STEP_DASHBOARD)
         }
@@ -167,10 +168,10 @@ class RemoteSetupActivity : AppCompatActivity() {
                 STEP_PROJECT -> "Continue"
                 STEP_DATABASE -> "I ran the SQL — Continue"
                 STEP_AUTH -> "Auth settings done — Continue"
-                STEP_DASHBOARD -> "Dashboard generated — Continue"
+                STEP_DASHBOARD -> "Continue"
                 else -> "Finish setup"
             }
-            binding.wizardNext.isEnabled = step != STEP_DASHBOARD || dashboardGenerated
+            binding.wizardNext.isEnabled = true
             when (step) {
                 STEP_PROJECT -> binding.stepProject.scrollTo(0, 0)
                 STEP_DATABASE -> binding.stepDatabase.scrollTo(0, 0)
@@ -186,7 +187,7 @@ class RemoteSetupActivity : AppCompatActivity() {
             STEP_PROJECT -> if (saveDetails()) showStep(STEP_DATABASE)
             STEP_DATABASE -> showStep(STEP_AUTH)
             STEP_AUTH -> showStep(STEP_DASHBOARD)
-            STEP_DASHBOARD -> if (dashboardGenerated) showStep(STEP_HOST)
+            STEP_DASHBOARD -> showStep(STEP_HOST)
             STEP_HOST -> finishSetup()
         }
     }
@@ -340,18 +341,14 @@ class RemoteSetupActivity : AppCompatActivity() {
                     } ?: error("no output stream")
                 }.isSuccess
             }
-            dashboardGenerated = saved
             binding.dashboardGeneratedStatus.text = if (saved) {
                 "Dashboard file saved as index.html. Upload it to your hosting provider, then tap Continue."
             } else {
                 "Could not save the dashboard file. Try again."
             }
-            if (currentStep == STEP_DASHBOARD) {
-                binding.wizardNext.isEnabled = dashboardGenerated
-            }
             snackbar(
                 if (saved) {
-                    "Dashboard saved as index.html. Upload it to Netlify Drop or another HTTPS host."
+                    "Dashboard saved as index.html. Upload it to your Netlify project or another HTTPS host."
                 } else {
                     "Could not save the dashboard file."
                 },
@@ -386,14 +383,10 @@ class RemoteSetupActivity : AppCompatActivity() {
                     } ?: error("no output stream")
                 }.isSuccess
             }
-            dashboardGenerated = saved
             binding.dashboardGeneratedStatus.text = if (saved) {
                 "Deployable package saved. Upload its contents to the same host/site."
             } else {
                 "Could not save the deployable package. Try again."
-            }
-            if (currentStep == STEP_DASHBOARD) {
-                binding.wizardNext.isEnabled = dashboardGenerated
             }
             snackbar(
                 if (saved) {

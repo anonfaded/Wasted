@@ -342,7 +342,7 @@ class RemoteManagementFragment : Fragment() {
                 code == 401 || code == 403 -> {
                     setDashboardTestVisual(false)
                     binding.dashboardStatus.text =
-                        "Dashboard responded with HTTP $code. Netlify Drop sites are password-protected until claimed. Open the site, click Claim this site, then test again."
+                        "Dashboard responded with HTTP $code. Make the Netlify project public or disable password protection, then test again."
                 }
                 code == 404 -> {
                     setDashboardTestVisual(false)

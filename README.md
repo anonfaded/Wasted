@@ -86,15 +86,19 @@ The dashboard file is generated **by the app**, already configured with your own
 3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and leave **Confirm email** enabled. Anonymous sign-ins give each device its own private identity, so your email/password is never stored on the device. Confirm email is recommended: click the link in the email, then sign in. If you do not want Remote Management, you can leave anonymous sign-ins off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. In the wizard, use **Save deployable package (.zip)**. It contains `index.html` and `_headers`
    for strict framing headers. Use **Download index.html only** only when the host lets you configure
-   headers yourself. Netlify Drop requires an `index.html` home page; another filename shows “page not
+   headers yourself. Netlify requires an `index.html` home page; another filename shows “page not
    found.”
-5. First publish: sign in to Netlify, drop the ZIP directly on **Netlify Drop**, and confirm the site appears in your Netlify projects. A signed-out Drop is temporary and is removed after **1 hour** unless claimed. Copy the final HTTPS URL, then set Supabase → **Authentication → URL Configuration → Site URL** to it so confirmation emails return to the dashboard. Alternatives: Cloudflare Pages direct upload, GitHub Pages, Vercel, any HTTPS static host.
+5. In Netlify, sign in and create one project: **Add new project → Deploy manually**, then upload
+   the ZIP. Copy the project’s HTTPS URL. If the project starts private, make it public. In Supabase →
+   **Authentication → URL Configuration**, replace the default `http://localhost:3000` with the
+   dashboard URL in **Site URL**, and add the exact same URL to **Redirect URLs**. Both must match
+   including the final slash. Then save. Alternatives: Cloudflare Pages direct upload, GitHub Pages,
+   Vercel, any HTTPS static host.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app.
 
 To update an existing dashboard, open that **same Netlify project → Deploys** and drop the new ZIP
-there. Do not use Netlify Drop or “Add new project” again; creating another project changes the URL
-and requires updating Remote Management.
+there. Do not create another project; that changes the URL and requires updating Remote Management.
 
 ### Building the APK
 

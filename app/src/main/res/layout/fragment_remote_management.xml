@@ -182,14 +182,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Already hosted? Paste its HTTPS URL here and tap Test dashboard URL. If it is not hosted yet, use the setup wizard to generate index.html, then host it on any HTTPS static host (Netlify Drop, GitHub Pages, Cloudflare Pages, Vercel)."
+                android:text="Already hosted? Paste its HTTPS URL here and tap Test dashboard URL. If it is not hosted yet, use the setup wizard to generate index.html, then host it on any HTTPS static host (Netlify, GitHub Pages, Cloudflare Pages, Vercel)."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="Netlify Drop note: a new site is password-protected and expires after 1 hour until you claim it. Open the site, click Claim this site, then test again. HTTP 401 means it is still protected."
+                android:text="If the test returns HTTP 401 or 403, the site is private or password-protected. Make the Netlify project public (or disable password protection), then test again."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <com.google.android.material.textfield.TextInputLayout

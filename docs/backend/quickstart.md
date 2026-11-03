@@ -13,13 +13,12 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    **Rate Limits**, set anonymous 10/hour/IP and sign-in/sign-up 10 per 5 minutes/IP (or verify your
    values). Run `verify.sql`; every row must say PASS. The app never runs SQL; use **Save setup SQL
    file** in the wizard to move it to a computer if that is easier.
-4. **Generate the dashboard** in the wizard and save it as `index.html`, or use **Save deployable
-   package (.zip)** for `index.html` + `_headers`. Host it on
-   <https://app.netlify.com/drop>: the temporary site is password-protected and expires after 1 hour
-   until you click **Claim this site** and sign in/up. Copy the final URL. In
-   **Authentication → URL Configuration**, set **Site URL** to that URL so confirmation emails
-   return to the dashboard. For strict framing protection, use the deployable package or set
-   `frame-ancestors 'none'` at the host.
+4. **Generate the dashboard** in the wizard and save the deployable ZIP (`index.html` + `_headers`).
+   In <https://app.netlify.com/>, sign in, choose **Add new project → Deploy manually**, and upload
+   the ZIP. Copy the project URL; make the project public if it starts private. In
+   **Authentication → URL Configuration**, replace `http://localhost:3000` with the dashboard URL in
+   **Site URL**, and add the exact same URL to **Redirect URLs**. Both must match including the final
+   slash, then save. For updates, use the same project → **Deploys**; do not create another project.
 5. **Create your account** on the hosted dashboard URL.
 6. **Connect the app**: paste the dashboard URL into Remote Management, Save, Enable; create an
    enrollment token in the dashboard and claim it in the app. Send Reset Timer to verify.
