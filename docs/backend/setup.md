@@ -65,10 +65,12 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
    `index.html` and `_headers`. Use this package for Netlify Drop, Cloudflare Pages, GitHub Pages, or
    Vercel. Use **Download index.html only** only when the host lets you configure security headers
    yourself.
-4. Host it: drag the ZIP or its unzipped contents onto <https://app.netlify.com/drop>. The
-   temporary site is password-protected and expires after 1 hour until you click **Claim this
-   site** and sign in or sign up. Then copy the final `https://…netlify.app` URL. Alternatives:
-   Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static host.
+4. First publish: sign in to Netlify, then drop the ZIP directly onto
+   <https://app.netlify.com/drop>. Confirm it appears in your Netlify projects and copy the final
+   `https://…netlify.app` URL. A signed-out Drop is temporary and is removed after 1 hour unless
+   claimed. To update later, use that same project → **Deploys** and drop the new ZIP there; do not
+   create another project. Alternatives: Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static
+   host.
 5. In **Authentication → URL Configuration**, set **Site URL** to that final dashboard URL so
    confirmation emails return there.
 

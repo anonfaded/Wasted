@@ -11,15 +11,17 @@ server, database credential, or CDN dependency.
    `index.html` and `_headers`; the single file alone cannot send `frame-ancestors`/`X-Frame-Options`.
    Use **Download index.html only** only when you can configure headers yourself. Netlify Drop
    requires an `index.html` home page; a differently named file shows “page not found.”
-3. Open <https://app.netlify.com/drop> and drag the ZIP or its unzipped contents in.
-4. Netlify gives you a temporary HTTPS URL (`https://…netlify.app`). Netlify Drop currently
-   password-protects the site and **expires it after 1 hour** until you claim it. Click **Claim
-   this site**, sign in or sign up, then copy the final HTTPS URL.
+3. Sign in to Netlify first, then open <https://app.netlify.com/drop> and drop the ZIP directly in.
+4. Confirm the site appears in your Netlify projects and copy its final HTTPS URL.
 5. Open the URL, create your account, then enter it in the app and enable Remote Management.
 
-If the temporary site expires before you claim it, upload the file again and use the new URL. If you
-later move to a different host or URL, update **Remote Management → 2. Dashboard URL**, save, and test
-again; an old URL stops working, but the device enrollment remains valid.
+A signed-out Drop is temporary and is removed after **1 hour** unless claimed. If the project is
+missing, you were signed out, used a different Netlify team, or the temporary site expired; publish
+once more while signed in. To update later, open that same project → **Deploys** and drop the new ZIP
+there. Do not use Netlify Drop or “Add new project” again; that creates a new URL.
+
+If you later move to a different host or URL, update **Remote Management → 2. Dashboard URL**, save,
+and test again; an old URL stops working, but the device enrollment remains valid.
 
 **HTTP 401 after a dashboard test** usually means the Netlify Drop site is still password-protected
 or unclaimed. Claim it, wait for the claim to finish, then test the final URL again.

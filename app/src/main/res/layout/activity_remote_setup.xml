@@ -398,14 +398,14 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="5. Host the dashboard"
+                    android:text="5. Publish and update the dashboard"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Upload the saved ZIP to any HTTPS static host. Unzip it first if your host asks for individual files. Easiest is Netlify Drop: drop the ZIP or its unzipped folder, then copy the https://… URL it gives you. GitHub Pages, Cloudflare Pages, and Vercel also work. If you saved only index.html, upload that instead."
+                    android:text="First publish: sign in to Netlify, open Netlify Drop, and drop the ZIP. The site should appear in your Netlify projects.\n\nUpdating later: open that same project → Deploys and drop the new ZIP there. Do not use Netlify Drop or “Add new project” again, or the URL changes."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -414,13 +414,20 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Open Netlify Drop" />
+                    android:text="Open Netlify Drop (first publish)" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openNetlifyProjects"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Open Netlify projects (updates)" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Netlify Drop note: the new site is password-protected and expires after 1 hour until you claim it. Click Claim this site on the Netlify page and sign in or sign up. Then copy the final https://… URL. If it expires, host the files again and update the Dashboard URL in Remote Management. If you already have a dashboard, replace index.html and _headers in the same Netlify site; do not create a new site, or the URL changes. After you have the final URL, set Supabase → Authentication → URL Configuration → Site URL to it so confirmation emails return to the dashboard."
+                    android:text="If you drop while signed out, the site is temporary and is removed after 1 hour unless claimed. A missing project usually means you were signed out, used a different Netlify team, or the temporary site expired. In that case, publish once more while signed in, then use that project for updates. Copy the final https://… URL and set Supabase → Authentication → URL Configuration → Site URL to it."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.textfield.TextInputLayout

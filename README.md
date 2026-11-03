@@ -88,18 +88,13 @@ The dashboard file is generated **by the app**, already configured with your own
    for strict framing headers. Use **Download index.html only** only when the host lets you configure
    headers yourself. Netlify Drop requires an `index.html` home page; another filename shows “page not
    found.”
-5. Host it: drag the ZIP or its unzipped contents onto **Netlify Drop** (no account needed to start).
-   Netlify Drop
-   currently password-protects the temporary site and expires it after **1 hour** until you click
-   **Claim this site** and sign in or sign up. Copy the final HTTPS URL, then set Supabase →
-   **Authentication → URL Configuration → Site URL** to that URL so confirmation emails return to
-   the dashboard. Alternatives: Cloudflare Pages direct upload, GitHub Pages, Vercel, any HTTPS
-   static host.
+5. First publish: sign in to Netlify, drop the ZIP directly on **Netlify Drop**, and confirm the site appears in your Netlify projects. A signed-out Drop is temporary and is removed after **1 hour** unless claimed. Copy the final HTTPS URL, then set Supabase → **Authentication → URL Configuration → Site URL** to it so confirmation emails return to the dashboard. Alternatives: Cloudflare Pages direct upload, GitHub Pages, Vercel, any HTTPS static host.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app.
 
-When updating an existing dashboard, replace `index.html` in the **same Netlify site**; creating a new
-site changes the URL and requires updating Remote Management.
+To update an existing dashboard, open that **same Netlify project → Deploys** and drop the new ZIP
+there. Do not use Netlify Drop or “Add new project” again; creating another project changes the URL
+and requires updating Remote Management.
 
 ### Building the APK
 

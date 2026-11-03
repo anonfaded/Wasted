@@ -124,6 +124,7 @@ class RemoteSetupActivity : AppCompatActivity() {
             if (saveDetails()) createPackage.launch("wasted-dashboard.zip")
         }
         binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/drop") }
+        binding.openNetlifyProjects.setOnClickListener { openUrl("https://app.netlify.com/") }
         binding.skipToDashboard.setOnClickListener {
             if (saveDetails()) showStep(STEP_DASHBOARD)
         }
