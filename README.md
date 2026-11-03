@@ -98,8 +98,8 @@ The dashboard file is generated **by the app**, already configured with your own
    Enable. Create an enrollment token in the dashboard and claim it in the app.
 
 To update an existing dashboard, open that **same Netlify project → project menu → Deploys**, use
-the deploy drop zone, and upload the new ZIP. If Netlify asks for a folder, unzip it first. Do not
-create another project; that changes the URL and requires updating Remote Management.
+the deploy drop zone, and upload the new ZIP. Do not create another project; that changes the URL and
+requires updating Remote Management.
 
 ### Building the APK
 

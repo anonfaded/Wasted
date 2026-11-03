@@ -394,7 +394,7 @@ class RemoteManagementFragment : Fragment() {
             .setMessage(
                 "Claim enrollment — paste the one-time token from the dashboard. It links this phone to your owner account. Each token works once and expires after 10 minutes.\n\n" +
                     "Sync now — asks the app to reconcile with Supabase immediately instead of waiting for the next automatic sync.\n\n" +
-                    "Reset enrollment — removes this phone's device identity and saved remote session. It does not wipe the phone; you need a new token to enroll again.\n\n" +
+                    "Reset enrollment — removes this phone's local device identity and saved remote session. It does not delete the device from your dashboard; use Revoke there to remove it. You need a new token to enroll this phone again.\n\n" +
                     "Open dashboard — opens your hosted dashboard to create a token or manage this device.",
             )
             .setPositiveButton(android.R.string.ok, null)
@@ -554,6 +554,7 @@ class RemoteManagementFragment : Fragment() {
             .setMessage(
                 "This stops remote sync, clears the device session and the encrypted " +
                     "remote journal/outbox, and rotates this device's installation ID. " +
+                    "The device record remains in your dashboard until you revoke it there. " +
                     "A fresh enrollment token from the dashboard is required. Local " +
                     "settings, timers, Device Admin, and P2P are not affected.",
             )

@@ -41,10 +41,9 @@ including the final slash. HTTPS is required.
 ## Updating the dashboard
 
 Regenerate the file in the app, open the **same Netlify project → project menu → Deploys**, use the
-deploy drop zone, and upload the new ZIP. If Netlify asks for a folder, unzip it first. Do **not**
-create another project, because that changes the URL and you would have to update Remote Management.
-Keep the previous deploy if you want a rollback path. If the publishable key rotates, regenerate the
-file and update the app's saved key.
+deploy drop zone, and upload the new ZIP. Do **not** create another project, because that changes the
+URL and you would have to update Remote Management. Keep the previous deploy if you want a rollback
+path. If the publishable key rotates, regenerate the file and update the app's saved key.
 
 ## Backups and restore
 

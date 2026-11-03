@@ -68,9 +68,8 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
 4. In Netlify, sign in and create one project: **Add new project → Deploy manually**, then upload the
    ZIP. Confirm the project appears in your team and copy its final `https://…` URL. If it starts
    private, make it public. To update later, open the same project → project menu → **Deploys**,
-   use the deploy drop zone, and upload the new ZIP (unzip first if Netlify asks for a folder); do not
-   create another project. Alternatives: Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static
-   host.
+   use the deploy drop zone, and upload the new ZIP; do not create another project. Alternatives:
+   Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static host.
 5. In **Authentication → URL Configuration**, replace the default `http://localhost:3000` with the
    dashboard URL in **Site URL**, and add the exact same URL to **Redirect URLs**. Both must match
    including the final slash, then save.
