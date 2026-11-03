@@ -61,10 +61,11 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
 
 1. In the app: **Remote Management → Open setup wizard**.
 2. Paste the Project URL and publishable key → **Continue**.
-3. **Generate dashboard file** → save it as `index.html` via the Android file picker (the app
-   suggests this name; Netlify Drop needs an `index.html` home page). For strict framing headers,
-   use **Save deployable package (.zip)**: it contains `index.html` and `_headers`.
-4. Host it: drag the file, or the package contents, onto <https://app.netlify.com/drop>. The
+3. **Save deployable package (.zip)** — the app suggests `wasted-dashboard.zip`; it contains
+   `index.html` and `_headers`. Use this package for Netlify Drop, Cloudflare Pages, GitHub Pages, or
+   Vercel. Use **Download index.html only** only when the host lets you configure security headers
+   yourself.
+4. Host it: drag the ZIP or its unzipped contents onto <https://app.netlify.com/drop>. The
    temporary site is password-protected and expires after 1 hour until you click **Claim this
    site** and sign in or sign up. Then copy the final `https://…netlify.app` URL. Alternatives:
    Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static host.

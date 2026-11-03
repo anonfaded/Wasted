@@ -7,11 +7,11 @@ server, database credential, or CDN dependency.
 ## Steps (Netlify Drop — simplest)
 
 1. In the app: **Remote Management → Open setup wizard** → enter project URL + publishable key.
-2. Tap **Generate dashboard file** and save it as `index.html`, or use **Save deployable package
-   (.zip)** for a header-capable host. The package contains `index.html` and `_headers`; the single
-   file alone cannot send `frame-ancestors`/`X-Frame-Options`. Netlify Drop requires an `index.html`
-   home page; a differently named file shows “page not found.”
-3. Open <https://app.netlify.com/drop> and drag the file in.
+2. Tap **Save deployable package (.zip)** and use the package for a header-capable host. It contains
+   `index.html` and `_headers`; the single file alone cannot send `frame-ancestors`/`X-Frame-Options`.
+   Use **Download index.html only** only when you can configure headers yourself. Netlify Drop
+   requires an `index.html` home page; a differently named file shows “page not found.”
+3. Open <https://app.netlify.com/drop> and drag the ZIP or its unzipped contents in.
 4. Netlify gives you a temporary HTTPS URL (`https://…netlify.app`). Netlify Drop currently
    password-protects the site and **expires it after 1 hour** until you claim it. Click **Claim
    this site**, sign in or sign up, then copy the final HTTPS URL.

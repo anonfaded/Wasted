@@ -341,36 +341,36 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="4. Create your dashboard file"
+                    android:text="4. Save the dashboard package"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Tap Generate dashboard file. The app reads the Project URL and publishable key you saved in step 1 and writes them into one HTML file named index.html. That file is the dashboard website you will host — it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
+                    android:text="The app builds the dashboard from the Project URL and publishable key you saved. Tap Save deployable package (.zip). It contains index.html (the dashboard itself) and _headers (security headers). Use this package for Netlify Drop, Cloudflare Pages, GitHub Pages, or Vercel.\n\nThis is the website you host; it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/generateDashboard"
+                    android:id="@+id/generateDashboardPackage"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Generate dashboard file" />
+                    android:text="Save deployable package (.zip)" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/generateDashboardPackage"
+                    android:id="@+id/generateDashboard"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Save deployable package (.zip)" />
+                    android:text="Download index.html only" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Recommended for Netlify/Cloudflare: the package contains index.html plus _headers for strict framing protection. Use the single file only for hosts where you can configure headers yourself."
+                    android:text="Use the single file only if your host lets you configure security headers yourself. The ZIP is recommended."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <TextView
@@ -405,7 +405,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Upload the saved index.html to any HTTPS static host. Easiest is Netlify Drop: drag the file in and copy the https://… URL it gives you. GitHub Pages, Cloudflare Pages, and Vercel also work."
+                    android:text="Upload the saved ZIP to any HTTPS static host. Unzip it first if your host asks for individual files. Easiest is Netlify Drop: drop the ZIP or its unzipped folder, then copy the https://… URL it gives you. GitHub Pages, Cloudflare Pages, and Vercel also work. If you saved only index.html, upload that instead."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -420,7 +420,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Netlify Drop note: the new site is password-protected and expires after 1 hour until you claim it. Click Claim this site on the Netlify page and sign in or sign up. Then copy the final https://… URL. If it expires, host the file again and update the Dashboard URL in Remote Management. If you already have a dashboard, replace index.html in the same Netlify site; do not create a new site, or the URL changes. After you have the final URL, set Supabase → Authentication → URL Configuration → Site URL to it so confirmation emails return to the dashboard."
+                    android:text="Netlify Drop note: the new site is password-protected and expires after 1 hour until you claim it. Click Claim this site on the Netlify page and sign in or sign up. Then copy the final https://… URL. If it expires, host the files again and update the Dashboard URL in Remote Management. If you already have a dashboard, replace index.html and _headers in the same Netlify site; do not create a new site, or the URL changes. After you have the final URL, set Supabase → Authentication → URL Configuration → Site URL to it so confirmation emails return to the dashboard."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.textfield.TextInputLayout

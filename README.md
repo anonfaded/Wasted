@@ -84,11 +84,12 @@ The dashboard file is generated **by the app**, already configured with your own
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
 3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and leave **Confirm email** enabled. Anonymous sign-ins give each device its own private identity, so your email/password is never stored on the device. Confirm email is recommended: click the link in the email, then sign in. If you do not want Remote Management, you can leave anonymous sign-ins off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
-4. In the wizard, **generate the dashboard file** and save it as `index.html`, or use **Save
-   deployable package (.zip)** when the host should send strict framing headers (`index.html` +
-   `_headers`). Netlify Drop requires an `index.html` home page; another filename shows “page not
+4. In the wizard, use **Save deployable package (.zip)**. It contains `index.html` and `_headers`
+   for strict framing headers. Use **Download index.html only** only when the host lets you configure
+   headers yourself. Netlify Drop requires an `index.html` home page; another filename shows “page not
    found.”
-5. Host it: drag the file onto **Netlify Drop** (no account needed to start). Netlify Drop
+5. Host it: drag the ZIP or its unzipped contents onto **Netlify Drop** (no account needed to start).
+   Netlify Drop
    currently password-protects the temporary site and expires it after **1 hour** until you click
    **Claim this site** and sign in or sign up. Copy the final HTTPS URL, then set Supabase →
    **Authentication → URL Configuration → Site URL** to that URL so confirmation emails return to
