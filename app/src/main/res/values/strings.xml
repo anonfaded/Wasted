@@ -65,6 +65,11 @@
     <string name="biometric_unlock">Biometric app unlock</string>
     <string name="biometric_unlock_description">Ask for biometrics or your device credential when Wasted opens. Turn this off to open the app without a prompt.</string>
 
+    <!-- Home help -->
+    <string name="home_help_button">How this screen works</string>
+    <string name="home_help_title">How this screen works</string>
+    <string name="home_help_body">WHAT THIS SCREEN DOES\n\nWasted locks and optionally resets this phone when a configured trigger fires. This screen controls the code and what a reset includes.\n\nSECRET CODE\n\n• The large code is the secret used by notification and other code-based triggers. Keep it private.\n• The code background is red when no trigger is enabled and yellow when at least one is. Wipe data alone does not change it.\n\nTOP BUTTONS\n\n• Copy — copies the code.\n• Edit — changes the code.\n• Settings — opens Wasted settings.\n\nWIPE OPTIONS\n\n• Wipe data — when Wasted fires, it locks the phone and starts a reset. If off, it only locks.\n• Wipe eSIM — also erases the eSIM when supported. Available when Wipe data is on.\n• Protection Level — how complete the reset will be on this phone.\n• Setup card — the next step for stronger protection.\n\nBOTTOM BUTTON\n\n• ON — arms Wasted. Device Admin must be active.\n• OFF — disarms Wasted; triggers do nothing.\n\nWHEN IT FIRES\n\nWith Wasted ON, a matching trigger locks the phone. If Wipe data is on, it then starts the reset.</string>
+
     <!-- Setup card -->
     <string name="setup_card_header">Enhance Protection</string>
     <string name="files_access_hint">Also: grant All Files Access for file deletion on wipe</string>

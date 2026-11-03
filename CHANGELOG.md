@@ -8,3 +8,4 @@
 
 ### Enhancements
 - P2P security now uses certificate pinning and an encrypted peer database (re-pair existing peers once).
+- Home screen Help explains the secret code, wipe options, protection level, and setup.

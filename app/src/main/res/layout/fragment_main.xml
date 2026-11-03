@@ -39,6 +39,17 @@
                     android:textColor="@color/black"
                     android:textAppearance="?attr/textAppearanceTitleLarge" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/homeHelp"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/home_help_button"
+                    app:icon="@drawable/ic_baseline_help_outline_24"
+                    app:iconGravity="textStart" />
+
                 <Space
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

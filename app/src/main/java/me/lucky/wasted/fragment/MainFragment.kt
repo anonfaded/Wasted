@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.util.*
 
 import me.lucky.wasted.Application as WastedApp
@@ -82,6 +83,7 @@ class MainFragment : Fragment() {
     }
 
     private fun setup() = binding.apply {
+        homeHelp.setOnClickListener { showHomeHelp() }
         wipeData.setOnCheckedChangeListener { _, isChecked ->
             applier.setWipeData(isChecked)
             wipeEmbeddedSim.isEnabled = isChecked
@@ -111,6 +113,22 @@ class MainFragment : Fragment() {
         try { admin.remove() } catch (exc: SecurityException) {}
         binding.toggle.isChecked = false
         refreshProtectionUI()
+    }
+
+    private fun showHomeHelp() {
+        val padding = (24 * resources.displayMetrics.density).toInt()
+        val body = android.widget.TextView(ctx).apply {
+            text = getString(R.string.home_help_body)
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+            setLineSpacing(0f, 1.1f)
+            setPadding(padding, padding / 2, padding, padding / 2)
+        }
+        val scroll = android.widget.ScrollView(ctx).apply { addView(body) }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.home_help_title)
+            .setView(scroll)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private val registerForDeviceAdmin =
