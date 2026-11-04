@@ -2,9 +2,10 @@ export const $ = (selector) => document.querySelector(selector);
 
 let toastTimer;
 
-export function toast(message) {
+export function toast(message, tone = "info") {
   const element = $("#toast");
   element.textContent = message;
+  element.dataset.tone = message ? tone : "";
   element.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
@@ -12,9 +13,11 @@ export function toast(message) {
   }, 4500);
 }
 
-export function showMessage(selector, message) {
+export function showMessage(selector, message, tone = "info") {
   const element = $(selector);
-  if (element) element.textContent = message;
+  if (!element) return;
+  element.textContent = message;
+  element.dataset.tone = message ? tone : "";
 }
 
 export function clearMessage(selector) {
@@ -25,14 +28,15 @@ const busyLabels = new WeakMap();
 
 export function setBusy(button, busy, busyLabel = "Working…") {
   if (!button) return;
+  const label = button.querySelector(".button-label") ?? button;
   if (busy) {
-    if (!busyLabels.has(button)) busyLabels.set(button, button.textContent);
+    if (!busyLabels.has(button)) busyLabels.set(button, label.textContent);
     button.disabled = true;
-    button.textContent = busyLabel;
+    label.textContent = busyLabel;
   } else {
     button.disabled = false;
     const original = busyLabels.get(button);
-    if (original) button.textContent = original;
+    if (original !== undefined) label.textContent = original;
   }
 }
 

@@ -10,7 +10,7 @@ Run these before claiming a release is ready. Docker is only needed for schema d
 cd web && npm test && npm run build && npm run build:android-template
 ```
 
-Expected: Android **110/110** unit tests (or the current count), web **25/25**, both APKs build, and
+Expected: Android **110/110** unit tests (or the current count), web **41/41**, both APKs build, and
 the signed release task fails unless signing inputs exist. Unsigned output is explicitly named
 `-unsigned`.
 

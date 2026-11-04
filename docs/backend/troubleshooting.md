@@ -16,7 +16,7 @@
 | Device never appears | Not enrolled or wrong project | Create a fresh token, claim it, check the same URL/key in app |
 | Force Reset blocked | Debug Mode ON | Expected behavior; the owner can turn Debug Mode OFF remotely from the dashboard (with confirmation) or locally on the device |
 | Command shows `device_revoked_during_execution` | Device was revoked while executing | Outcome is unknown by design; check the device locally. Do not retry destructively |
-| Signed in but “Finish account setup” appears | Auth user exists without an owner profile | Enter a handle in the panel and submit; it retries `initialize_owner_account` |
+| Signed in with a second email account | Only the first account can become owner | The dashboard signs that account out with “This dashboard already has an owner.” Use the first owner account; a second Auth user cannot see account data. |
 | Framing/clickjacking concern | Host does not send framing headers | Deploy `web/_headers` or configure `frame-ancestors 'none'`/`X-Frame-Options` at the host |
 | Force Reset rejected | Reset unsupported / not Device Admin | Check Device Admin/owner status on the device |
 | Custom domain shows no data | CSP allows only `*.supabase.co` | Rebuild with adjusted CSP or use the Supabase host |

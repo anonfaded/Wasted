@@ -82,11 +82,15 @@ open the URL can attempt to create an account; RLS protects the data.
 Create the owner account before sharing the dashboard URL: the first authenticated owner claims the
 single-owner bootstrap.
 
-1. Open the hosted dashboard → **Create Account** (email, password ≥ 12 characters, account name).
-2. In the dashboard, **Enroll a device → Create enrollment token** (valid 10 minutes).
-3. In the app: paste the **Dashboard website URL**, Save.
-4. Enable **Remote Management** (forces Debug Mode ON) → paste the token → **Claim**.
-5. Wait for the device card to appear, then send **Reset Timer** and confirm the timer updates.
+1. Open the hosted dashboard → **Create Account** (email, password ≥ 12 characters, confirmed
+   password, account name). With Confirm email enabled, click the email link, then sign in; the
+   account name is stored in Supabase auth metadata and the owner row is created automatically.
+2. If the dashboard already has an owner, the second account is signed out with an owner-exists
+   message; use the owner account instead.
+3. In the dashboard, **Enroll a device → Create enrollment token** (valid 10 minutes).
+4. In the app: paste the **Dashboard website URL**, Save.
+5. Enable **Remote Management** (forces Debug Mode ON) → paste the token → **Claim**.
+6. Wait for the device card to appear, then send **Reset Timer** and confirm the timer updates.
 
 ## 5. Post-setup checks
 

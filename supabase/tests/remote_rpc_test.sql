@@ -64,14 +64,29 @@ begin
 
     account := public.initialize_owner_account('AnotherName');
     perform pg_temp.assert_true(account.handle = 'RpcOwnerA', 'init must be idempotent for the same user');
+
+    account := public.update_owner_handle('RpcOwnerB');
+    perform pg_temp.assert_true(account.handle = 'RpcOwnerB', 'owner handle update must persist');
+
+    account := public.update_owner_handle('  RpcOwnerA  ');
+    perform pg_temp.assert_true(account.handle = 'RpcOwnerA', 'owner handle update must trim');
 end;
 $$;
+
+select pg_temp.expect_error(
+    $$select public.update_owner_handle('no')$$,
+    'P0001', 'handle must be 3-32 characters'
+);
 
 -- anonymous callers are rejected
 select set_config('request.jwt.claims',
     '{"sub":"0c0c0c0c-0000-4000-8000-0000000000c2","role":"authenticated","is_anonymous":true}', true);
 select pg_temp.expect_error(
     $$select public.initialize_owner_account('AnonAttempt')$$,
+    'P0001', 'owner account required'
+);
+select pg_temp.expect_error(
+    $$select public.update_owner_handle('AnonAttempt')$$,
     'P0001', 'owner account required'
 );
 
@@ -81,6 +96,10 @@ select set_config('request.jwt.claims',
 select pg_temp.expect_error(
     $$select public.initialize_owner_account('SecondOwner')$$,
     'P0001', 'owner account already initialized'
+);
+select pg_temp.expect_error(
+    $$select public.update_owner_handle('SecondOwner')$$,
+    'P0001', 'owner account missing'
 );
 
 -- ─── Owner: enrollments ──────────────────────────────────────────────────────

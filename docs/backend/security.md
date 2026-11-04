@@ -64,12 +64,14 @@ URL + publishable key.
 ## Auth input handling
 
 - Emails are trimmed and lowercased before Supabase Auth; the dashboard uses `type=email`,
-  `maxlength=254`, and native form validation. Supabase validates again server-side.
-- Passwords are never trimmed or altered. Create Account enforces at least 12 characters; Sign In
-  accepts existing passwords, including shorter ones if the project permits them. Configure the
-  project's minimum password length if you need a server-side floor as well.
-- Account names are validated against the documented 3–32 character charset; device names are
-  1–80 characters.
+  `maxlength=254`, and explicit inline validation for empty or malformed values. Supabase validates
+  again server-side.
+- Passwords are never trimmed or altered. Create Account requires a confirmed password and at least
+  12 characters; Sign In accepts existing passwords, including shorter ones if the project permits
+  them. Configure the project's minimum password length if you need a server-side floor as well.
+- Account names are validated against the documented 3–32 character charset and stored in
+  `public.accounts`; the signup copy is also stored in auth metadata as a bootstrap fallback. Device
+  names are 1–80 characters.
 - Dynamic values are rendered with `textContent`, not HTML interpolation; RPC parameters are
   parameterized and RLS/RPC ownership checks remain the authorization boundary.
 

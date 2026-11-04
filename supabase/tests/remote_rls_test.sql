@@ -173,6 +173,7 @@ begin
 
     foreach signature in array array[
         'public.initialize_owner_account(text)',
+        'public.update_owner_handle(text)',
         'public.create_device_enrollment()',
         'public.rename_device(uuid,text)',
         'public.revoke_device(uuid)',

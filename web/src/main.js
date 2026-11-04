@@ -1,5 +1,10 @@
 import { readConfig, createSupabaseClient } from "./supabase-client.js";
 import { wireAuth, currentSession, onAuthChange, signOut } from "./auth.js";
+import {
+  ensureOwnerAccount,
+  updateOwnerHandle,
+  validateHandle,
+} from "./account.js";
 import { fetchDashboardData, renameDevice, revokeDevice } from "./devices.js";
 import { createEnrollmentToken, tokenExpiryLabel } from "./enrollment.js";
 import { saveAccountSettings } from "./settings.js";
@@ -16,6 +21,7 @@ const state = {
   client: null,
   session: null,
   handle: "",
+  handleLoaded: false,
   channel: null,
   realtimeAccountId: null,
   refreshTimeout: null,
@@ -52,6 +58,7 @@ async function boot(cfg) {
 
   wireAuth(state.client);
   wireDashboard();
+  wireDashboardTabs();
   wireSignOut();
 
   onAuthChange(state.client, (session) => {
@@ -75,7 +82,8 @@ async function boot(cfg) {
 function applyFooter(cfg) {
   const product = cfg.productName || "Wasted Remote";
   document.title = product;
-  $("#app-title").textContent = product;
+  const title = $("#app-title .brand-title");
+  if (title) title.textContent = product;
   $("#footer-product").textContent = product;
   $("#footer-version").textContent = cfg.version ? `— v${cfg.version}` : "";
   $("#footer-version").hidden = !cfg.version;
@@ -137,7 +145,10 @@ function renderAuthState() {
     teardownRealtime();
     clearEnrollmentToken();
     state.handle = "";
+    state.handleLoaded = false;
     state.data = { devices: [], statusByDevice: new Map(), latestCommand: new Map(), settings: null };
+    $("#account-panel").hidden = true;
+    $("#account-message").textContent = "";
   }
 }
 
@@ -146,20 +157,16 @@ async function refreshDashboard() {
   const loading = $("#loading");
   loading.hidden = false;
   try {
-    if (!state.handle) {
-      const { data } = await state.client.from("accounts").select("handle").maybeSingle();
-      state.handle = data?.handle ?? "";
+    if (!state.handleLoaded) {
+      state.handle = await ensureOwnerAccount(state.client, state.session);
+      state.handleLoaded = true;
     }
     $("#account-line").textContent = state.handle
       ? `Account: ${state.handle}`
       : `Signed in as ${state.session.user.email ?? "owner"}`;
-    $("#account-setup").hidden = Boolean(state.handle);
-    if (!state.handle && !$("#setup-handle").value) {
-      try {
-        $("#setup-handle").value = localStorage.getItem("wasted_pending_handle") || "";
-      } catch {
-        // Storage is optional.
-      }
+    $("#account-panel").hidden = !state.handle;
+    if (state.handle && document.activeElement !== $("#account-handle")) {
+      $("#account-handle").value = state.handle;
     }
 
     state.data = await fetchDashboardData(state.client);
@@ -168,8 +175,13 @@ async function refreshDashboard() {
     subscribeRealtime(state.session.user.id);
     $("#offline-banner").hidden = true;
   } catch (error) {
+    if (error.code === "OWNER_EXISTS" || error.code === "MISSING_PROFILE") {
+      await signOut(state.client);
+      showMessage("#auth-message", error.message, "error");
+      return;
+    }
     $("#offline-banner").hidden = false;
-    toast(`Refresh failed: ${error.message}`);
+    toast(`Refresh failed: ${error.message}`, "error");
   } finally {
     loading.hidden = true;
   }
@@ -216,6 +228,7 @@ function renderDevices() {
   state.liveTimers = [];
 
   const { devices, statusByDevice, latestCommand, settings } = state.data;
+  renderDeviceSummary(devices, statusByDevice, now);
   $("#action-scope").textContent = devices.length
     ? `Applies to ${devices.length} active device(s).`
     : "No active devices enrolled yet.";
@@ -248,6 +261,7 @@ function renderDevices() {
         el("button", {
           className: "small",
           text: "Rename",
+          icon: "pencil",
           attrs: {
             type: "button",
             "data-device-rename": device.id,
@@ -258,6 +272,7 @@ function renderDevices() {
         el("button", {
           className: "small danger-outline",
           text: "Revoke",
+          icon: "trash",
           attrs: {
             type: "button",
             "data-device-revoke": device.id,
@@ -324,6 +339,28 @@ function renderDevices() {
     container.append(card);
     state.liveTimers.push({ el: timerSpan, status });
   }
+}
+
+function renderDeviceSummary(devices, statusByDevice, now) {
+  const container = $("#device-summary");
+  if (!container) return;
+  const connected = devices.filter((device) =>
+    isRecentlyConnected(statusByDevice.get(device.id), now),
+  ).length;
+  const debug = devices.filter((device) => statusByDevice.get(device.id)?.debug_mode).length;
+  container.replaceChildren(
+    summaryCard("Devices", devices.length, "enrolled"),
+    summaryCard("Connected", connected, "within 150 s"),
+    summaryCard("Debug Mode", debug, "wipes blocked"),
+  );
+}
+
+function summaryCard(label, value, detail) {
+  return el("div", { className: "stat" }, [
+    el("span", { className: "stat-value", text: String(value) }),
+    el("span", { className: "stat-label", text: label }),
+    el("span", { className: "stat-detail", text: detail }),
+  ]);
 }
 
 function timerText(status, now) {
@@ -442,7 +479,7 @@ async function toggleDebugMode(deviceId, enabled, button) {
     toast(`${enabled ? "Enable" : "Disable"} command queued for 1 device.`);
     scheduleRefresh();
   } catch (error) {
-    toast(error.message);
+    toast(error.message, "error");
   } finally {
     for (const candidate of buttons) candidate.disabled = false;
   }
@@ -460,16 +497,16 @@ function openRenameDialog(deviceId, currentName, button) {
     if (dialog.returnValue !== "ok") return;
     const name = input.value.trim();
     if (!name || name.length > 80) {
-      toast("Device name must be 1–80 characters.");
+      toast("Device name must be 1–80 characters.", "error");
       return;
     }
     setBusy(button, true, "Renaming…");
     try {
       await renameDevice(state.client, deviceId, name);
-      toast("Device renamed.");
+      toast("Device renamed.", "success");
       scheduleRefresh();
     } catch (error) {
-      toast(error.message);
+      toast(error.message, "error");
     } finally {
       setBusy(button, false);
     }
@@ -490,38 +527,88 @@ async function revokeDevicePrompt(deviceId, button) {
   setBusy(button, true, "Revoking…");
   try {
     await revokeDevice(state.client, deviceId);
-    toast("Device revoked.");
+    toast("Device revoked.", "success");
     scheduleRefresh();
   } catch (error) {
-    toast(error.message);
+    toast(error.message, "error");
   } finally {
     setBusy(button, false);
   }
 }
 
+function wireDashboardTabs() {
+  const tabs = [...document.querySelectorAll("[data-dashboard-tab]")];
+  const panels = [...document.querySelectorAll("[data-dashboard-panel]")];
+  if (!tabs.length || !panels.length) return;
+
+  const select = (name, focus = false) => {
+    for (const tab of tabs) {
+      const active = tab.dataset.dashboardTab === name;
+      tab.setAttribute("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+      if (active && focus) tab.focus();
+    }
+    for (const panel of panels) {
+      panel.hidden = panel.dataset.dashboardPanel !== name;
+    }
+  };
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => select(tab.dataset.dashboardTab));
+    tab.addEventListener("keydown", (event) => {
+      let next = null;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        next = tabs[(index + 1) % tabs.length];
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        next = tabs[(index - 1 + tabs.length) % tabs.length];
+      } else if (event.key === "Home") {
+        next = tabs[0];
+      } else if (event.key === "End") {
+        next = tabs[tabs.length - 1];
+      }
+      if (!next) return;
+      event.preventDefault();
+      select(next.dataset.dashboardTab, true);
+    });
+  });
+
+  select("devices");
+}
+
 function wireDashboard() {
-  $("#account-setup-form").addEventListener("submit", async (event) => {
+  $("#account-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = event.target;
-    if (!form.reportValidity()) return;
-    const handle = $("#setup-handle").value.trim();
-    const button = form.querySelector("button[type=submit]");
-    clearMessage("#account-setup-message");
+    const handle = $("#account-handle").value.trim();
+    const validation = validateHandle(handle);
+    if (validation) {
+      showMessage("#account-message", validation, "error");
+      $("#account-handle").focus();
+      return;
+    }
+    if (handle === state.handle) {
+      showMessage("#account-message", "That is already your account name.", "info");
+      return;
+    }
+    const confirmed = await confirmAction({
+      title: "Change account name?",
+      message:
+        `Change the account name to “${handle}”? This updates every browser signed into this account.`,
+      confirmLabel: "Save name",
+      danger: false,
+    });
+    if (!confirmed) return;
+
+    const button = event.target.querySelector("button[type=submit]");
+    clearMessage("#account-message");
     setBusy(button, true);
     try {
-      const { error } = await state.client.rpc("initialize_owner_account", { p_handle: handle });
-      if (error) throw new Error(error.message);
-      state.handle = handle;
-      try {
-        localStorage.removeItem("wasted_pending_handle");
-      } catch {
-        // Storage is optional.
-      }
-      $("#account-setup").hidden = true;
-      toast("Account setup complete.");
-      refreshDashboard();
+      const account = await updateOwnerHandle(state.client, handle);
+      state.handle = account?.handle ?? handle;
+      $("#account-handle").value = state.handle;
+      $("#account-line").textContent = `Account: ${state.handle}`;
+      toast("Account name updated.", "success");
     } catch (error) {
-      showMessage("#account-setup-message", error.message);
+      showMessage("#account-message", error.message, "error");
     } finally {
       setBusy(button, false);
     }
@@ -552,7 +639,7 @@ function wireDashboard() {
     event.preventDefault();
     const settings = state.data.settings;
     if (!settings) {
-      showMessage("#settings-message", "Account settings are not available.");
+      showMessage("#settings-message", "Account settings are not available.", "error");
       return;
     }
     const form = event.target;
@@ -580,12 +667,12 @@ function wireDashboard() {
         usbEnabled,
       );
       state.data.settings = updated;
-      toast("Settings saved — every device will apply them.");
+      toast("Settings saved — every device will apply them.", "success");
       renderSettings();
       scheduleRefresh();
     } catch (error) {
       if (error.code === "REVISION_CONFLICT") scheduleRefresh();
-      showMessage("#settings-message", error.message);
+      showMessage("#settings-message", error.message, "error");
     } finally {
       setBusy(button, false);
     }
@@ -640,7 +727,7 @@ function wireDashboard() {
       updateTokenExpiry(expiresAt);
       state.tokenTimer = setInterval(() => updateTokenExpiry(expiresAt), 1000);
     } catch (error) {
-      toast(`Could not create a token: ${error.message}`);
+      toast(`Could not create a token: ${error.message}`, "error");
     } finally {
       setBusy(button, false);
     }
@@ -649,9 +736,9 @@ function wireDashboard() {
   $("#copy-token").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText($("#token-value").textContent);
-      toast("Token copied.");
+      toast("Token copied.", "success");
     } catch {
-      toast("Copy failed — select the token manually.");
+      toast("Copy failed — select the token manually.", "error");
     }
   });
 }
@@ -672,7 +759,7 @@ function updateTokenExpiry(expiresAt) {
   $("#token-expiry").textContent = label;
   if (label.startsWith("Expired")) {
     clearEnrollmentToken();
-    toast("Enrollment token expired — create a new one.");
+    toast("Enrollment token expired — create a new one.", "info");
   }
 }
 
@@ -682,10 +769,10 @@ async function sendAction(actionType) {
   setBusy(button, true);
   try {
     const result = await createAction(state.client, actionType, newIdempotencyKey());
-    toast(`Command queued for ${result.device_count} device(s).`);
+    toast(`Command queued for ${result.device_count} device(s).`, "success");
     scheduleRefresh();
   } catch (error) {
-    showMessage("#commands-message", error.message);
+    showMessage("#commands-message", error.message, "error");
   } finally {
     setBusy(button, false);
   }
@@ -695,17 +782,38 @@ function wireSignOut() {
   $("#sign-out").addEventListener("click", async () => {
     clearEnrollmentToken();
     await signOut(state.client);
-    toast("Signed out.");
+    toast("Signed out.", "info");
   });
 }
 
-function el(tag, { className, text, attrs } = {}, children = []) {
+function el(tag, { className, text, attrs, icon } = {}, children = []) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
+  if (icon) node.append(iconNode(icon));
+  if (text !== undefined) {
+    if (tag === "button" || icon) {
+      const label = document.createElement("span");
+      label.className = "button-label";
+      label.textContent = text;
+      node.append(label);
+    } else {
+      node.textContent = text;
+    }
+  }
   if (attrs) {
     for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
   }
   for (const child of children) node.append(child);
   return node;
+}
+
+function iconNode(name) {
+  const namespace = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(namespace, "svg");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS(namespace, "use");
+  use.setAttribute("href", `#icon-${name}`);
+  svg.append(use);
+  return svg;
 }

@@ -1,4 +1,10 @@
 import { $, toast, setBusy, clearMessage, showMessage } from "./ui.js";
+import {
+  initializeOwnerAccount,
+  validateHandle,
+} from "./account.js";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Auth flows: separate Sign In and Create Account forms; a failed sign-in never creates one. */
 export function wireAuth(client) {
@@ -9,6 +15,7 @@ export function wireAuth(client) {
   const title = $("#auth-title");
   const subtitle = $("#auth-subtitle");
   const message = "#auth-message";
+  const resend = $("#resend-confirmation");
 
   const showMode = (mode) => {
     const create = mode === "create";
@@ -20,6 +27,7 @@ export function wireAuth(client) {
     subtitle.textContent = create
       ? "Create an account to manage your devices."
       : "Sign in to manage your devices.";
+    resend.hidden = true;
     clearMessage(message);
   };
 
@@ -64,8 +72,18 @@ export function wireAuth(client) {
 
   signInForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!signInForm.reportValidity()) return;
+    const validation = validateSignIn(
+      $("#sign-in-email").value,
+      $("#sign-in-password").value,
+    );
+    if (validation) {
+      resend.hidden = true;
+      showMessage(message, validation.message, "error");
+      document.getElementById(validation.field)?.focus();
+      return;
+    }
     clearMessage(message);
+    resend.hidden = true;
     const button = $("#sign-in");
     setBusy(button, true);
     try {
@@ -75,9 +93,10 @@ export function wireAuth(client) {
         $("#sign-in-password").value,
       );
       $("#sign-in-password").value = "";
-      toast("Signed in.");
+      toast("Signed in.", "success");
     } catch (error) {
-      showMessage(message, error.message);
+      showMessage(message, error.message, "error");
+      resend.hidden = error.code !== "EMAIL_NOT_CONFIRMED";
     } finally {
       setBusy(button, false);
     }
@@ -85,8 +104,20 @@ export function wireAuth(client) {
 
   createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!createForm.reportValidity()) return;
+    const validation = validateCreateAccount(
+      $("#create-email").value,
+      $("#create-password").value,
+      $("#create-password-confirm").value,
+      $("#create-handle").value,
+    );
+    if (validation) {
+      resend.hidden = true;
+      showMessage(message, validation.message, "error");
+      document.getElementById(validation.field)?.focus();
+      return;
+    }
     clearMessage(message);
+    resend.hidden = true;
     const button = $("#create-account");
     setBusy(button, true);
     try {
@@ -97,16 +128,39 @@ export function wireAuth(client) {
         $("#create-handle").value.trim(),
       );
       $("#create-password").value = "";
+      $("#create-password-confirm").value = "";
       if (session) {
-        toast("Account created.");
+        toast("Account created.", "success");
       } else {
         showMode("sign-in");
-        showMessage(message, "Check your email for the confirmation link, then sign in.");
+        $("#sign-in-email").value = $("#create-email").value.trim();
+        showMessage(message, "Check your email for the confirmation link, then sign in.", "info");
+        resend.hidden = false;
       }
     } catch (error) {
-      showMessage(message, error.message);
+      showMessage(message, error.message, "error");
+      resend.hidden = error.code !== "EMAIL_NOT_CONFIRMED";
     } finally {
       setBusy(button, false);
+    }
+  });
+
+  resend.addEventListener("click", async () => {
+    const email = $("#sign-in-email").value.trim();
+    const validation = validateEmail(email);
+    if (validation) {
+      showMessage(message, validation.message, "error");
+      $("#sign-in-email").focus();
+      return;
+    }
+    setBusy(resend, true, "Sending…");
+    try {
+      await resendConfirmation(client, email);
+      showMessage(message, "Confirmation email sent. Check your inbox, then sign in.", "success");
+    } catch (error) {
+      showMessage(message, error.message, "error");
+    } finally {
+      setBusy(resend, false, "Resend confirmation email");
     }
   });
 }
@@ -126,32 +180,90 @@ export async function signIn(client, email, password) {
     email: normalizeEmail(email),
     password,
   });
-  if (error) throw new Error(friendlyAuthError(error.message));
+  if (error) throw authError(error.message, error.code);
   return data.session;
 }
 
 export async function createAccount(client, email, password, handle) {
-  if (!handle || !/^[A-Za-z0-9][A-Za-z0-9_.-]{2,31}$/.test(handle)) {
-    throw new Error("Use 3-32 characters: letters, digits, dot, dash, underscore.");
-  }
-  const redirectTo = `${window.location.origin}${window.location.pathname}`;
+  const handleError = validateHandle(handle);
+  if (handleError) throw new Error(handleError);
+  const trimmedHandle = String(handle).trim();
+  const redirectTo = dashboardRedirect();
   const { data, error } = await client.auth.signUp({
     email: normalizeEmail(email),
     password,
-    options: { emailRedirectTo: redirectTo },
+    options: {
+      emailRedirectTo: redirectTo,
+      data: { handle: trimmedHandle },
+    },
   });
-  if (error) throw new Error(friendlyAuthError(error.message));
+  if (error) throw authError(error.message, error.code);
   if (!data.session) {
-    try {
-      localStorage.setItem("wasted_pending_handle", handle);
-    } catch {
-      // Storage is optional; the setup form still asks for the handle.
+    if (Array.isArray(data.user?.identities) && data.user.identities.length === 0) {
+      throw new Error(
+        "An account with this email may already exist. Sign in or resend the confirmation email.",
+      );
     }
     return null;
   }
-  const { error: rpcError } = await client.rpc("initialize_owner_account", { p_handle: handle });
-  if (rpcError) throw new Error(friendlyAuthError(rpcError.message));
+  await initializeOwnerAccount(client, trimmedHandle);
   return data.session;
+}
+
+export async function resendConfirmation(client, email) {
+  const { error } = await client.auth.resend({
+    type: "signup",
+    email: normalizeEmail(email),
+    options: { emailRedirectTo: dashboardRedirect() },
+  });
+  if (error) throw authError(error.message, error.code);
+}
+
+export function validateSignIn(email, password) {
+  const emailError = validateEmail(email, "sign-in-email");
+  if (emailError) return emailError;
+  if (!password) {
+    return { field: "sign-in-password", message: "Enter your password." };
+  }
+  return null;
+}
+
+export function validateCreateAccount(email, password, confirmation, handle) {
+  const emailError = validateEmail(email, "create-email");
+  if (emailError) return emailError;
+  if (!password) {
+    return { field: "create-password", message: "Enter a password." };
+  }
+  if (password.length < 12) {
+    return {
+      field: "create-password",
+      message: "Password must be at least 12 characters.",
+    };
+  }
+  if (!confirmation) {
+    return {
+      field: "create-password-confirm",
+      message: "Confirm your password.",
+    };
+  }
+  if (password !== confirmation) {
+    return {
+      field: "create-password-confirm",
+      message: "Passwords do not match.",
+    };
+  }
+  const handleError = validateHandle(handle);
+  if (handleError) return { field: "create-handle", message: handleError };
+  return null;
+}
+
+export function validateEmail(value, field = "sign-in-email") {
+  const email = normalizeEmail(value);
+  if (!email) return { field, message: "Enter your email address." };
+  if (!EMAIL_PATTERN.test(email)) {
+    return { field, message: "Enter a valid email address." };
+  }
+  return null;
 }
 
 export async function signOut(client) {
@@ -168,6 +280,10 @@ export function normalizeEmail(value) {
     cleaned = cleaned.slice(0, at + 1) + cleaned.slice(at + 1).replace(/@/g, "");
   }
   return cleaned;
+}
+
+function dashboardRedirect() {
+  return `${window.location.origin}${window.location.pathname}`;
 }
 
 function cleanEmailInsertion(input, data, start, end) {
@@ -189,8 +305,21 @@ function sanitizeEmailInput(input) {
   input.setSelectionRange(position, position);
 }
 
-function friendlyAuthError(message) {
+function authError(message, code) {
   const text = String(message || "Authentication failed.");
+  const normalizedCode = String(code || "").toLowerCase();
+  const error = new Error(friendlyAuthError(text, normalizedCode));
+  if (normalizedCode === "email_not_confirmed" || /email not confirmed/i.test(text)) {
+    error.code = "EMAIL_NOT_CONFIRMED";
+  }
+  return error;
+}
+
+export function friendlyAuthError(message, code = "") {
+  const text = String(message || "Authentication failed.");
+  if (code === "email_not_confirmed" || /email not confirmed/i.test(text)) {
+    return "Confirm your email address first. Check your inbox for the link, then sign in.";
+  }
   if (/invalid login credentials/i.test(text)) return "Wrong email or password.";
   if (/already registered|already exists/i.test(text)) {
     return "An account with this email already exists — sign in instead.";
@@ -201,6 +330,11 @@ function friendlyAuthError(message) {
   if (/password should be|weak password/i.test(text)) {
     return "Password rejected: use at least 12 characters with mixed character classes.";
   }
-  if (/rate limit/i.test(text)) return "Too many attempts. Wait a moment and try again.";
+  if (/rate limit|too many/i.test(text)) {
+    return "Too many attempts. Wait a moment and try again.";
+  }
+  if (/failed to fetch|network|load failed/i.test(text)) {
+    return "Could not reach Supabase. Check your connection and try again.";
+  }
   return text;
 }

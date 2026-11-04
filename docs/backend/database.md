@@ -58,6 +58,7 @@ from all roles.
 | RPC | Purpose / authorization |
 | --- | --- |
 | `initialize_owner_account(p_handle)` | Creates the account + settings row; idempotent per auth user |
+| `update_owner_handle(p_handle)` | Changes the signed-in owner's account name; validates the handle and enforces the case-insensitive unique index |
 | `create_device_enrollment()` | Issues a 64-hex single-use token, 10-minute expiry; tokens are independent per device |
 | `rename_device(p_device_id, p_name)` | Rename an owned active device |
 | `revoke_device(p_device_id)` | Revokes device; queued/received commands become `rejected`/`device_revoked`; `executing` commands become `failed`/`device_revoked_during_execution` (outcome unknown); terminal rows are preserved |

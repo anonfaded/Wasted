@@ -95,7 +95,8 @@ The dashboard file is generated **by the app**, already configured with your own
    including the final slash. Then save. Alternatives: Cloudflare Pages direct upload, GitHub Pages,
    Vercel, any HTTPS static host.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
-   Enable. Create an enrollment token in the dashboard and claim it in the app.
+   Enable. Create an enrollment token in the dashboard and claim it in the app. The account name is
+   saved to Supabase and appears on every browser; change it under **Account**.
 
 To update an existing dashboard, open that **same Netlify project → project menu → Deploys**, use
 the deploy drop zone, and upload the new ZIP. Do not create another project; that changes the URL and
@@ -124,6 +125,7 @@ same site; use the app's deployable ZIP when strict framing headers are required
 The publishable key is public by design and safe to expose. Never embed a secret/service-role key or the database password. The generated file contains no secret. Anyone who can open the hosted page can attempt to sign up, but only the first owner can initialize the dashboard; extra Auth users cannot access account data.
 
 * Sign In and Create Account are explicit; a failed sign-in never creates an account. Confirm email is recommended and verifies ownership, but it is not a signup restriction.
+* The account name is stored in Supabase auth metadata at signup and saved to `public.accounts` on first sign-in. It appears on every browser and can be edited under **Account**. Browser storage is not used.
 * The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. Meta policies cannot set `frame-ancestors`; production hosting must send `frame-ancestors 'none'` (or `X-Frame-Options: DENY`) via response headers. Use the app's deployable ZIP (`index.html` + `_headers`) on a header-capable host, or configure the headers there. The page also has a frame-busting fallback.
 
 ### Behavior and limits

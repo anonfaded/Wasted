@@ -30,15 +30,20 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
 
 - App v3.0.0 (versionCode 42); debug APK builds. The signed-release task is fail-closed, but the
   actual release certificate still needs release-gate verification.
-- Tests: Android **110/110**, web **25/25**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
+- Tests: Android **110/110**, web **41/41**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
   the verifier drift negative test, run against the linked project in rolled-back transactions.
+  Schema version is **2**; the linked project has the `update_owner_handle` RPC and schema-2 marker.
 - Implemented: Debug Mode boundary, ResetExecutor, reset ordering, per-device Debug Mode commands,
   notifications, Android Remote Management screen, setup wizard, dashboard, enrollment, sync,
   recovery worker, docs.
 - Latest dashboard/auth UX: separate Sign In/Create Account forms, live email filtering and
   lowercasing, password visibility toggle, Confirm email + Site URL guidance, editable device names,
   dashboard rename/revoke, confirmation dialogs for settings/tokens/commands, setup-guide links, and
-  a `npm run dev` source-testing path.
+  a `npm run dev` source-testing path, and a responsive tabbed dashboard (Devices, Controls, Account, Help) with inline SVG icons, switches, and semantic message colors.
+- Account persistence fix: the signup handle is stored in Supabase auth metadata, the owner row is
+  created automatically after confirmation/sign-in, and the dashboard Account panel edits the
+  Supabase-backed name. There is no browser-local profile fallback. Sign-in now shows explicit
+  inline validation, Create Account confirms the password, and unconfirmed emails can be resent.
 - Latest audit fixes: exact verifier policy/ACL checks + real-verifier negative harness, single-owner
   account guard, idempotent legacy command repair, deployable ZIP (`index.html` + `_headers`), Sign In
   accepts existing passwords, clipboard warning, cumulative update documentation, and P2P
@@ -129,7 +134,7 @@ Android app ── HTTPS/WSS ──► Supabase project (Auth / PostgREST / Real
 - `app/src/main/assets/dashboard-template.html` — generated dashboard template (build product).
 - `app/src/main/assets/setup.sql` — generated database setup (build product).
 - `web/` — dashboard sources; `dist/index.html` is a build product.
-- `supabase/migrations/` — fourteen forward-only migrations (flat, immutable, CLI-compatible
+- `supabase/migrations/` — fifteen forward-only migrations (flat, immutable, CLI-compatible
   history).
 - `supabase/releases.json` — release manifest (app version → schema version → migrations).
 - `supabase/releases/<appVersion>/` — generated SQL per release: `setup.sql`, update bundles,

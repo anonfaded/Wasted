@@ -437,6 +437,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_owner_handle: {
+        Args: { p_handle: string }
+        Returns: {
+          created_at: string
+          handle: string
+          id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rename_device: {
         Args: { p_device_id: string; p_name: string }
         Returns: {

@@ -53,6 +53,7 @@ actual_policies as (
 ),
 expected_rpcs(signature) as (
     values ('public.initialize_owner_account(text)'),
+           ('public.update_owner_handle(text)'),
            ('public.create_device_enrollment()'),
            ('public.rename_device(uuid,text)'),
            ('public.revoke_device(uuid)'),
@@ -128,26 +129,26 @@ checks as (
      where has_schema_privilege(role_name, 'private', 'USAGE')
         or has_table_privilege(role_name, 'private.device_enrollments', 'SELECT')
     union all
-    select 'public RPCs present', count(*), 11
+    select 'public RPCs present', count(*), 12
       from expected_rpcs
      where to_regprocedure(signature) is not null
     union all
-    select 'RPC security definer', count(*), 11
+    select 'RPC security definer', count(*), 12
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where p.prosecdef
     union all
-    select 'RPC owned by postgres', count(*), 11
+    select 'RPC owned by postgres', count(*), 12
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where pg_get_userbyid(p.proowner) = 'postgres'
     union all
-    select 'RPC empty search_path', count(*), 11
+    select 'RPC empty search_path', count(*), 12
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where 'search_path=""' = any(p.proconfig)
     union all
-    select 'RPC authenticated-only execute', count(*), 11
+    select 'RPC authenticated-only execute', count(*), 12
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where has_function_privilege('authenticated', p.oid, 'EXECUTE')
@@ -170,7 +171,7 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:1'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:2'
     union all
     select 'future functions deny PUBLIC', count(*), 0
       from pg_default_acl d

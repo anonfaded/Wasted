@@ -19,7 +19,8 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    **Authentication → URL Configuration**, replace `http://localhost:3000` with the dashboard URL in
    **Site URL**, and add the exact same URL to **Redirect URLs**. Both must match including the final
    slash, then save. For updates, use the same project → **Deploys**; do not create another project.
-5. **Create your account** on the hosted dashboard URL.
+5. **Create your account** on the hosted dashboard URL. With Confirm email enabled, click the link,
+   then sign in. The account name is saved to Supabase and can be changed under **Account**.
 6. **Connect the app**: paste the dashboard URL into Remote Management, Save, Enable; create an
    enrollment token in the dashboard and claim it in the app. Send Reset Timer to verify.
 
