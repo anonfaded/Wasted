@@ -110,7 +110,7 @@ tasks.matching { it.name == 'assembleRelease' }.configureEach {
 // can never be assembled with stale assets. Node.js (>= 20) is required for the web bundle.
 
 def nodeBinary = System.getenv('NODE_BIN') ?: 'node'
-def npmBinary = System.getenv('NPM_BIN') ?: 'npm'
+def pnpmBinary = System.getenv('PNPM_BIN') ?: 'pnpm'
 def webProjectDir = rootProject.file('web')
 def dashboardTemplateAsset = file('src/main/assets/dashboard-template.html')
 def dashboardHeadersAsset = file('src/main/assets/dashboard_headers.txt')
@@ -133,17 +133,39 @@ tasks.register('checkNode') {
         } catch (IOException ignored) {
             throw new GradleException(
                 "Node.js is required to generate the remote assets. " +
-                    "Install Node.js 20+ or set NODE_BIN/NPM_BIN."
+                    "Install Node.js 20+ or set NODE_BIN/PNPM_BIN."
+            )
+        }
+    }
+}
+
+tasks.register('checkPnpm') {
+    doLast {
+        try {
+            def process = new ProcessBuilder(pnpmBinary, '--version')
+                .directory(webProjectDir)
+                .redirectErrorStream(true)
+                .start()
+            def output = process.inputStream.text.trim()
+            if (process.waitFor() != 0) {
+                throw new GradleException("pnpm failed to start (${pnpmBinary} ${output}).")
+            }
+            logger.info("Using pnpm ${output}")
+        } catch (IOException ignored) {
+            throw new GradleException(
+                "pnpm is required to generate the remote assets. " +
+                    "Install pnpm or set PNPM_BIN."
             )
         }
     }
 }
 
 tasks.register('ensureWebDependencies', Exec) {
-    dependsOn 'checkNode'
+    dependsOn 'checkNode', 'checkPnpm'
     workingDir webProjectDir
-    commandLine npmBinary, 'ci', '--silent'
-    inputs.file(new File(webProjectDir, 'package-lock.json'))
+    commandLine pnpmBinary, 'install', '--frozen-lockfile'
+    inputs.file(new File(webProjectDir, 'pnpm-lock.yaml'))
+    inputs.file(new File(webProjectDir, 'pnpm-workspace.yaml'))
     outputs.dir(new File(webProjectDir, 'node_modules'))
     onlyIf { !new File(webProjectDir, 'node_modules').exists() }
 }
@@ -159,7 +181,7 @@ tasks.register('generateDashboardTemplate', Exec) {
         new File(webProjectDir, 'build-lib.mjs'),
         new File(webProjectDir, 'build-android-template.mjs'),
         new File(webProjectDir, 'package.json'),
-        new File(webProjectDir, 'package-lock.json'),
+        new File(webProjectDir, 'pnpm-lock.yaml'),
     )
     inputs.dir(new File(webProjectDir, 'src'))
     inputs.dir(new File(webProjectDir, 'styles'))

@@ -7,7 +7,7 @@ Run these before claiming a release is ready. Docker is only needed for schema d
 ```bash
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
 ./gradlew :app:assembleSignedRelease
-cd web && npm test && npm run build && npm run build:android-template
+cd web && pnpm test && pnpm run build && pnpm run build:android-template
 ```
 
 Expected: Android **110/110** unit tests (or the current count), web **41/41**, both APKs build, and

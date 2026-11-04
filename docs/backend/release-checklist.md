@@ -25,7 +25,7 @@ Copy this into the release PR/issue. Do not skip steps; each line has a command 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
 ./gradlew :app:assembleSignedRelease
-cd web && npm test && npm run build && npm run build:android-template
+cd web && pnpm test && pnpm run build && pnpm run build:android-template
 ```
 
 - [ ] Android tests green (currently 110).
