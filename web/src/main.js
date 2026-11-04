@@ -22,6 +22,9 @@ const state = {
   session: null,
   handle: "",
   handleLoaded: false,
+  online: navigator.onLine !== false,
+  dataLoaded: false,
+  cacheSavedAt: 0,
   channel: null,
   realtimeAccountId: null,
   refreshTimeout: null,
@@ -34,6 +37,8 @@ const state = {
     settings: null,
   },
 };
+
+const CACHE_PREFIX = "wasted_dashboard_cache_v1_";
 
 const config = readConfig();
 if (!config) {
@@ -54,13 +59,13 @@ async function boot(cfg) {
   applyOptionalLink("#footer-support", cfg.supportUrl);
 
   state.client = createSupabaseClient(cfg);
+  wireInstallPrompt();
   state.session = await currentSession(state.client);
 
   wireAuth(state.client);
   wireDashboard();
   wireDashboardTabs();
   wireSignOut();
-
   onAuthChange(state.client, (session) => {
     state.session = session;
     renderAuthState();
@@ -68,12 +73,20 @@ async function boot(cfg) {
 
   setInterval(tickTimers, 1000);
   setInterval(refreshDashboard, 30_000);
+  let offlineTimer;
   window.addEventListener("online", () => {
-    $("#offline-banner").hidden = true;
+    clearTimeout(offlineTimer);
+    setDashboardOnline(true);
     refreshDashboard();
   });
   window.addEventListener("offline", () => {
-    $("#offline-banner").hidden = false;
+    clearTimeout(offlineTimer);
+    offlineTimer = setTimeout(() => {
+      loadCachedDashboard();
+      setDashboardOnline(false);
+      renderSettings();
+      renderDevices();
+    }, 400);
   });
 
   renderAuthState();
@@ -146,16 +159,29 @@ function renderAuthState() {
     clearEnrollmentToken();
     state.handle = "";
     state.handleLoaded = false;
+    state.dataLoaded = false;
+    state.cacheSavedAt = 0;
     state.data = { devices: [], statusByDevice: new Map(), latestCommand: new Map(), settings: null };
     $("#account-panel").hidden = true;
     $("#account-message").textContent = "";
   }
+  setDashboardOnline(navigator.onLine !== false);
 }
 
 async function refreshDashboard() {
   if (!state.session) return;
   const loading = $("#loading");
   loading.hidden = false;
+
+  if (!navigator.onLine) {
+    loadCachedDashboard();
+    setDashboardOnline(false);
+    renderSettings();
+    renderDevices();
+    loading.hidden = true;
+    return;
+  }
+
   try {
     if (!state.handleLoaded) {
       state.handle = await ensureOwnerAccount(state.client, state.session);
@@ -170,6 +196,9 @@ async function refreshDashboard() {
     }
 
     state.data = await fetchDashboardData(state.client);
+    state.dataLoaded = true;
+    saveDashboardCache();
+    setDashboardOnline(true);
     renderSettings();
     renderDevices();
     subscribeRealtime(state.session.user.id);
@@ -180,11 +209,137 @@ async function refreshDashboard() {
       showMessage("#auth-message", error.message, "error");
       return;
     }
-    $("#offline-banner").hidden = false;
-    toast(`Refresh failed: ${error.message}`, "error");
+    loadCachedDashboard();
+    const networkFailure =
+      !navigator.onLine ||
+      /failed to fetch|networkerror|load failed|fetch failed|timed? out|timeout/i.test(error.message);
+    if (networkFailure) {
+      setDashboardOnline(false);
+      renderSettings();
+      renderDevices();
+      toast("Could not reach Supabase. Showing cached data.", "error");
+    } else {
+      toast(`Refresh failed: ${error.message}`, "error");
+    }
   } finally {
     loading.hidden = true;
   }
+}
+
+function dashboardCacheKey() {
+  return state.session?.user?.id ? `${CACHE_PREFIX}${state.session.user.id}` : "";
+}
+
+function saveDashboardCache() {
+  if (!state.dataLoaded || !state.session) return;
+  const key = dashboardCacheKey();
+  if (!key) return;
+  try {
+    state.cacheSavedAt = Date.now();
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        savedAt: state.cacheSavedAt,
+        devices: state.data.devices,
+        statusByDevice: [...state.data.statusByDevice.entries()],
+        latestCommand: [...state.data.latestCommand.entries()],
+        settings: state.data.settings,
+      }),
+    );
+  } catch {
+    // Cache is best effort; the in-memory dashboard still works.
+  }
+}
+
+function loadCachedDashboard() {
+  if (state.dataLoaded) return true;
+  const key = dashboardCacheKey();
+  if (!key) return false;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const cached = JSON.parse(raw);
+    if (!Array.isArray(cached.devices)) return false;
+    state.data = {
+      devices: cached.devices,
+      statusByDevice: new Map(cached.statusByDevice ?? []),
+      latestCommand: new Map(cached.latestCommand ?? []),
+      settings: cached.settings ?? null,
+    };
+    state.dataLoaded = true;
+    state.cacheSavedAt = Number(cached.savedAt) || 0;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearDashboardCache() {
+  const key = dashboardCacheKey();
+  if (!key) return;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Cache is optional.
+  }
+}
+
+function requireOnline(selector) {
+  if (state.online) return true;
+  showMessage(selector, "Offline — reconnect before using this action.", "error");
+  return false;
+}
+
+function setDashboardOnline(online) {
+  state.online = online;
+
+  const banner = $("#offline-banner");
+  if (!state.session) {
+    if (banner) {
+      banner.textContent =
+        "Offline — sign-in, account creation, and dashboard access require a connection. Reconnect and try again.";
+      banner.hidden = online;
+    }
+    for (const selector of ["#sign-in", "#create-account", "#resend-confirmation"]) {
+      const button = $(selector);
+      if (button) button.disabled = !online;
+    }
+    return;
+  }
+
+  if (banner) {
+    if (online) {
+      banner.hidden = true;
+    } else {
+      const detail = state.dataLoaded
+        ? state.cacheSavedAt
+          ? ` Showing cached data last updated ${new Date(state.cacheSavedAt).toLocaleTimeString()}.`
+          : " Showing the data already loaded in this session."
+        : " No cached dashboard data is available.";
+      banner.textContent =
+        "Offline —" +
+        detail +
+        " Commands, settings saves, enrollment, and refresh are disabled until the connection returns.";
+      banner.hidden = false;
+    }
+  }
+
+  const selectors = [
+    "#create-token",
+    "#reset-timer",
+    "#force-reset",
+    "#settings-form button[type=submit]",
+    "#account-form button[type=submit]",
+  ];
+  for (const selector of selectors) {
+    const button = $(selector);
+    if (button) button.disabled = !online;
+  }
+  document
+    .querySelectorAll("[data-device-rename], [data-device-revoke], [data-debug-device]")
+    .forEach((button) => {
+      button.disabled = !online;
+    });
 }
 
 function subscribeRealtime(accountId) {
@@ -200,10 +355,11 @@ function subscribeRealtime(accountId) {
     .on("postgres_changes", { event: "*", schema: "public", table: "device_commands", filter }, scheduleRefresh)
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
-        $("#offline-banner").hidden = true;
+        if (state.online) $("#offline-banner").hidden = true;
         scheduleRefresh();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        $("#offline-banner").hidden = false;
+        // Realtime is only an invalidation channel; HTTP commands still work.
+        scheduleRefresh();
       }
     });
 }
@@ -231,20 +387,29 @@ function renderDevices() {
   renderDeviceSummary(devices, statusByDevice, now);
   $("#action-scope").textContent = devices.length
     ? `Applies to ${devices.length} active device(s).`
-    : "No active devices enrolled yet.";
+    : !state.online && !state.dataLoaded
+      ? "Offline — no cached device data. Reconnect to load the account."
+      : "No active devices enrolled yet.";
 
   if (!devices.length) {
+    const offlineWithoutCache = !state.online && !state.dataLoaded;
     container.append(
       el("div", { className: "empty-state" }, [
-        el("p", { text: "No devices enrolled yet." }),
+        el("p", {
+          text: offlineWithoutCache
+            ? "Offline — no cached dashboard data is available."
+            : "No devices enrolled yet.",
+        }),
         el("p", {
           className: "hint",
-          text:
-            "Enable Remote Management in the app, create an enrollment token below, " +
-            "and claim it in the app. The device appears here after its first sync.",
+          text: offlineWithoutCache
+            ? "Reconnect to load your devices. Commands and settings saves are disabled while offline."
+            : "Enable Remote Management in the app, create an enrollment token below, " +
+              "and claim it in the app. The device appears here after its first sync.",
         }),
       ]),
     );
+    setDashboardOnline(state.online);
     return;
   }
 
@@ -339,11 +504,16 @@ function renderDevices() {
     container.append(card);
     state.liveTimers.push({ el: timerSpan, status });
   }
+  setDashboardOnline(state.online);
 }
 
 function renderDeviceSummary(devices, statusByDevice, now) {
   const container = $("#device-summary");
   if (!container) return;
+  if (!state.dataLoaded && !state.online) {
+    container.replaceChildren();
+    return;
+  }
   const connected = devices.filter((device) =>
     isRecentlyConnected(statusByDevice.get(device.id), now),
   ).length;
@@ -414,7 +584,9 @@ function renderSettings() {
   const settings = state.data.settings;
   const form = $("#settings-form");
   if (!settings) {
-    $("#settings-revision").textContent = "settings unavailable";
+    $("#settings-revision").textContent = state.online
+      ? "settings unavailable"
+      : "offline — reconnect to load settings";
     return;
   }
   $("#lock-minutes").value = String(settings.lock_timer_minutes);
@@ -449,6 +621,10 @@ function debugButton(deviceId, enable) {
 
 /** Enable and Disable both explain the effect; Disable keeps the danger styling. */
 async function toggleDebugMode(deviceId, enabled, button) {
+  if (!state.online) {
+    toast("Offline — reconnect before changing Debug Mode.", "error");
+    return;
+  }
   const confirmed = await confirmAction(
     enabled
       ? {
@@ -487,6 +663,10 @@ async function toggleDebugMode(deviceId, enabled, button) {
 
 /** Rename is dashboard-only; it does not change the device identity or its credentials. */
 function openRenameDialog(deviceId, currentName, button) {
+  if (!state.online) {
+    toast("Offline — reconnect before renaming a device.", "error");
+    return;
+  }
   const dialog = $("#rename-dialog");
   const input = $("#rename-device-name");
   input.value = currentName;
@@ -515,6 +695,10 @@ function openRenameDialog(deviceId, currentName, button) {
 }
 
 async function revokeDevicePrompt(deviceId, button) {
+  if (!state.online) {
+    toast("Offline — reconnect before revoking a device.", "error");
+    return;
+  }
   const confirmed = await confirmAction({
     title: "Revoke this device?",
     message:
@@ -575,9 +759,43 @@ function wireDashboardTabs() {
   select("devices");
 }
 
+function wireInstallPrompt() {
+  const button = $("#install-app");
+  if (!button) return;
+
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+  if (standalone) {
+    button.hidden = true;
+    return;
+  }
+
+  let deferredPrompt = null;
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    button.hidden = false;
+  });
+
+  button.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice.catch(() => undefined);
+    deferredPrompt = null;
+    button.hidden = true;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    button.hidden = true;
+  });
+}
+
 function wireDashboard() {
   $("#account-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!requireOnline("#account-message")) return;
     const handle = $("#account-handle").value.trim();
     const validation = validateHandle(handle);
     if (validation) {
@@ -637,6 +855,7 @@ function wireDashboard() {
 
   $("#settings-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!requireOnline("#settings-message")) return;
     const settings = state.data.settings;
     if (!settings) {
       showMessage("#settings-message", "Account settings are not available.", "error");
@@ -708,6 +927,10 @@ function wireDashboard() {
   });
 
   $("#create-token").addEventListener("click", async () => {
+    if (!state.online) {
+      toast("Offline — reconnect before creating an enrollment token.", "error");
+      return;
+    }
     const confirmed = await confirmAction({
       title: "Create enrollment token?",
       message:
@@ -764,6 +987,7 @@ function updateTokenExpiry(expiresAt) {
 }
 
 async function sendAction(actionType) {
+  if (!requireOnline("#commands-message")) return;
   const button = actionType === FORCE_RESET ? $("#force-reset") : $("#reset-timer");
   clearMessage("#commands-message");
   setBusy(button, true);
@@ -781,6 +1005,7 @@ async function sendAction(actionType) {
 function wireSignOut() {
   $("#sign-out").addEventListener("click", async () => {
     clearEnrollmentToken();
+    clearDashboardCache();
     await signOut(state.client);
     toast("Signed out.", "info");
   });

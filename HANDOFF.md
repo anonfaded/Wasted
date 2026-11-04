@@ -30,16 +30,17 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
 
 - App v3.0.0 (versionCode 42); debug APK builds. The signed-release task is fail-closed, but the
   actual release certificate still needs release-gate verification.
-- Tests: Android **110/110**, web **41/41**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
+- Tests: Android **110/110**, web **43/43**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
   the verifier drift negative test, run against the linked project in rolled-back transactions.
   Schema version is **2**; the linked project has the `update_owner_handle` RPC and schema-2 marker.
 - Implemented: Debug Mode boundary, ResetExecutor, reset ordering, per-device Debug Mode commands,
   notifications, Android Remote Management screen, setup wizard, dashboard, enrollment, sync,
   recovery worker, docs.
+- Offline UX: the PWA shell shows an explicit offline banner, distinguishes cached from missing data, and disables remote actions/settings/enrollment until reconnect.
 - Latest dashboard/auth UX: separate Sign In/Create Account forms, live email filtering and
   lowercasing, password visibility toggle, Confirm email + Site URL guidance, editable device names,
   dashboard rename/revoke, confirmation dialogs for settings/tokens/commands, setup-guide links, and
-  a `npm run dev` source-testing path, and a responsive tabbed dashboard (Devices, Controls, Account, Help) with inline SVG icons, switches, and semantic message colors.
+  a `npm run dev` source-testing path, and a responsive tabbed dashboard (Devices, Controls, Account, Help) with inline SVG icons, switches, semantic message colors, and an installable PWA package with offline app shell.
 - Account persistence fix: the signup handle is stored in Supabase auth metadata, the owner row is
   created automatically after confirmation/sign-in, and the dashboard Account panel edits the
   Supabase-backed name. There is no browser-local profile fallback. Sign-in now shows explicit

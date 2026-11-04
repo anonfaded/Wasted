@@ -342,13 +342,13 @@ class RemoteSetupActivity : AppCompatActivity() {
                 }.isSuccess
             }
             binding.dashboardGeneratedStatus.text = if (saved) {
-                "Dashboard file saved as index.html. Upload it to your hosting provider, then tap Continue."
+                "Dashboard HTML saved. PWA install, icons, and offline shell are unavailable in this single-file export."
             } else {
                 "Could not save the dashboard file. Try again."
             }
             snackbar(
                 if (saved) {
-                    "Dashboard saved as index.html. Upload it to your Netlify project or another HTTPS host."
+                    "Dashboard saved without PWA assets. Use the ZIP for install and offline support."
                 } else {
                     "Could not save the dashboard file."
                 },
@@ -371,14 +371,33 @@ class RemoteSetupActivity : AppCompatActivity() {
                     val headers = assets.open("dashboard_headers.txt")
                         .bufferedReader()
                         .use { it.readText() }
+                    val manifest = assets.open("pwa/manifest.webmanifest")
+                        .bufferedReader()
+                        .use { it.readText() }
+                    val serviceWorker = assets.open("pwa/sw.js")
+                        .bufferedReader()
+                        .use { it.readText() }
+                        .replace(
+                            "__WASTED_VERSION__",
+                            "$version-${Integer.toUnsignedString(html.hashCode(), 16)}",
+                        )
                     contentResolver.openOutputStream(uri)?.use { stream ->
                         ZipOutputStream(BufferedOutputStream(stream)).use { zip ->
-                            zip.putNextEntry(ZipEntry("index.html"))
-                            zip.write(html.toByteArray(Charsets.UTF_8))
-                            zip.closeEntry()
-                            zip.putNextEntry(ZipEntry("_headers"))
-                            zip.write(headers.toByteArray(Charsets.UTF_8))
-                            zip.closeEntry()
+                            putText(zip, "index.html", html)
+                            putText(zip, "_headers", headers)
+                            putText(zip, "manifest.webmanifest", manifest)
+                            putText(zip, "sw.js", serviceWorker)
+                            listOf(
+                                "icon-192.png",
+                                "icon-512.png",
+                                "icon-maskable-512.png",
+                                "apple-touch-icon-180.png",
+                                "apple-touch-icon-167.png",
+                                "apple-touch-icon-152.png",
+                                "apple-touch-icon-120.png",
+                                "favicon-32.png",
+                                "favicon-48.png",
+                            ).forEach { name -> putAsset(zip, "pwa/icons/$name", "icons/$name") }
                         }
                     } ?: error("no output stream")
                 }.isSuccess
@@ -390,12 +409,24 @@ class RemoteSetupActivity : AppCompatActivity() {
             }
             snackbar(
                 if (saved) {
-                    "Package saved with index.html and _headers."
+                    "Package saved with the dashboard, manifest, service worker, icons, and headers."
                 } else {
                     "Could not save the deployable package."
                 },
             )
         }
+    }
+
+    private fun putText(zip: ZipOutputStream, name: String, text: String) {
+        zip.putNextEntry(ZipEntry(name))
+        zip.write(text.toByteArray(Charsets.UTF_8))
+        zip.closeEntry()
+    }
+
+    private fun putAsset(zip: ZipOutputStream, assetName: String, entryName: String) {
+        zip.putNextEntry(ZipEntry(entryName))
+        assets.open(assetName).use { it.copyTo(zip) }
+        zip.closeEntry()
     }
 
     private fun appVersion(): String = runCatching {

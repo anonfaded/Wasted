@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { renderDashboardHtml } from "./build-lib.mjs";
 
 const html = await renderDashboardHtml({
@@ -8,8 +8,16 @@ const html = await renderDashboardHtml({
 });
 
 const headers = await readFile("_headers", "utf8");
+const serviceWorker = await readFile("sw.js", "utf8");
+const assetsDir = "../app/src/main/assets";
+const pwaDir = `${assetsDir}/pwa`;
 
-await mkdir("../app/src/main/assets", { recursive: true });
-await writeFile("../app/src/main/assets/dashboard-template.html", html);
-await writeFile("../app/src/main/assets/dashboard_headers.txt", headers);
-console.log("Built app/src/main/assets/dashboard-template.html and dashboard_headers.txt.");
+await mkdir(pwaDir, { recursive: true });
+await mkdir(`${pwaDir}/icons`, { recursive: true });
+await writeFile(`${assetsDir}/dashboard-template.html`, html);
+await writeFile(`${assetsDir}/dashboard_headers.txt`, headers);
+await writeFile(`${pwaDir}/sw.js`, serviceWorker);
+await cp("manifest.webmanifest", `${pwaDir}/manifest.webmanifest`);
+await cp("icons", `${pwaDir}/icons`, { recursive: true });
+
+console.log("Built dashboard template, headers, manifest, service worker, and icons.");

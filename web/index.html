@@ -2,10 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#111113">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Wasted Remote">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="./icons/favicon-48.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon-180.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="./icons/apple-touch-icon-167.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="./icons/apple-touch-icon-152.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="./icons/apple-touch-icon-120.png">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://*.supabase.co wss://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+        content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://*.supabase.co wss://*.supabase.co; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
   <script>
     // Defense in depth; production hosts must also send frame-ancestors 'none'.
     if (window.top !== window.self) {
@@ -76,6 +88,11 @@
   <symbol id="icon-trash" viewBox="0 0 24 24">
     <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/>
   </symbol>
+  <symbol id="icon-download" viewBox="0 0 24 24">
+    <path d="M12 3v12"/>
+    <path d="m7 10 5 5 5-5"/>
+    <path d="M5 21h14"/>
+  </symbol>
 </svg>
 
 <header class="app-header">
@@ -86,15 +103,26 @@
     </h1>
     <span class="brand-sub">Self-hosted remote control</span>
   </div>
-  <button id="sign-out" type="button" class="quiet" hidden>
-    <svg class="icon" aria-hidden="true"><use href="#icon-signout"/></svg>
-    <span class="button-label">Sign out</span>
-  </button>
+  <div class="header-actions">
+    <button id="install-app" type="button" class="quiet" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg>
+      <span class="button-label">Install app</span>
+    </button>
+    <button id="sign-out" type="button" class="quiet" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#icon-signout"/></svg>
+      <span class="button-label">Sign out</span>
+    </button>
+  </div>
 </header>
 
 <div id="config-error" class="banner error" role="alert" hidden></div>
 
 <main id="main">
+  <p id="offline-banner" class="banner error" role="alert" hidden>
+    Offline — sign-in, commands, settings saves, enrollment, and refresh are unavailable until the
+    connection returns. Cached data may be shown where available.
+  </p>
+
   <section id="auth-section" aria-labelledby="auth-title" class="panel narrow">
     <div class="auth-brand">
       <span class="auth-mark" aria-hidden="true">
@@ -273,11 +301,6 @@
       </div>
       <p id="account-line" class="account-chip"></p>
     </div>
-
-    <p id="offline-banner" class="banner error" role="alert" hidden>
-      Connection lost — showing the last known data. Values refresh automatically when the
-      connection returns.
-    </p>
 
     <div class="dashboard-layout">
       <nav class="dashboard-nav" role="tablist" aria-label="Dashboard sections">
@@ -569,6 +592,21 @@
           </details>
 
           <details class="help">
+            <summary>Install this dashboard</summary>
+            <div class="help-body">
+              <p>
+                On Chrome or Edge, use the browser install icon or the <strong>Install app</strong>
+                button in the header. On iPhone/iPad, use <strong>Share → Add to Home Screen</strong>.
+                On macOS Safari, use <strong>File → Add to Dock</strong>.
+              </p>
+              <p class="muted">
+                Firefox desktop does not install manifest-based web apps natively. Firefox Android
+                adds a browser shortcut instead of a standalone app.
+              </p>
+            </div>
+          </details>
+
+          <details class="help">
             <summary>Safety notes</summary>
             <div class="help-body">
               <p>
@@ -631,6 +669,27 @@
   </span>
 </footer>
 
+<script>
+  const isLocalPreview = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+  const forcePwaPreview = new URLSearchParams(location.search).has("pwa");
+  if (isLocalPreview && !forcePwaPreview && "serviceWorker" in navigator) {
+    // Remove old dev service workers so they cannot serve stale UI during HMR.
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+      .catch(() => {});
+    if ("caches" in window) {
+      caches.keys()
+        .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+        .catch(() => {});
+    }
+  } else if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {
+        // The single-file-only export has no service worker; the app still works.
+      });
+    });
+  }
+</script>
 <script src="config.js" defer></script>
 <script type="module" src="assets/app.js" defer></script>
 </body>

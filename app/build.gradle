@@ -114,6 +114,7 @@ def pnpmBinary = System.getenv('PNPM_BIN') ?: 'pnpm'
 def webProjectDir = rootProject.file('web')
 def dashboardTemplateAsset = file('src/main/assets/dashboard-template.html')
 def dashboardHeadersAsset = file('src/main/assets/dashboard_headers.txt')
+def dashboardPwaAssets = file('src/main/assets/pwa')
 def setupSqlAsset = file('src/main/assets/setup.sql')
 def setupSqlSource = rootProject.file('supabase/setup.sql')
 def supabaseMigrationsDir = rootProject.file('supabase/migrations')
@@ -182,11 +183,15 @@ tasks.register('generateDashboardTemplate', Exec) {
         new File(webProjectDir, 'build-android-template.mjs'),
         new File(webProjectDir, 'package.json'),
         new File(webProjectDir, 'pnpm-lock.yaml'),
+        new File(webProjectDir, 'manifest.webmanifest'),
+        new File(webProjectDir, 'sw.js'),
     )
     inputs.dir(new File(webProjectDir, 'src'))
     inputs.dir(new File(webProjectDir, 'styles'))
+    inputs.dir(new File(webProjectDir, 'icons'))
     inputs.file(new File(webProjectDir, '_headers'))
     outputs.files(dashboardTemplateAsset, dashboardHeadersAsset)
+    outputs.dir(dashboardPwaAssets)
 }
 
 tasks.register('generateSetupSql', Exec) {

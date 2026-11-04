@@ -84,10 +84,11 @@ The dashboard file is generated **by the app**, already configured with your own
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
 3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and leave **Confirm email** enabled. Anonymous sign-ins give each device its own private identity, so your email/password is never stored on the device. Confirm email is recommended: click the link in the email, then sign in. If you do not want Remote Management, you can leave anonymous sign-ins off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
-4. In the wizard, use **Save deployable package (.zip)**. It contains `index.html` and `_headers`
-   for strict framing headers. Use **Download index.html only** only when the host lets you configure
-   headers yourself. Netlify requires an `index.html` home page; another filename shows “page not
-   found.”
+4. In the wizard, use **Save deployable package (.zip)**. It contains `index.html`,
+   `manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. The package installs as a standalone
+   app and provides the offline app shell on supported browsers. Use **Download index.html only**
+   only when the host cannot accept the ZIP; that loses the manifest, service worker, icons, and
+   installability.
 5. In Netlify, sign in and create one project: **Add new project → Deploy manually**, then upload
    the ZIP. Copy the project’s HTTPS URL. If the project starts private, make it public. In Supabase →
    **Authentication → URL Configuration**, replace the default `http://localhost:3000` with the
@@ -101,6 +102,20 @@ The dashboard file is generated **by the app**, already configured with your own
 To update an existing dashboard, open that **same Netlify project → project menu → Deploys**, use
 the deploy drop zone, and upload the new ZIP. Do not create another project; that changes the URL and
 requires updating Remote Management.
+
+### Install as an app (PWA)
+
+After deploying the ZIP over HTTPS, the dashboard can be installed like an app:
+
+- **Chrome/Edge (Android, Windows, macOS, desktop):** use the browser install icon or the in-app
+  **Install app** button.
+- **Safari (iOS/iPadOS 16.4+, macOS 14+):** use **Share → Add to Home Screen** or **File → Add to
+  Dock**. The app icon comes from the included Apple touch icon.
+- **Firefox desktop:** Firefox does not install manifest-based PWAs natively; it needs a PWA
+  extension. Firefox Android adds a browser-badged home-screen shortcut rather than a standalone
+  app. This is a browser limitation, not a dashboard setting.
+- **Local preview:** service workers are skipped on `localhost`; append `?pwa=1` to a production
+  build preview if you need to test them locally.
 
 ### Local dashboard preview
 
@@ -142,7 +157,7 @@ The publishable key is public by design and safe to expose. Never embed a secret
 
 * Sign In and Create Account are explicit; a failed sign-in never creates an account. Confirm email is recommended and verifies ownership, but it is not a signup restriction.
 * The account name is stored in Supabase auth metadata at signup and saved to `public.accounts` on first sign-in. It appears on every browser and can be edited under **Account**. Browser storage is not used.
-* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. Meta policies cannot set `frame-ancestors`; production hosting must send `frame-ancestors 'none'` (or `X-Frame-Options: DENY`) via response headers. Use the app's deployable ZIP (`index.html` + `_headers`) on a header-capable host, or configure the headers there. The page also has a frame-busting fallback.
+* The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. Meta policies cannot set `frame-ancestors`; production hosting must send `frame-ancestors 'none'` (or `X-Frame-Options: DENY`) via response headers. Use the app's deployable ZIP (`index.html` + `manifest.webmanifest` + `sw.js` + `icons/` + `_headers`) on a header-capable host, or configure the headers there. The page also has a frame-busting fallback.
 
 ### Behavior and limits
 

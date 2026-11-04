@@ -576,6 +576,13 @@ footer a:hover { border-bottom-color: var(--ink); }
 .app-header .quiet,
 .app-header .quiet:hover { color: var(--muted); }
 .app-header .quiet:hover { color: var(--text); }
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
 
 main { max-width: 1180px; }
 

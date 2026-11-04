@@ -62,9 +62,10 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
 1. In the app: **Remote Management → Open setup wizard**.
 2. Paste the Project URL and publishable key → **Continue**.
 3. **Save deployable package (.zip)** — the app suggests `wasted-dashboard.zip`; it contains
-   `index.html` and `_headers`. Use this package for Netlify, Cloudflare Pages, GitHub Pages, or
-   Vercel. Use **Download index.html only** only when the host lets you configure security headers
-   yourself.
+   `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. Use this package for
+   Netlify, Cloudflare Pages, GitHub Pages, or Vercel. It installs as a standalone app and provides
+   an offline app shell on supported browsers. Use **Download index.html only** only when the host
+   cannot accept the ZIP; that loses installability and offline support.
 4. In Netlify, sign in and create one project: **Add new project → Deploy manually**, then upload the
    ZIP. Confirm the project appears in your team and copy its final `https://…` URL. If it starts
    private, make it public. To update later, open the same project → project menu → **Deploys**,

@@ -13,7 +13,9 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    **Rate Limits**, set anonymous 10/hour/IP and sign-in/sign-up 10 per 5 minutes/IP (or verify your
    values). Run `verify.sql`; every row must say PASS. The app never runs SQL; use **Save setup SQL
    file** in the wizard to move it to a computer if that is easier.
-4. **Generate the dashboard** in the wizard and save the deployable ZIP (`index.html` + `_headers`).
+4. **Generate the dashboard** in the wizard and save the deployable ZIP (`index.html`,
+   `manifest.webmanifest`, `sw.js`, `icons/`, `_headers`). The package supports PWA install and the
+   offline app shell on supported browsers.
    In <https://app.netlify.com/>, sign in, choose **Add new project → Deploy manually**, and upload
    the ZIP. Copy the project URL; make the project public if it starts private. In
    **Authentication → URL Configuration**, replace `http://localhost:3000` with the dashboard URL in

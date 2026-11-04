@@ -348,7 +348,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="The app builds the dashboard from the Project URL and publishable key you saved. Tap Save deployable package (.zip). It contains index.html (the dashboard itself) and _headers (security headers). Use this package for Netlify, Cloudflare Pages, GitHub Pages, or Vercel.\n\nThis is the website you host; it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
+                    android:text="The app builds the dashboard from the Project URL and publishable key you saved. Tap Save deployable package (.zip). It contains index.html, manifest.webmanifest, sw.js, icons, and _headers. This package supports install-to-home-screen, standalone app mode, and the offline app shell on supported browsers. Use it for Netlify, Cloudflare Pages, GitHub Pages, or Vercel.\n\nThis is the website you host; it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -370,7 +370,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Use the single file only if your host lets you configure security headers yourself. The ZIP is recommended."
+                    android:text="Use the single file only if your host cannot accept the ZIP. It loses the web app manifest, service worker, icons, installability, and offline shell. The ZIP is required for PWA install."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <TextView

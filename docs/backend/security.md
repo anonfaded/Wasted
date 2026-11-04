@@ -13,7 +13,7 @@
 | Direct table tampering | No write policies/grants; writes only through SECURITY DEFINER RPCs |
 | Secret key leakage | Secret/service-role keys are rejected by validation and never shipped; docs forbid them |
 | Hosted dashboard contains secrets | False: the generated file contains only URL + publishable key |
-| Clickjacking of destructive confirmations | Use the app's deployable ZIP (`index.html` + `_headers`) on a header-capable host, or configure `frame-ancestors 'none'`/`X-Frame-Options: DENY`; the page also ships a frame-busting fallback |
+| Clickjacking of destructive confirmations | Use the full app package (`index.html` + `manifest.webmanifest` + `sw.js` + `icons/` + `_headers`) on a header-capable host, or configure `frame-ancestors 'none'`/`X-Frame-Options: DENY`; the page also ships a frame-busting fallback |
 
 ## Key boundaries
 
