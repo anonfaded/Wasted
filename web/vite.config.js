@@ -21,7 +21,7 @@ export default defineConfig({
           )
           .replace(
             '<script type="module" src="assets/app.js" defer></script>',
-            '<script type="module" src="/src/main.js"></script>',
+            `<script type="module" src="/src/main.js?t=${Date.now()}"></script>`,
           )
           .replace(
             '<script src="config.js" defer></script>',

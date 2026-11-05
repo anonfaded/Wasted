@@ -762,6 +762,8 @@ function wireDashboardTabs() {
 function wireInstallPrompt() {
   const button = $("#install-app");
   if (!button) return;
+  const dialog = $("#install-dialog");
+  const message = $("#install-message");
 
   const standalone =
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -775,21 +777,44 @@ function wireInstallPrompt() {
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredPrompt = event;
-    button.hidden = false;
   });
 
   button.addEventListener("click", async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice.catch(() => undefined);
-    deferredPrompt = null;
-    button.hidden = true;
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice.catch(() => undefined);
+      deferredPrompt = null;
+      button.hidden = true;
+      return;
+    }
+    if (message && dialog) {
+      message.textContent = installHelp();
+      dialog.showModal();
+    }
   });
 
   window.addEventListener("appinstalled", () => {
     deferredPrompt = null;
     button.hidden = true;
   });
+}
+
+function installHelp() {
+  const ua = navigator.userAgent;
+  const isFirefox = /Firefox|FxiOS/i.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua);
+  const isLocal = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+
+  if (isLocal) {
+    return "This is the local preview. Open the deployed HTTPS dashboard, then use the browser's install option. Firefox desktop cannot install web apps natively.";
+  }
+  if (isFirefox) {
+    return "Firefox desktop does not install manifest-based web apps natively. Use Chrome or Edge, or install the “PWAs for Firefox” extension. On Firefox Android, use the browser menu → Add to Home screen (a browser shortcut, not a standalone app).";
+  }
+  if (isSafari) {
+    return "On iPhone or iPad, tap Share → Add to Home Screen. On macOS Safari, choose File → Add to Dock.";
+  }
+  return "Use the install icon in the browser address bar or the browser menu → Install app. If no option appears, the page must be served over HTTPS.";
 }
 
 function wireDashboard() {

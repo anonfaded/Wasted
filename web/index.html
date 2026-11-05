@@ -104,7 +104,7 @@
     <span class="brand-sub">Self-hosted remote control</span>
   </div>
   <div class="header-actions">
-    <button id="install-app" type="button" class="quiet" hidden>
+    <button id="install-app" type="button" class="quiet">
       <svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg>
       <span class="button-label">Install app</span>
     </button>
@@ -627,6 +627,16 @@
 
   <p id="loading" class="muted" hidden>Loading…</p>
 </main>
+
+<dialog id="install-dialog" aria-labelledby="install-title">
+  <form method="dialog">
+    <h2 id="install-title">Install this app</h2>
+    <p id="install-message"></p>
+    <div class="actions">
+      <button value="close" class="primary">Close</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="confirm-dialog" aria-labelledby="confirm-title">
   <form method="dialog">
