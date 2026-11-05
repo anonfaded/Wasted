@@ -15,7 +15,7 @@ import {
   formatRemaining,
   formatLastContact,
 } from "./timers.js";
-import { $, toast, setBusy, confirmAction, showMessage, clearMessage } from "./ui.js";
+import { $, toast, setBusy, confirmAction, showMessage, clearMessage, copyText } from "./ui.js";
 import { actionUnavailableMessage, isReachabilityError, retryDelayMs } from "./connection.js";
 import { installRipple } from "./ripple.js";
 
@@ -35,6 +35,7 @@ const state = {
   refreshFailures: 0,
   refreshInFlight: false,
   explicitSignOut: false,
+  connection: { projectUrl: "", publishableKey: "" },
   tokenTimer: null,
   liveTimers: [],
   data: {
@@ -61,6 +62,7 @@ if (!config) {
 
 async function boot(cfg) {
   applyFooter(cfg);
+  applyConnectionInfo(cfg);
   applySetupLinks(cfg);
   applyOptionalLink("#footer-privacy", cfg.privacyUrl);
   applyOptionalLink("#footer-support", cfg.supportUrl);
@@ -112,6 +114,34 @@ async function boot(cfg) {
   });
 
   renderAuthState();
+}
+
+function applyConnectionInfo(cfg) {
+  const projectUrl = String(cfg.supabaseUrl ?? "").trim();
+  const publishableKey = String(cfg.supabasePublishableKey ?? "").trim();
+  const section = $("#menu-connection");
+  if (!section || !projectUrl || !publishableKey) return;
+
+  state.connection = { projectUrl, publishableKey };
+  $("#menu-project-url").textContent = projectUrl;
+  $("#menu-publishable-key").textContent = publishableKey;
+  section.hidden = false;
+  $("#menu-divider").hidden = false;
+
+  const fields = [
+    ["#copy-project-url", "projectUrl", "Project URL"],
+    ["#copy-publishable-key", "publishableKey", "Publishable key"],
+  ];
+  for (const [selector, key, label] of fields) {
+    $(selector)?.addEventListener("click", async () => {
+      try {
+        await copyText(state.connection[key]);
+        toast(`${label} copied.`, "success");
+      } catch (_) {
+        toast(`Could not copy ${label.toLowerCase()}.`, "error");
+      }
+    });
+  }
 }
 
 function applyFooter(cfg) {
@@ -1052,7 +1082,7 @@ function wireDashboard() {
 
   $("#copy-token").addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText($("#token-value").textContent);
+      await copyText($("#token-value").textContent);
       toast("Token copied.", "success");
     } catch {
       toast("Copy failed — select the token manually.", "error");
@@ -1147,7 +1177,7 @@ function wireHeaderMenu() {
       setOpen(false, true);
     }
   });
-  actions.querySelectorAll("button").forEach((button) => {
+  actions.querySelectorAll("button:not(.menu-copy)").forEach((button) => {
     button.addEventListener("click", () => setOpen(false));
   });
   const desktop = window.matchMedia("(min-width: 641px)");
@@ -1170,7 +1200,9 @@ function syncHeaderMenu() {
   const toggle = $("#menu-toggle");
   const actions = $("#header-actions");
   if (!toggle || !actions) return;
-  const visible = [...actions.querySelectorAll("button")].some((button) => !button.hidden);
+  const visible =
+    !$("#menu-connection")?.hidden ||
+    [...actions.querySelectorAll("button:not(.menu-copy)")].some((button) => !button.hidden);
   toggle.hidden = !visible;
   if (!visible) closeHeaderMenu();
 }

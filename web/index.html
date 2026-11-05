@@ -115,11 +115,35 @@
     <svg class="icon" aria-hidden="true"><use href="#icon-menu"/></svg>
   </button>
   <div id="header-actions" class="header-actions">
+    <div id="menu-connection" class="menu-connection" hidden>
+      <p class="menu-heading">Supabase connection</p>
+      <div class="menu-field">
+        <span class="menu-field-label">Project URL</span>
+        <div class="menu-value-row">
+          <code id="menu-project-url" class="menu-value"></code>
+          <button id="copy-project-url" type="button" class="quiet menu-copy"
+                  aria-label="Copy project URL" title="Copy project URL">
+            <svg class="icon" aria-hidden="true"><use href="#icon-copy"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="menu-field">
+        <span class="menu-field-label">Publishable key</span>
+        <div class="menu-value-row">
+          <code id="menu-publishable-key" class="menu-value"></code>
+          <button id="copy-publishable-key" type="button" class="quiet menu-copy"
+                  aria-label="Copy publishable key" title="Copy publishable key">
+            <svg class="icon" aria-hidden="true"><use href="#icon-copy"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="menu-divider" id="menu-divider" hidden></div>
     <button id="install-app" type="button" class="quiet">
       <svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg>
       <span class="button-label">Install app</span>
     </button>
-    <button id="sign-out" type="button" class="quiet" hidden>
+    <button id="sign-out" type="button" class="quiet menu-danger" hidden>
       <svg class="icon" aria-hidden="true"><use href="#icon-signout"/></svg>
       <span class="button-label">Sign out</span>
     </button>
@@ -567,7 +591,10 @@
                 <li>The device appears after its first sync.</li>
               </ol>
               <p class="muted">
-                The publishable key is public by design. Never paste a secret or service-role key here.
+                The header menu shows the configured Project URL and publishable key with copy
+                buttons. They are baked into this page, so reading or copying them makes no Supabase
+                request. The publishable key is public by design; never paste a secret or
+                service-role key here.
               </p>
             </div>
           </details>
@@ -620,7 +647,7 @@
             <div class="help-body">
               <p>
                 On Chrome or Edge, use the browser install icon or the <strong>Install app</strong>
-                action in the header (inside the header menu on phones). On iPhone/iPad, use
+                action in the header menu. On iPhone/iPad, use
                 <strong>Share → Add to Home Screen</strong>.
                 On macOS Safari, use <strong>File → Add to Dock</strong>.
               </p>

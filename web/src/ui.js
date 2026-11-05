@@ -24,6 +24,32 @@ export function clearMessage(selector) {
   showMessage(selector, "");
 }
 
+export async function copyText(value) {
+  const text = String(value ?? "");
+  if (!text) throw new Error("Nothing to copy.");
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (_) {
+      // Browser permission can be denied; fall through to the legacy copy path.
+    }
+  }
+
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  document.body.append(field);
+  field.select();
+  try {
+    if (!document.execCommand("copy")) throw new Error("Copy failed.");
+  } finally {
+    field.remove();
+  }
+}
+
 const busyLabels = new WeakMap();
 
 export function setBusy(button, busy, busyLabel = "Working…") {

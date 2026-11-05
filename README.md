@@ -106,7 +106,7 @@ requires updating Remote Management.
 After deploying the ZIP over HTTPS, the dashboard can be installed like an app:
 
 - **Chrome/Edge (Android, Windows, macOS, desktop):** use the browser install icon or the **Install
-  app** action in the header (inside the header menu on phones).
+  app** action in the header menu.
 - **Safari (iOS/iPadOS 16.4+, macOS 14+):** use **Share → Add to Home Screen** or **File → Add to
   Dock**. The app icon comes from the included Apple touch icon.
 - **Firefox desktop:** Firefox does not install manifest-based PWAs natively; it needs a PWA
@@ -165,6 +165,7 @@ The publishable key is public by design and safe to expose. Never embed a secret
 * Delivery is not push: an online device syncs over Realtime, otherwise at the next 60-second heartbeat or WorkManager recovery run. Nothing is queued forever: Reset Timer 24 h, Force Reset and Debug Mode OFF 10 min, Debug Mode ON 24 h.
 * Free-plan guardrails: the dashboard polls only visible tabs, does not treat the 60-second status heartbeat as a Realtime message, fetches one latest command per device, and keeps command history/action rows for 180 days. Stale enrollment tokens are removed after 30 days. See [`docs/backend/capacity.md`](docs/backend/capacity.md) for the measured budget.
 * Sign-in persists in browser storage and auto-refreshes; refresh tokens do not expire by default. Sign out asks for confirmation and ends only the current browser session, so other devices stay signed in. Signing out of the dashboard does not stop device sync; existing settings, timers, and queued commands remain on the backend.
+* The always-visible header menu shows the configured Supabase Project URL and publishable key with copy buttons. They come from the generated page config, so viewing or copying them makes no network request.
 
 ### Troubleshooting and rollback
 
