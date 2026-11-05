@@ -1101,7 +1101,7 @@ function wireSignOut() {
     const confirmed = await confirmAction({
       title: "Sign out?",
       message:
-        "Remote commands stop until you sign in again. Your devices and settings are not changed.",
+        "This browser will no longer access your account. The Wasted app keeps running and syncing; existing settings, timers, and queued commands are unchanged. Sign in again to send new commands or view devices.",
       confirmLabel: "Sign out",
       danger: false,
     });
