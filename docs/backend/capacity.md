@@ -48,7 +48,7 @@ On November 5, 2026 this project measured:
 
 - Database size: **13 MB** (about 2.6% of 500 MB)
 - Auth MAU: **1** (the owner; anonymous device identities are created only when a device enrolls)
-- Realtime: **7–8 subscriptions** from the open dashboard clients, **0** broadcast messages retained
+- Realtime: **8–10 subscriptions** from the open dashboard clients, **0** broadcast messages retained
 - Storage and Edge Functions: **0**
 
 The only unbounded table before this change was command history; the dashboard also refetched up to
@@ -62,9 +62,9 @@ The only unbounded table before this change was command history; the dashboard a
   the device's Realtime channel.
 - **Dashboard polling:** one full refresh per **60 seconds per visible tab**. Hidden tabs do not
   poll, and wake up with an immediate refresh when they become visible.
-- **Dashboard Realtime:** subscribes only to `devices`, `account_settings`, and `device_commands`.
-  `device_status` is not a Realtime subscription; its 60-second heartbeat is read by the poll. This
-  removes the largest recurring Realtime message source.
+- **Dashboard Realtime:** subscribes to `devices`, `account_settings`, `device_status`, and
+  `device_commands`. Each status heartbeat is delivered once per open dashboard, so live status is
+  the main recurring Realtime message source; the 60-second visible-tab poll remains a fallback.
 - **Command data:** the dashboard fetches **one latest command per device** through
   `list_latest_device_commands()`. It never downloads command history.
 - **Retention:** terminal command/action history is deleted after **180 days**; stale enrollment
@@ -75,14 +75,15 @@ The only unbounded table before this change was command history; the dashboard a
 
 For this single-owner dashboard, keep the working set within:
 
-- **25 active devices**
+- **10 active devices**
 - **2 simultaneously visible dashboard tabs**
 - Normal command/settings usage (the tables are cleaned, not treated as an unbounded audit archive)
 
-At this envelope, database growth is bounded by the retention job, MAU is ~26, Realtime peak
-connections are ~27, and Realtime messages are driven by actual commands/settings changes rather
-than every status heartbeat. Re-check the Usage page before going beyond it. If the account needs a
-larger envelope, reduce retention or polling first; do not assume the Free plan is unlimited.
+At this envelope, status delivery is about **864,000 messages/month**
+(10 × 43,200 × 2), leaving headroom below the 2,000,000 limit for commands/settings. One active
+dashboard supports roughly 20 devices at the same status volume. Database growth remains bounded by
+the retention job, MAU is small, and Realtime peak connections are well below 200. Re-check the
+Usage page before going beyond this; do not assume the Free plan is unlimited.
 
 ## Internal review thresholds
 

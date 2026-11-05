@@ -6,6 +6,8 @@ import {
   extrapolatedRemaining,
   isRecentlyConnected,
   formatLastContact,
+  relativeTime,
+  formatDateTime,
 } from "../src/timers.js";
 
 test("formatRemaining renders HH:MM:SS and day prefixes", () => {
@@ -61,4 +63,21 @@ test("last contact is never hidden", () => {
     formatLastContact({ last_seen_at: "not-a-date" }),
     "not-a-date",
   );
+});
+
+test("last contact includes relative and readable time", () => {
+  const now = Date.parse("2026-11-05T18:30:00Z");
+  const seen = new Date(now - 2 * 60_000).toISOString();
+  const label = formatLastContact({ last_seen_at: seen }, now);
+  assert.match(label, /^2 minutes ago/);
+  assert.match(label, /2026/);
+});
+
+test("relative time uses readable units", () => {
+  const now = Date.parse("2026-11-05T18:30:00Z");
+  assert.equal(relativeTime(now - 5_000, now), "just now");
+  assert.equal(relativeTime(now - 65_000, now), "1 minute ago");
+  assert.equal(relativeTime(now - 3_600_000, now), "1 hour ago");
+  assert.equal(relativeTime(now - 86_400_000, now), "1 day ago");
+  assert.match(formatDateTime(now), /2026/);
 });

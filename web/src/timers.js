@@ -29,10 +29,33 @@ export function isRecentlyConnected(status, nowMs) {
   return nowMs - seen <= FRESHNESS_WINDOW_MS;
 }
 
-/** Exact last-contact label; never hides staleness. */
-export function formatLastContact(status) {
+export function relativeTime(timestamp, nowMs = Date.now()) {
+  const seconds = Math.max(0, Math.floor((nowMs - timestamp) / 1000));
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds} seconds ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+export function formatDateTime(timestamp) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(timestamp));
+}
+
+/** Relative + exact last-contact label; never hides staleness. */
+export function formatLastContact(status, nowMs = Date.now()) {
   if (!status || !status.last_seen_at) return "never";
   const seen = Date.parse(status.last_seen_at);
   if (Number.isNaN(seen)) return status.last_seen_at;
-  return new Date(seen).toLocaleString();
+  return `${relativeTime(seen, nowMs)} · ${formatDateTime(seen)}`;
 }

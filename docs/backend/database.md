@@ -81,9 +81,9 @@ from all roles.
 
 Publication `supabase_realtime` contains exactly: `account_settings`, `devices`, `device_status`,
 `device_commands`. Clients subscribe with filters (device id or account id) and treat events only as
-invalidation signals. The dashboard deliberately does not subscribe to `device_status`; it reads
-that one row on its visible-tab poll so the 60-second heartbeat does not consume a Realtime message
-per open dashboard.
+invalidation signals. The dashboard subscribes to `device_status` for live timer/connection/Debug
+Mode updates; the visible-tab poll remains a fallback. This consumes one Realtime message per
+device per open dashboard at each heartbeat, which is included in the capacity envelope.
 
 ## Maintenance
 

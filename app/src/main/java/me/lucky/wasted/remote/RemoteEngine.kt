@@ -12,6 +12,7 @@ import me.lucky.wasted.remote.data.RemoteCredentialStore
 import me.lucky.wasted.remote.data.RemoteDatabase
 import me.lucky.wasted.remote.data.SupabaseRemoteRepository
 import me.lucky.wasted.remote.domain.RemoteCommandProcessor
+import me.lucky.wasted.remote.domain.RemoteEventBus
 import me.lucky.wasted.remote.domain.RemoteEventSink
 import me.lucky.wasted.remote.domain.RemoteSettingsApplierPort
 import me.lucky.wasted.remote.domain.RemoteSyncCoordinator
@@ -44,6 +45,7 @@ class RemoteEngine private constructor(
 
             // Notifications are user-optional; command processing never depends on them.
             val events = RemoteEventSink { event ->
+                RemoteEventBus.publish(event)
                 if (credentials.notificationsEnabled) {
                     runCatching {
                         NotificationManager(ctx).notifyRemoteEvent(
@@ -94,7 +96,12 @@ class RemoteEngine private constructor(
 
     suspend fun runSync(): SyncOutcome {
         val outcome = coordinator.syncNow()
-        processor.processPending()
+        val processed = processor.processPending()
+        if (outcome is SyncOutcome.Success && processed.processed > 0) {
+            // Report the state changed by the command immediately instead of waiting for the
+            // next 60-second heartbeat.
+            runCatching { coordinator.syncNow() }
+        }
         return outcome
     }
 

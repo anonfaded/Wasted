@@ -15,6 +15,7 @@ import com.google.android.material.snackbar.Snackbar
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -37,6 +38,8 @@ import me.lucky.wasted.remote.domain.RemoteConfigError
 import me.lucky.wasted.remote.domain.RemoteConfigField
 import me.lucky.wasted.remote.domain.RemoteConfigValidator
 import me.lucky.wasted.remote.domain.RemoteError
+import me.lucky.wasted.remote.domain.RemoteEvent
+import me.lucky.wasted.remote.domain.RemoteEventBus
 import me.lucky.wasted.remote.domain.RemoteException
 import me.lucky.wasted.remote.domain.SyncOutcome
 import me.lucky.wasted.trigger.shared.ForegroundService
@@ -52,6 +55,7 @@ class RemoteManagementFragment : Fragment() {
     private lateinit var credentials: RemoteCredentialStore
     private lateinit var adminManager: DeviceAdminManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var remoteEventsJob: Job? = null
     private var defaultDashboardStrokeColor = 0
     private var defaultDashboardStatusColor = 0
 
@@ -88,6 +92,26 @@ class RemoteManagementFragment : Fragment() {
             publishableKey.editText?.setText(draft.publishableKey)
         }
         refreshState()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        remoteEventsJob?.cancel()
+        remoteEventsJob = viewLifecycleOwner.lifecycleScope.launch {
+            RemoteEventBus.events.collect { event ->
+                if (event.kind == RemoteEvent.Kind.DEBUG_MODE_CHANGED ||
+                    event.kind == RemoteEvent.Kind.SETTINGS_CHANGED
+                ) {
+                    refreshState()
+                }
+            }
+        }
+    }
+
+    override fun onStop() {
+        remoteEventsJob?.cancel()
+        remoteEventsJob = null
+        super.onStop()
     }
 
     override fun onResume() {

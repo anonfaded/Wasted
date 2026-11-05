@@ -433,6 +433,27 @@ button.small {
   color: var(--muted);
   padding-top: 0.16rem;
 }
+.info-button {
+  display: inline-grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0 0 0 0.3rem;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.58rem;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: none;
+  vertical-align: middle;
+}
+.info-button:hover {
+  border-color: var(--ink);
+  color: var(--text);
+}
 .device-card dd { margin: 0; }
 
 /* Monochrome stamps: meaning comes from weight and border style, not color */

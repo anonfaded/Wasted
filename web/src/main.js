@@ -14,6 +14,7 @@ import {
   isRecentlyConnected,
   formatRemaining,
   formatLastContact,
+  formatDateTime,
 } from "./timers.js";
 import { $, toast, setBusy, confirmAction, showMessage, clearMessage, copyText } from "./ui.js";
 import { actionUnavailableMessage, isReachabilityError, retryDelayMs } from "./connection.js";
@@ -468,6 +469,7 @@ function subscribeRealtime(accountId) {
     .channel("wasted-dashboard")
     .on("postgres_changes", { event: "*", schema: "public", table: "devices", filter }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "account_settings", filter }, scheduleRefresh)
+    .on("postgres_changes", { event: "*", schema: "public", table: "device_status", filter }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "device_commands", filter }, scheduleRefresh)
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
@@ -539,6 +541,7 @@ function renderDevices() {
     const command = latestCommand.get(device.id) ?? null;
     const fresh = isRecentlyConnected(status, now);
     const timerSpan = el("span", { text: timerText(status, now) });
+    const lastContactEl = el("dd", { text: formatLastContact(status, now) });
 
     const card = el("article", { className: "device-card" }, [
       el("h3", { text: device.name || "Unnamed device" }),
@@ -575,7 +578,10 @@ function renderDevices() {
             }),
           ]),
       el("dl", {}, [
-        el("dt", { text: "Connection" }),
+        fieldTerm(
+          "Connection",
+          "Recently connected means a status update arrived within the last 150 seconds. The device normally reports about once a minute.",
+        ),
         el("dd", {}, [
           el("span", {
             className: `badge ${fresh ? "fresh" : "stale"}`,
@@ -587,15 +593,30 @@ function renderDevices() {
             },
           }),
         ]),
-        el("dt", { text: "Last contact" }),
-        el("dd", { text: formatLastContact(status) }),
-        el("dt", { text: "Timer" }),
+        fieldTerm(
+          "Last contact",
+          "The last successful status sync. It normally updates about once a minute, and immediately after a command is applied.",
+        ),
+        lastContactEl,
+        fieldTerm(
+          "Timer",
+          "The lock timer remaining, estimated locally between device reports.",
+        ),
         el("dd", {}, [timerSpan]),
-        el("dt", { text: "Lock timer" }),
+        fieldTerm(
+          "Lock timer",
+          "Actual is the device's current value. Desired is the account setting and revision it applies at the next sync.",
+        ),
         el("dd", { text: desiredVsActual(settings?.lock_timer_minutes, settings?.revision, status?.actual_lock_timer_minutes, "min") }),
-        el("dt", { text: "USB trigger" }),
+        fieldTerm(
+          "USB trigger",
+          "When ON, connecting USB data while the device is locked can fire the USB trigger. Actual is reported by the device; desired is the account setting.",
+        ),
         el("dd", { text: desiredVsActual(settings?.usb_trigger_enabled, settings?.revision, status?.actual_usb_trigger_enabled, null) }),
-        el("dt", { text: "Debug Mode" }),
+        fieldTerm(
+          "Debug Mode",
+          "ON blocks Force Reset; Reset Timer and settings sync still work. The switch sends a command to this device and asks for confirmation.",
+        ),
         el("dd", {}, [
           el("span", {
             className: "badge debug",
@@ -610,17 +631,26 @@ function renderDevices() {
           }),
           el("span", { className: "inline-actions" }, [debugSwitch(device, status)]),
         ]),
-        el("dt", { text: "Reset support" }),
+        fieldTerm(
+          "Reset support",
+          "Whether the device can run a reset with its current Device Admin/Device Owner protections. Android 14+ installs that are not Device Owner may use a best-effort wipe.",
+        ),
         el("dd", { text: !status ? "unknown" : status.reset_supported ? "supported" : "not supported" }),
-        el("dt", { text: "App / OS" }),
+        fieldTerm(
+          "App / OS",
+          "The app version and Android SDK reported by the device.",
+        ),
         el("dd", { text: status ? `${status.app_version} · Android SDK ${status.android_sdk}` : "unknown" }),
-        el("dt", { text: "Last command" }),
+        fieldTerm(
+          "Last command",
+          "The newest remote command and its current state. The timestamp is when it was queued.",
+        ),
         el("dd", { text: describeCommand(command) }),
       ]),
     ]);
 
     container.append(card);
-    state.liveTimers.push({ el: timerSpan, status });
+    state.liveTimers.push({ el: timerSpan, status, lastContactEl });
   }
   setDashboardOnline(state.online);
 }
@@ -688,13 +718,28 @@ const STATE_LABELS = {
   expired: "expired",
 };
 
+function fieldTerm(label, info) {
+  return el("dt", {}, [
+    el("span", { text: label }),
+    el("button", {
+      className: "info-button",
+      attrs: {
+        type: "button",
+        "data-info": info,
+        "aria-label": `About ${label}`,
+        title: info,
+      },
+    }, [el("span", { text: "?" })]),
+  ]);
+}
+
 function describeCommand(command) {
   if (!command) return "none";
   const label = COMMAND_LABELS[command.command_type] ?? command.command_type;
   const state = STATE_LABELS[command.state] ?? command.state;
   const result = command.result_code ? ` (${command.result_code})` : "";
   const when = Date.parse(command.created_at);
-  const timestamp = Number.isNaN(when) ? command.created_at : new Date(when).toLocaleString();
+  const timestamp = Number.isNaN(when) ? command.created_at : formatDateTime(when);
   return `${label} — ${state}${result} · ${timestamp}`;
 }
 
@@ -721,6 +766,9 @@ function tickTimers() {
   const now = Date.now();
   for (const entry of state.liveTimers) {
     entry.el.textContent = timerText(entry.status, now);
+    if (entry.lastContactEl) {
+      entry.lastContactEl.textContent = formatLastContact(entry.status, now);
+    }
   }
 }
 
@@ -1000,6 +1048,11 @@ function wireDashboard() {
   });
 
   $("#devices").addEventListener("click", (event) => {
+    const info = event.target.closest("button[data-info]");
+    if (info) {
+      toast(info.dataset.info, "info");
+      return;
+    }
     const rename = event.target.closest("button[data-device-rename]");
     if (rename) {
       openRenameDialog(rename.dataset.deviceRename, rename.dataset.deviceName, rename);
