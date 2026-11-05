@@ -17,11 +17,13 @@
 
 ## Single-owner signup
 
-- Supabase password signup is direct. No confirmation email is sent and no email delivery service
-  or SMTP path is involved.
+- Supabase password signup is direct. Keep the Email provider enabled for email/password sign-in,
+  but turn Confirm email OFF. No confirmation email is sent and no email delivery service or SMTP
+  path is involved.
 - The first non-anonymous Auth user becomes the owner. The Before User Created hook
   (`public.hook_single_owner_signup`) permits anonymous device identities and rejects every later
-  email/password account with HTTP 403.
+  email/password account with HTTP 403. This is intentional: the dashboard owns devices and
+  destructive commands, so knowing the public URL must never allow a second owner.
 - The hook serializes concurrent signup attempts with an advisory lock; `initialize_owner_account`
   also retains its single-owner guard as defense in depth.
 - Create the owner immediately after deployment and keep the dashboard URL private until that is

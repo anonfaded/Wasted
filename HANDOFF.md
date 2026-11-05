@@ -156,8 +156,8 @@ Android app ── HTTPS/WSS ──► Supabase project (Auth / PostgREST / Real
    (never the secret/service-role key).
 3. In Supabase SQL Editor: paste and run `setup.sql` once.
 4. In Authentication → Providers: **enable Anonymous sign-ins** for devices and **turn Confirm
-   email OFF**. Under Authentication → Hooks → Before User Created, select
-   `public.hook_single_owner_signup`. Keep the documented rate limits. The first account becomes
+   email OFF**. Under Authentication → Hooks → Before User Created, select Hook type **Postgres**, schema **public**, function
+   `hook_single_owner_signup`, then Save. Keep the documented rate limits. The first account becomes
    owner directly; later email accounts are rejected.
 5. Run `verify.sql`; every row must say PASS.
 6. In the wizard: **Generate dashboard file** → save as `index.html` via SAF, or use **Save

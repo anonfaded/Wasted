@@ -33,7 +33,7 @@ cd web && pnpm test && pnpm run build && pnpm run build:android-template
 - [ ] `assembleSignedRelease` succeeds (fails closed without signing inputs); unsigned output is
   named `-unsigned` and is not published.
 - [ ] `apksigner verify --print-certs` shows the expected certificate SHA-256.
-- [ ] Verify Auth settings in the dashboard: anonymous on, Confirm email off, Before User Created hook enabled, rate limits as
+- [ ] Verify Auth settings in the dashboard: anonymous on, Confirm email off, Before User Created hook enabled (Postgres / public / `hook_single_owner_signup`), rate limits as
   documented; record the observed values.
 - [ ] Hosting headers observed: `frame-ancestors 'none'`/`X-Frame-Options: DENY`, nosniff,
   no-referrer.

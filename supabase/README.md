@@ -9,7 +9,7 @@ Reproducible infrastructure for the optional Remote Management feature. Git is t
    policies, RPCs, grants, Realtime publication, and the cleanup job; it also ensures
    `pgcrypto`/`pg_cron` are available.
 3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** (device identities)
-   and turn **Confirm email** OFF (signup is direct; no email is sent). Enable **Authentication → Hooks → Before User Created** and select `public.hook_single_owner_signup`. In **Authentication → Rate Limits**,
+   and turn **Confirm email** OFF (signup is direct; no email is sent). Enable **Authentication → Hooks → Before User Created**: hook ON, Hook type Postgres, Postgres schema public, function `hook_single_owner_signup`, then Save. This blocks every later email account while allowing anonymous devices. In **Authentication → Rate Limits**,
    set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your
    chosen values). CAPTCHA is optional.
 4. Run `verify.sql`; every row must say PASS. The verifier checks FORCE RLS, exact policies/grants,
@@ -55,7 +55,7 @@ Record and verify these values for every project:
 | Auth providers | Email/password for owners; anonymous sign-ins for devices |
 | Sign-up | Confirmation email recommended; click the link, then sign in |
 | Rate limits | Anonymous sign-ups 10/hour/IP; sign-in/sign-up 10 per 5 minutes/IP |
-| Hooks | Before User Created: `public.hook_single_owner_signup` |
+| Hooks | Before User Created: Postgres / public / `hook_single_owner_signup` |
 | Exposed schemas | `public` only; `private` schema usage/grants revoked |
 | Extensions | `pgcrypto` (digest, random bytes); `pg_cron` (daily anonymous-identity cleanup) |
 | Realtime | Publication `supabase_realtime` contains only `account_settings`, `devices`, `device_status`, `device_commands` |

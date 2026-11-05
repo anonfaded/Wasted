@@ -29,7 +29,7 @@ header-capable hosts; the frame-busting script is only a fallback.
 
 ## Auth settings (manual, verify in dashboard)
 
-- Anonymous sign-ins enabled; Confirm email disabled; Before User Created hook set to `public.hook_single_owner_signup`.
+- Anonymous sign-ins enabled; Confirm email disabled; Before User Created hook set to Postgres / public / `hook_single_owner_signup`.
 - Rate limits: anonymous 10/hour/IP; sign-in/sign-up 10 per 5 minutes/IP (or documented choice).
 - CAPTCHA optional; verify the actual values rather than assuming defaults.
 
@@ -83,7 +83,7 @@ failure, not a passing negative. It then proves the undrifted verifier passes.
 
 1. Create an empty Supabase project.
 2. Run `supabase/releases/<current>/setup.sql`.
-3. Enable anonymous sign-ins, turn Confirm email off, and enable the Before User Created hook.
+3. Enable anonymous sign-ins, turn Confirm email off, and enable Before User Created with Postgres / public / `hook_single_owner_signup`.
 4. Run `verify.sql` → all PASS.
 5. Run the four SQL suites and the verifier drift test.
 6. Generate the dashboard, create an owner, enroll a device.

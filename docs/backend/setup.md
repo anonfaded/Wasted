@@ -42,10 +42,13 @@ design.
    - enable **Allow anonymous sign-ins**. Remote Management uses this to give each device its own
      private, unnamed identity, so the app can link a device to your account without storing your
      email or password on the device.
-   - turn **Confirm email OFF**. Signup is direct and no email is sent;
-   - open **Authentication → Hooks → Before User Created** and select
-     `public.hook_single_owner_signup`. This allows anonymous devices and rejects every later
-     email/password account;
+   - keep the **Email provider ON** for email/password sign-in, but turn **Confirm email OFF**.
+     Signup is direct and no email is sent;
+   - open **Authentication → Hooks → Before User Created**: turn the hook ON, set
+     **Hook type: Postgres**, **Postgres schema: public**, select **Postgres function:
+     `hook_single_owner_signup`**, and click Save. This deliberately keeps the dashboard
+     single-owner: it blocks every later email/password account, even if someone finds the
+     dashboard URL, while anonymous devices remain allowed for enrollment;
    - in **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up
      to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 

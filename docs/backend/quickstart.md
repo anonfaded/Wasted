@@ -6,10 +6,11 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
 2. **Open the app**: Remote Management → **Open setup wizard** → paste the **Project URL** and
    **Publishable key** (never the secret/service-role key).
 3. **Set up the database**: in Supabase, open **SQL Editor**, run the release's `setup.sql` once,
-   then **Authentication → Providers**: enable **Allow anonymous sign-ins** and turn
-   **Confirm email OFF**. Enable **Authentication → Hooks → Before User Created** and select
-   `public.hook_single_owner_signup`. Signup is direct; the first account becomes the owner and
-   later email accounts are rejected. Anonymous sign-ins give each device its own private identity, so your
+   then **Authentication → Providers**: enable **Allow anonymous sign-ins**, keep the **Email
+   provider ON**, and turn **Confirm email OFF**. Enable **Authentication → Hooks → Before User Created** with Hook type
+   **Postgres**, Postgres schema **public**, and Postgres function **`hook_single_owner_signup`**;
+   click Save. Signup is direct; the first account becomes the owner and later email accounts are
+   rejected, even if someone finds the dashboard URL. Anonymous sign-ins give each device its own private identity, so your
    email/password is never stored on the device. If you do not want Remote Management, you can leave
    them off; the owner account and dashboard still work, but devices cannot enroll or sync. Under
    **Rate Limits**, set anonymous 10/hour/IP and sign-in/sign-up 10 per 5 minutes/IP (or verify your

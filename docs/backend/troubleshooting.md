@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | `Anonymous sign-ins are disabled` / enrollment fails | Auth provider not enabled | Remote Management needs this to give each device its own private identity without storing your password on it. Authentication → Providers → enable **Allow anonymous sign-ins**. If you leave it off, your owner account and dashboard still work, but devices cannot enroll or sync. |
 | Create Account says the dashboard already has an owner | The Before User Created hook rejected a second email/password account | Sign in with the owner account. The hook intentionally allows only one non-anonymous account. |
-| Create Account fails with “Account creation did not complete” | Confirm email is still ON, or the Before User Created hook is not enabled | Turn **Confirm email OFF** and enable `public.hook_single_owner_signup` under Authentication → Hooks. |
+| Create Account fails with “Account creation did not complete” | Confirm email is still ON, or the Before User Created hook is not enabled | Turn **Confirm email OFF** and enable Before User Created with Hook type Postgres, schema public, function `hook_single_owner_signup`, then Save. |
 | Second email account cannot sign up | Expected single-owner behavior | Use the owner account. Anonymous device identities remain allowed for device enrollment. |
 | `Invalid API key` / 401 | Wrong key or URL | Re-copy Project URL + publishable key; never use the secret key |
 | `permission denied` (42501) | Direct table access / wrong role | Use the app/dashboard RPCs only; do not grant table writes |

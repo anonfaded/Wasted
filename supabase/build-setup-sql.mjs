@@ -94,9 +94,11 @@ function setupHeader(release) {
 -- This file configures the DATABASE (tables, RLS, RPCs, grants, Realtime, cron).
 -- In Authentication settings (Dashboard -> Authentication):
 --   1) enable "Allow anonymous sign-ins" (device identities)
---   2) turn "Confirm email" OFF (direct owner signup; no email is sent)
+--   2) keep the Email provider ON; turn "Confirm email" OFF (direct owner signup, no email)
 --   3) enable Authentication > Hooks > Before User Created:
---      public.hook_single_owner_signup (allows anonymous devices, blocks later email accounts)
+--      hook ON; Hook type Postgres; Postgres schema public;
+--      function hook_single_owner_signup; Save
+--      (allows anonymous devices, blocks every later email account)
 --   4) review the sign-up / sign-in rate limits
 --
 -- Extensions: pgcrypto is available on Supabase; pg_cron is enabled by the script.`;
@@ -140,10 +142,11 @@ function releaseReadme(release, updates, checksums) {
     "1. Back up or export the project first if it contains anything you care about.",
     "2. Open **SQL Editor**, paste `setup.sql`, and press **Run** once.",
     "3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** and",
-    "   turn **Confirm email** OFF (signup is direct; no email is sent). Enable",
-    "   **Authentication → Hooks → Before User Created** and select",
-    "   `public.hook_single_owner_signup`. Set rate limits to anonymous 10/hour/IP and",
-    "   sign-in/sign-up 10 per 5 minutes/IP.",
+    "   keep the **Email provider ON** and turn **Confirm email** OFF (signup is direct; no email). Enable",
+    "   **Authentication → Hooks → Before User Created**: hook ON, **Hook type Postgres**,",
+    "   **Postgres schema public**, function **`hook_single_owner_signup`**, then Save.",
+    "   This blocks every later email account while allowing anonymous devices. Set rate limits to",
+    "   anonymous 10/hour/IP and sign-in/sign-up 10 per 5 minutes/IP.",
     "4. Run `verify.sql`; every row must say PASS.",
     "",
     "Never run `setup.sql` on an existing project and never run it twice.",
@@ -174,8 +177,9 @@ function releaseReadme(release, updates, checksums) {
     "## Authentication checklist",
     "",
     "- Enable **Allow anonymous sign-ins** (per-device identities).",
-    "- Turn **Confirm email** OFF (direct owner signup; no email is sent).",
-    "- Enable **Before User Created** hook: `public.hook_single_owner_signup`.",
+    "- Keep the **Email provider ON**; turn **Confirm email** OFF (direct owner signup, no email).",
+    "- Enable **Before User Created**: Hook type Postgres, schema public, function",
+    "  `hook_single_owner_signup`; Save. This blocks every later email account.",
     "- Review sign-up/sign-in rate limits.",
     "- CAPTCHA is optional and not required by this project.",
     "",

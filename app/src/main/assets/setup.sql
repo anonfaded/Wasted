@@ -8,9 +8,11 @@
 -- This file configures the DATABASE (tables, RLS, RPCs, grants, Realtime, cron).
 -- In Authentication settings (Dashboard -> Authentication):
 --   1) enable "Allow anonymous sign-ins" (device identities)
---   2) turn "Confirm email" OFF (direct owner signup; no email is sent)
+--   2) keep the Email provider ON; turn "Confirm email" OFF (direct owner signup, no email)
 --   3) enable Authentication > Hooks > Before User Created:
---      public.hook_single_owner_signup (allows anonymous devices, blocks later email accounts)
+--      hook ON; Hook type Postgres; Postgres schema public;
+--      function hook_single_owner_signup; Save
+--      (allows anonymous devices, blocks every later email account)
 --   4) review the sign-up / sign-in rate limits
 --
 -- Extensions: pgcrypto is available on Supabase; pg_cron is enabled by the script.

@@ -1173,11 +1173,13 @@ button.danger-outline:hover {
             and run the setup SQL copied from the wizard (one paste). Then in
             <a id="setup-auth-link" href="https://supabase.com/dashboard"
                target="_blank" rel="noopener noreferrer">Authentication → Providers</a>:
-            enable “Allow anonymous sign-ins” and turn <strong>Confirm email OFF</strong>.
+            enable “Allow anonymous sign-ins”. Under <strong>Providers → Email</strong>, keep the
+            <strong>Email provider ON</strong> (it enables email/password sign-in), but turn
+            <strong>Confirm email OFF</strong>.
             Then open <a id="setup-hooks-link" href="https://supabase.com/dashboard"
-               target="_blank" rel="noopener noreferrer">Authentication → Hooks</a>, choose
-            <strong>Before User Created</strong>, and select
-            <code>public.hook_single_owner_signup</code>.</li>
+               target="_blank" rel="noopener noreferrer">Authentication → Hooks</a> → <strong>Before User Created</strong>:
+            turn the hook ON, set <strong>Hook type: Postgres</strong>, <strong>Postgres schema: public</strong>,
+            select <strong>Postgres function: <code>hook_single_owner_signup</code></strong>, and click Save.</li>
           <li>In the wizard, <strong>save the deployable ZIP</strong>. In
             <a id="setup-netlify-link" href="https://app.netlify.com/"
                target="_blank" rel="noopener noreferrer">Netlify</a>, create a project with
@@ -1192,9 +1194,10 @@ button.danger-outline:hover {
         </ol>
         <p class="muted">
           <strong>Owner signup:</strong> signup is direct and no email is sent. The first account
-          becomes the owner. The Before User Created hook blocks every later email/password signup;
-          anonymous device identities remain allowed. Keep the dashboard URL private until the
-          owner account exists.
+          becomes the owner. This dashboard is deliberately single-owner: the Before User Created
+          hook blocks every later email/password signup, even if someone finds the dashboard URL,
+          while anonymous device identities remain allowed. Keep the URL private until the owner
+          account exists.
         </p>
         <p class="muted">
           <strong>Changing your account:</strong> use the Account section to change the display
@@ -1470,8 +1473,9 @@ button.danger-outline:hover {
                 abuse.
               </p>
               <ol>
-                <li>In Supabase, run the setup SQL, enable anonymous sign-ins, turn Confirm email
-                  off, and enable the Before User Created single-owner hook.</li>
+                <li>In Supabase, run the setup SQL, enable anonymous sign-ins, keep the Email
+                  provider on, turn Confirm email off, and enable the Before User Created
+                  single-owner hook.</li>
                 <li>Create the first account on this page; it becomes the owner immediately.</li>
                 <li>In the app, paste this page's URL under Remote Management, Save, and Enable.</li>
                 <li>Create an enrollment token on the Devices tab, then claim it in the app.</li>
