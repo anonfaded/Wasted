@@ -8,10 +8,8 @@
 - Account name saved to Supabase and editable from the dashboard.
 - Dashboard installs as an app with its own icon and works offline on supported browsers.
 - Signup is direct and owner-only; no confirmation email is needed, and later accounts are blocked for security.
+- Remote data stays within the Supabase free plan: command history is cleaned after 180 days, enrollment tokens after 30 days, and the dashboard only polls visible tabs.
 
 ### Enhancements
 - P2P security now uses certificate pinning and an encrypted peer database (re-pair existing peers once).
 - Home screen Help explains the secret code, wipe options, protection level, and setup.
-- Sign-in shows inline validation and Create Account confirms the password.
-- Account names accept spaces and normal punctuation, so full names are preserved.
-- Remote data stays within the Supabase free plan: command history is cleaned after 180 days, enrollment tokens after 30 days, and the dashboard only polls visible tabs.

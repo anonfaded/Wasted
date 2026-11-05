@@ -16,6 +16,8 @@ import {
   formatLastContact,
 } from "./timers.js";
 import { $, toast, setBusy, confirmAction, showMessage, clearMessage } from "./ui.js";
+import { actionUnavailableMessage, isReachabilityError, retryDelayMs } from "./connection.js";
+import { installRipple } from "./ripple.js";
 
 const state = {
   client: null,
@@ -23,11 +25,16 @@ const state = {
   handle: "",
   handleLoaded: false,
   online: navigator.onLine !== false,
+  connectionReason: null,
   dataLoaded: false,
   cacheSavedAt: 0,
   channel: null,
   realtimeAccountId: null,
   refreshTimeout: null,
+  retryTimer: null,
+  refreshFailures: 0,
+  refreshInFlight: false,
+  explicitSignOut: false,
   tokenTimer: null,
   liveTimers: [],
   data: {
@@ -66,7 +73,12 @@ async function boot(cfg) {
   wireDashboard();
   wireDashboardTabs();
   wireSignOut();
-  onAuthChange(state.client, (session) => {
+  wireHeaderMenu();
+  installRipple();
+  onAuthChange(state.client, (session, event) => {
+    if (event === "SIGNED_OUT" && state.session && !state.explicitSignOut) {
+      toast("Session ended — sign in again.", "info");
+    }
     state.session = session;
     renderAuthState();
   });
@@ -81,14 +93,19 @@ async function boot(cfg) {
   let offlineTimer;
   window.addEventListener("online", () => {
     clearTimeout(offlineTimer);
+    clearTimeout(state.retryTimer);
+    state.retryTimer = null;
+    state.refreshFailures = 0;
     setDashboardOnline(true);
     refreshDashboard();
   });
   window.addEventListener("offline", () => {
     clearTimeout(offlineTimer);
+    clearTimeout(state.retryTimer);
+    state.retryTimer = null;
     offlineTimer = setTimeout(() => {
       loadCachedDashboard();
-      setDashboardOnline(false);
+      setDashboardOnline(false, "offline");
       renderSettings();
       renderDevices();
     }, 400);
@@ -166,69 +183,97 @@ function renderAuthState() {
     state.handleLoaded = false;
     state.dataLoaded = false;
     state.cacheSavedAt = 0;
+    state.refreshFailures = 0;
     state.data = { devices: [], statusByDevice: new Map(), latestCommand: new Map(), settings: null };
     $("#account-panel").hidden = true;
     $("#account-message").textContent = "";
   }
+  if (!signedIn) closeHeaderMenu();
+  syncHeaderMenu();
   setDashboardOnline(navigator.onLine !== false);
 }
 
 async function refreshDashboard() {
-  if (!state.session) return;
+  if (!state.session || state.refreshInFlight) return;
+  state.refreshInFlight = true;
   const loading = $("#loading");
   loading.hidden = false;
 
-  if (!navigator.onLine) {
-    loadCachedDashboard();
-    setDashboardOnline(false);
-    renderSettings();
-    renderDevices();
-    loading.hidden = true;
-    return;
-  }
-
   try {
-    if (!state.handleLoaded) {
-      state.handle = await ensureOwnerAccount(state.client, state.session);
-      state.handleLoaded = true;
-    }
-    $("#account-line").textContent = state.handle
-      ? `Account: ${state.handle}`
-      : `Signed in as ${state.session.user.email ?? "owner"}`;
-    $("#account-panel").hidden = !state.handle;
-    if (state.handle && document.activeElement !== $("#account-handle")) {
-      $("#account-handle").value = state.handle;
-    }
-
-    state.data = await fetchDashboardData(state.client);
-    state.dataLoaded = true;
-    saveDashboardCache();
-    setDashboardOnline(true);
-    renderSettings();
-    renderDevices();
-    subscribeRealtime(state.session.user.id);
-    $("#offline-banner").hidden = true;
-  } catch (error) {
-    if (error.code === "OWNER_EXISTS" || error.code === "MISSING_PROFILE") {
-      await signOut(state.client);
-      showMessage("#auth-message", error.message, "error");
-      return;
-    }
-    loadCachedDashboard();
-    const networkFailure =
-      !navigator.onLine ||
-      /failed to fetch|networkerror|load failed|fetch failed|timed? out|timeout/i.test(error.message);
-    if (networkFailure) {
-      setDashboardOnline(false);
+    if (!navigator.onLine) {
+      loadCachedDashboard();
+      setDashboardOnline(false, "offline");
       renderSettings();
       renderDevices();
-      toast("Could not reach Supabase. Showing cached data.", "error");
-    } else {
-      toast(`Refresh failed: ${error.message}`, "error");
+      return;
+    }
+
+    try {
+      if (!state.handleLoaded) {
+        state.handle = await ensureOwnerAccount(state.client, state.session);
+        state.handleLoaded = true;
+      }
+      $("#account-line").textContent = state.handle
+        ? `Account: ${state.handle}`
+        : `Signed in as ${state.session.user.email ?? "owner"}`;
+      $("#account-panel").hidden = !state.handle;
+      if (state.handle && document.activeElement !== $("#account-handle")) {
+        $("#account-handle").value = state.handle;
+      }
+
+      state.data = await fetchDashboardData(state.client);
+      state.dataLoaded = true;
+      state.refreshFailures = 0;
+      clearTimeout(state.retryTimer);
+      state.retryTimer = null;
+      saveDashboardCache();
+      setDashboardOnline(true);
+      renderSettings();
+      renderDevices();
+      subscribeRealtime(state.session.user.id);
+      $("#offline-banner").hidden = true;
+    } catch (error) {
+      if (error.code === "OWNER_EXISTS" || error.code === "MISSING_PROFILE") {
+        await signOut(state.client);
+        showMessage("#auth-message", error.message, "error");
+        return;
+      }
+      loadCachedDashboard();
+      state.refreshFailures += 1;
+
+      if (!navigator.onLine) {
+        setDashboardOnline(false, "offline");
+        renderSettings();
+        renderDevices();
+        return;
+      }
+
+      if (isReachabilityError(error)) {
+        if (state.refreshFailures >= 2 || !state.dataLoaded) {
+          setDashboardOnline(false, "unreachable");
+          renderSettings();
+          renderDevices();
+          toast("Could not reach Supabase. Showing cached data; retrying.", "error");
+        } else {
+          toast("Could not refresh from Supabase. Retrying.", "error");
+        }
+        scheduleDashboardRetry();
+      } else {
+        toast(`Refresh failed: ${error.message}`, "error");
+      }
     }
   } finally {
+    state.refreshInFlight = false;
     loading.hidden = true;
   }
+}
+
+function scheduleDashboardRetry() {
+  if (state.retryTimer) return;
+  state.retryTimer = setTimeout(() => {
+    state.retryTimer = null;
+    if (!document.hidden) refreshDashboard();
+  }, retryDelayMs(state.refreshFailures));
 }
 
 function dashboardCacheKey() {
@@ -291,18 +336,25 @@ function clearDashboardCache() {
 
 function requireOnline(selector) {
   if (state.online) return true;
-  showMessage(selector, "Offline — reconnect before using this action.", "error");
+  showMessage(selector, actionUnavailableMessage(state.connectionReason), "error");
   return false;
 }
 
-function setDashboardOnline(online) {
+function setDashboardOnline(online, reason = state.connectionReason ?? "offline") {
   state.online = online;
+  state.connectionReason = online ? null : reason;
 
   const banner = $("#offline-banner");
+  const offline = reason === "offline";
+  if (banner) {
+    banner.classList.toggle("warning", !online && !offline);
+    banner.classList.toggle("error", online || offline);
+  }
   if (!state.session) {
     if (banner) {
-      banner.textContent =
-        "Offline — sign-in, account creation, and dashboard access require a connection. Reconnect and try again.";
+      banner.textContent = offline
+        ? "Offline — sign-in, account creation, and dashboard access require a connection. Reconnect and try again."
+        : "Can't reach Supabase — sign-in and account creation are unavailable. Retrying automatically.";
       banner.hidden = online;
     }
     for (const selector of ["#sign-in", "#create-account"]) {
@@ -321,10 +373,13 @@ function setDashboardOnline(online) {
           ? ` Showing cached data last updated ${new Date(state.cacheSavedAt).toLocaleTimeString()}.`
           : " Showing the data already loaded in this session."
         : " No cached dashboard data is available.";
-      banner.textContent =
-        "Offline —" +
-        detail +
-        " Commands, settings saves, enrollment, and refresh are disabled until the connection returns.";
+      banner.textContent = offline
+        ? "Offline —" +
+          detail +
+          " Commands, settings saves, enrollment, and refresh are disabled until the connection returns."
+        : "Can't reach Supabase —" +
+          detail +
+          " Commands, settings saves, enrollment, and refresh are disabled until Supabase responds. Retrying automatically.";
       banner.hidden = false;
     }
   }
@@ -390,25 +445,29 @@ function renderDevices() {
 
   const { devices, statusByDevice, latestCommand, settings } = state.data;
   renderDeviceSummary(devices, statusByDevice, now);
+  const unavailableWithoutCache = !state.online && !state.dataLoaded;
+  const unavailablePrefix =
+    state.connectionReason === "offline" ? "Offline" : "Can't reach Supabase";
   $("#action-scope").textContent = devices.length
     ? `Applies to ${devices.length} active device(s).`
-    : !state.online && !state.dataLoaded
-      ? "Offline — no cached device data. Reconnect to load the account."
+    : unavailableWithoutCache
+      ? `${unavailablePrefix} — no cached device data.`
       : "No active devices enrolled yet.";
 
   if (!devices.length) {
-    const offlineWithoutCache = !state.online && !state.dataLoaded;
     container.append(
       el("div", { className: "empty-state" }, [
         el("p", {
-          text: offlineWithoutCache
-            ? "Offline — no cached dashboard data is available."
+          text: unavailableWithoutCache
+            ? `${unavailablePrefix} — no cached dashboard data is available.`
             : "No devices enrolled yet.",
         }),
         el("p", {
           className: "hint",
-          text: offlineWithoutCache
-            ? "Reconnect to load your devices. Commands and settings saves are disabled while offline."
+          text: unavailableWithoutCache
+            ? state.connectionReason === "offline"
+              ? "Reconnect to load your devices. Commands and settings saves are disabled while offline."
+              : "Supabase is unreachable, so cached data cannot be refreshed. Commands and settings saves are disabled until it responds."
             : "Enable Remote Management in the app, create an enrollment token below, " +
               "and claim it in the app. The device appears here after its first sync.",
         }),
@@ -591,7 +650,9 @@ function renderSettings() {
   if (!settings) {
     $("#settings-revision").textContent = state.online
       ? "settings unavailable"
-      : "offline — reconnect to load settings";
+      : state.connectionReason === "offline"
+        ? "offline — reconnect to load settings"
+        : "Supabase unreachable — retrying";
     return;
   }
   $("#lock-minutes").value = String(settings.lock_timer_minutes);
@@ -627,7 +688,7 @@ function debugButton(deviceId, enable) {
 /** Enable and Disable both explain the effect; Disable keeps the danger styling. */
 async function toggleDebugMode(deviceId, enabled, button) {
   if (!state.online) {
-    toast("Offline — reconnect before changing Debug Mode.", "error");
+    toast(actionUnavailableMessage(state.connectionReason), "error");
     return;
   }
   const confirmed = await confirmAction(
@@ -669,7 +730,7 @@ async function toggleDebugMode(deviceId, enabled, button) {
 /** Rename is dashboard-only; it does not change the device identity or its credentials. */
 function openRenameDialog(deviceId, currentName, button) {
   if (!state.online) {
-    toast("Offline — reconnect before renaming a device.", "error");
+    toast(actionUnavailableMessage(state.connectionReason), "error");
     return;
   }
   const dialog = $("#rename-dialog");
@@ -701,7 +762,7 @@ function openRenameDialog(deviceId, currentName, button) {
 
 async function revokeDevicePrompt(deviceId, button) {
   if (!state.online) {
-    toast("Offline — reconnect before revoking a device.", "error");
+    toast(actionUnavailableMessage(state.connectionReason), "error");
     return;
   }
   const confirmed = await confirmAction({
@@ -775,6 +836,7 @@ function wireInstallPrompt() {
     window.navigator.standalone === true;
   if (standalone) {
     button.hidden = true;
+    syncHeaderMenu();
     return;
   }
 
@@ -790,6 +852,7 @@ function wireInstallPrompt() {
       await deferredPrompt.userChoice.catch(() => undefined);
       deferredPrompt = null;
       button.hidden = true;
+      syncHeaderMenu();
       return;
     }
     if (message && dialog) {
@@ -801,6 +864,7 @@ function wireInstallPrompt() {
   window.addEventListener("appinstalled", () => {
     deferredPrompt = null;
     button.hidden = true;
+    syncHeaderMenu();
   });
 }
 
@@ -958,7 +1022,7 @@ function wireDashboard() {
 
   $("#create-token").addEventListener("click", async () => {
     if (!state.online) {
-      toast("Offline — reconnect before creating an enrollment token.", "error");
+      toast(actionUnavailableMessage(state.connectionReason), "error");
       return;
     }
     const confirmed = await confirmAction({
@@ -1034,11 +1098,81 @@ async function sendAction(actionType) {
 
 function wireSignOut() {
   $("#sign-out").addEventListener("click", async () => {
+    const confirmed = await confirmAction({
+      title: "Sign out?",
+      message:
+        "Remote commands stop until you sign in again. Your devices and settings are not changed.",
+      confirmLabel: "Sign out",
+      danger: false,
+    });
+    if (!confirmed) return;
+    state.explicitSignOut = true;
     clearEnrollmentToken();
     clearDashboardCache();
-    await signOut(state.client);
-    toast("Signed out.", "info");
+    try {
+      await signOut(state.client);
+      toast("Signed out.", "info");
+    } finally {
+      state.explicitSignOut = false;
+    }
   });
+}
+
+function wireHeaderMenu() {
+  const header = document.querySelector(".app-header");
+  const toggle = $("#menu-toggle");
+  const actions = $("#header-actions");
+  if (!header || !toggle || !actions) return;
+
+  const setOpen = (open, restoreFocus = false) => {
+    header.classList.toggle("menu-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    if (open) {
+      actions.querySelector("button:not([hidden])")?.focus({ preventScroll: true });
+    } else if (restoreFocus) {
+      toggle.focus({ preventScroll: true });
+    }
+  };
+
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setOpen(!header.classList.contains("menu-open"));
+  });
+  document.addEventListener("click", (event) => {
+    if (!header.contains(event.target)) setOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && header.classList.contains("menu-open")) {
+      setOpen(false, true);
+    }
+  });
+  actions.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", () => setOpen(false));
+  });
+  const desktop = window.matchMedia("(min-width: 641px)");
+  desktop.addEventListener?.("change", (event) => {
+    if (event.matches) setOpen(false);
+  });
+}
+
+function closeHeaderMenu() {
+  const header = document.querySelector(".app-header");
+  if (!header) return;
+  header.classList.remove("menu-open");
+  const toggle = $("#menu-toggle");
+  if (!toggle) return;
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-label", "Open menu");
+}
+
+function syncHeaderMenu() {
+  const toggle = $("#menu-toggle");
+  const actions = $("#header-actions");
+  if (!toggle || !actions) return;
+  const visible = [...actions.querySelectorAll("button")].some((button) => !button.hidden);
+  toggle.hidden = !visible;
+  if (!visible) closeHeaderMenu();
 }
 
 function el(tag, { className, text, attrs, icon } = {}, children = []) {

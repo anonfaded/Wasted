@@ -163,6 +163,7 @@ The publishable key is public by design and safe to expose. Never embed a secret
 * Local notifications (on by default, `remote_events` channel) cover settings applied, Reset Timer, Force Reset, blocked or failed commands, manual-sync success, and sync failures. Repeated notices replace each other instead of stacking, and heartbeat successes never notify.
 * Delivery is not push: an online device syncs over Realtime, otherwise at the next 60-second heartbeat or WorkManager recovery run. Nothing is queued forever: Reset Timer 24 h, Force Reset and Debug Mode OFF 10 min, Debug Mode ON 24 h.
 * Free-plan guardrails: the dashboard polls only visible tabs, does not treat the 60-second status heartbeat as a Realtime message, fetches one latest command per device, and keeps command history/action rows for 180 days. Stale enrollment tokens are removed after 30 days. See [`docs/backend/capacity.md`](docs/backend/capacity.md) for the measured budget.
+* Sign-in persists in browser storage and auto-refreshes; refresh tokens do not expire by default. Sign out asks for confirmation and ends only the current browser session, so other devices stay signed in.
 
 ### Troubleshooting and rollback
 

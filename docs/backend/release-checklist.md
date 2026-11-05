@@ -30,7 +30,7 @@ cd web && pnpm test && pnpm run build && pnpm run build:android-template
 ```
 
 - [ ] Android tests green (currently 110).
-- [ ] Web tests green (currently 42).
+- [ ] Web tests green (currently 47).
 - [ ] `assembleSignedRelease` succeeds (fails closed without signing inputs); unsigned output is
   named `-unsigned` and is not published.
 - [ ] `apksigner verify --print-certs` shows the expected certificate SHA-256.

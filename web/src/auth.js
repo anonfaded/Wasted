@@ -142,7 +142,7 @@ export async function currentSession(client) {
 }
 
 export function onAuthChange(client, callback) {
-  const { data } = client.auth.onAuthStateChange((_event, session) => callback(session));
+  const { data } = client.auth.onAuthStateChange((event, session) => callback(session, event));
   return () => data.subscription.unsubscribe();
 }
 
@@ -222,7 +222,7 @@ export function validateEmail(value, field = "sign-in-email") {
 }
 
 export async function signOut(client) {
-  await client.auth.signOut();
+  await client.auth.signOut({ scope: "local" });
 }
 
 export function normalizeEmail(value) {

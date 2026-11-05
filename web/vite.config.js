@@ -13,18 +13,27 @@ export default defineConfig({
     {
       name: "wasted-dev-entry",
       transformIndexHtml(html) {
-        return html
+        let devEntryFound = false;
+        const withDevEntry = html.replace(
+          /<script type="module" src="\/?assets\/app\.js" defer><\/script>/,
+          () => {
+            devEntryFound = true;
+            return `<script type="module" src="/src/main.js?t=${Date.now()}"></script>`;
+          },
+        );
+        if (!devEntryFound) {
+          throw new Error(
+            "Wasted dev entry not replaced; refusing to serve a stale assets/app.js bundle.",
+          );
+        }
+        return withDevEntry
           .replace(
             "connect-src https://*.supabase.co wss://*.supabase.co;",
             "connect-src 'self' https://*.supabase.co wss://*.supabase.co " +
               "ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:*;",
           )
           .replace(
-            '<script type="module" src="assets/app.js" defer></script>',
-            `<script type="module" src="/src/main.js?t=${Date.now()}"></script>`,
-          )
-          .replace(
-            '<script src="config.js" defer></script>',
+            /<script src="\/?config\.js" defer><\/script>/,
             '<script src="/config.js"></script>',
           );
       },

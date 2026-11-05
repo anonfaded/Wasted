@@ -97,6 +97,9 @@
     <path d="m7 10 5 5 5-5"/>
     <path d="M5 21h14"/>
   </symbol>
+  <symbol id="icon-menu" viewBox="0 0 24 24">
+    <path d="M4 7h16M4 12h16M4 17h16"/>
+  </symbol>
 </svg>
 
 <header class="app-header">
@@ -107,7 +110,11 @@
     </h1>
     <span class="brand-sub">Self-hosted remote control</span>
   </div>
-  <div class="header-actions">
+  <button id="menu-toggle" type="button" class="quiet menu-toggle"
+          aria-label="Open menu" aria-expanded="false" aria-controls="header-actions">
+    <svg class="icon" aria-hidden="true"><use href="#icon-menu"/></svg>
+  </button>
+  <div id="header-actions" class="header-actions">
     <button id="install-app" type="button" class="quiet">
       <svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg>
       <span class="button-label">Install app</span>

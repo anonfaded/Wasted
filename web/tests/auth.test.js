@@ -5,9 +5,23 @@ import {
   friendlyAuthError,
   normalizeEmail,
   signIn,
+  signOut,
   validateCreateAccount,
   validateSignIn,
 } from "../src/auth.js";
+
+test("sign out ends only the current browser session", async () => {
+  const calls = [];
+  const client = {
+    auth: {
+      signOut: async (options) => {
+        calls.push(options);
+      },
+    },
+  };
+  await signOut(client);
+  assert.deepEqual(calls, [{ scope: "local" }]);
+});
 
 test("normalizeEmail trims, lowercases, and removes whitespace", () => {
   assert.equal(normalizeEmail("  Test @Example.COM  "), "test@example.com");
