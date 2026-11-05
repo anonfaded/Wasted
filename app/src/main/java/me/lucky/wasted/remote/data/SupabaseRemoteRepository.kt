@@ -67,6 +67,9 @@ class SupabaseRemoteRepository(
 
     override suspend fun ensureAnonymousSession() = guarded {
         val supabase = requireClient()
+        // autoLoadFromStorage is asynchronous; without this wait a fresh client can race the
+        // stored session and create a new anonymous identity for an already-enrolled device.
+        supabase.auth.awaitInitialization()
         if (supabase.auth.currentSessionOrNull() == null) {
             supabase.auth.signInAnonymously()
             Log.i(TAG, "Anonymous device session established")

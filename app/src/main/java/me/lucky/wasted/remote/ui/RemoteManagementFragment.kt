@@ -39,6 +39,7 @@ import me.lucky.wasted.remote.domain.RemoteConfigValidator
 import me.lucky.wasted.remote.domain.RemoteError
 import me.lucky.wasted.remote.domain.RemoteException
 import me.lucky.wasted.remote.domain.SyncOutcome
+import me.lucky.wasted.trigger.shared.ForegroundService
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -157,6 +158,18 @@ class RemoteManagementFragment : Fragment() {
         debugMode.isChecked = prefs.isDebugMode
         notifications.isChecked = credentials.notificationsEnabled
         enrollmentSection.visibility = if (configStore.remoteEnabled) View.VISIBLE else View.GONE
+        val enrolled = credentials.enrolled
+        enrollmentTitle.text = if (enrolled) "Device enrolled" else "4. Enroll this device"
+        enrollmentHint.text = if (enrolled) {
+            "This phone is linked to your owner account. Use Sync now or Reset enrollment below."
+        } else {
+            "In the dashboard, open Enroll a device → Create enrollment token, then paste it here. " +
+                "Each device needs its own token; it expires after 10 minutes."
+        }
+        deviceName.visibility = if (enrolled) View.GONE else View.VISIBLE
+        enrollmentToken.visibility = if (enrolled) View.GONE else View.VISIBLE
+        claimEnrollment.visibility = if (enrolled) View.GONE else View.VISIBLE
+        enrollmentProgress.visibility = View.GONE
         openWebsite.isEnabled = !config?.websiteUrl.isNullOrBlank()
         openDashboardFromEnrollment.isEnabled = !config?.websiteUrl.isNullOrBlank()
 
@@ -468,6 +481,10 @@ class RemoteManagementFragment : Fragment() {
             snackbar("Enable Remote Management first.")
             return
         }
+        if (credentials.enrolled) {
+            snackbar("This device is already enrolled.")
+            return
+        }
         val token = binding.enrollmentToken.editText?.text?.toString()?.trim().orEmpty()
         if (token.length != 64 || token.any { it !in "0123456789abcdef" }) {
             binding.enrollmentToken.error = "Enter the 64-character lowercase hex token"
@@ -478,7 +495,11 @@ class RemoteManagementFragment : Fragment() {
             .orEmpty()
             .ifBlank { Build.MODEL ?: "Android device" }
             .take(80)
+        binding.enrollmentProgress.visibility = View.VISIBLE
+        binding.claimEnrollment.isEnabled = false
+        snackbar("Claiming enrollment…")
         scope.launch {
+            val wasEnrolled = credentials.enrolled
             val message = withContext(Dispatchers.IO) {
                 val repository = SupabaseRemoteRepository(configStore, credentials)
                 try {
@@ -503,6 +524,12 @@ class RemoteManagementFragment : Fragment() {
                     repository.close()
                 }
             }
+            binding.enrollmentProgress.visibility = View.GONE
+            binding.claimEnrollment.isEnabled = true
+            if (!wasEnrolled && credentials.enrolled) {
+                binding.enrollmentToken.editText?.setText("")
+                ForegroundService.restartRemote(requireContext())
+            }
             snackbar(message)
             refreshState()
         }
@@ -524,7 +551,11 @@ class RemoteManagementFragment : Fragment() {
                     try {
                         when (val outcome = engine.runSync()) {
                             is SyncOutcome.Success -> "Sync complete."
-                            is SyncOutcome.Failed -> "Sync failed: ${outcome.reason}"
+                            is SyncOutcome.Failed -> if (outcome.reason == "access denied") {
+                                "Sync failed: this enrollment is stale. Tap Reset enrollment, then claim a new token."
+                            } else {
+                                "Sync failed: ${outcome.reason}"
+                            }
                             SyncOutcome.NotConfigured -> "Remote is not configured."
                             SyncOutcome.NotEnrolled -> "Device is not enrolled."
                             SyncOutcome.Coalesced -> "A sync is already running."

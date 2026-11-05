@@ -15,7 +15,7 @@ Self-sufficient reference for the Supabase backend. Generated install/update SQL
 | `account_actions` | Command batches | `action_type`, `idempotency_key` unique per account, `expires_at`, nullable `device_id` (set only for per-device debug actions) |
 | `device_commands` | Durable commands | One row per device/action; `command_type`, `state`, timestamps, `result_code`; unique `(action_id, device_id)` |
 | `command_events` | Append-only audit | One event per state per command; `event_type`, `result_code`, `detail` |
-| `private.device_enrollments` | Enrollment tokens | SHA-256 token hash, 10-minute expiry, consumed/revoked timestamps; deny-all RLS (RPC access only) |
+| `private.device_enrollments` | Enrollment tokens | SHA-256 token hash, 10-minute expiry, consumed/revoked timestamps; consumed device FK cascades on device deletion; deny-all RLS (RPC access only) |
 
 Relationships: accounts → devices/settings/actions; actions → commands; devices → status/commands/
 events; events reference `(command_id, account_id, device_id)`.

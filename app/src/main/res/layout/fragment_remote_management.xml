@@ -290,12 +290,14 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/enrollmentTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="4. Enroll this device"
                     android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <TextView
+                    android:id="@+id/enrollmentHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
@@ -352,6 +354,15 @@
                         android:layout_height="wrap_content"
                         android:inputType="text" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/enrollmentProgress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="8dp"
+                    android:indeterminate="true"
+                    android:visibility="gone" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/claimEnrollment"

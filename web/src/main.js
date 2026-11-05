@@ -36,6 +36,7 @@ const state = {
   refreshInFlight: false,
   explicitSignOut: false,
   connection: { projectUrl: "", publishableKey: "", dashboardUrl: "" },
+  lastDeviceCount: null,
   tokenTimer: null,
   liveTimers: [],
   data: {
@@ -230,6 +231,7 @@ function renderAuthState() {
     state.dataLoaded = false;
     state.cacheSavedAt = 0;
     state.refreshFailures = 0;
+    state.lastDeviceCount = null;
     state.data = { devices: [], statusByDevice: new Map(), latestCommand: new Map(), settings: null };
     $("#account-panel").hidden = true;
     $("#account-message").textContent = "";
@@ -272,6 +274,15 @@ async function refreshDashboard() {
       state.refreshFailures = 0;
       clearTimeout(state.retryTimer);
       state.retryTimer = null;
+      if (
+        state.lastDeviceCount !== null &&
+        state.data.devices.length > state.lastDeviceCount &&
+        !$("#token-output").hidden
+      ) {
+        clearEnrollmentToken();
+        toast("Device enrolled. Waiting for its first sync.", "success");
+      }
+      state.lastDeviceCount = state.data.devices.length;
       saveDashboardCache();
       setDashboardOnline(true);
       renderSettings();
@@ -444,7 +455,7 @@ function setDashboardOnline(online, reason = state.connectionReason ?? "offline"
   document
     .querySelectorAll("[data-device-rename], [data-device-revoke], [data-debug-device]")
     .forEach((button) => {
-      button.disabled = !online;
+      button.disabled = !online || button.dataset.debugUnknown === "true";
     });
 }
 
@@ -597,10 +608,7 @@ function renderDevices() {
                   : "OFF allows destructive remote commands such as Force Reset.",
             },
           }),
-          el("span", { className: "inline-actions" }, [
-            debugButton(device.id, true),
-            debugButton(device.id, false),
-          ]),
+          el("span", { className: "inline-actions" }, [debugSwitch(device, status)]),
         ]),
         el("dt", { text: "Reset support" }),
         el("dd", { text: !status ? "unknown" : status.reset_supported ? "supported" : "not supported" }),
@@ -716,24 +724,36 @@ function tickTimers() {
   }
 }
 
-function debugButton(deviceId, enable) {
-  return el("button", {
-    className: `small ${enable ? "" : "danger-outline"}`.trim(),
-    text: enable ? "Enable" : "Disable",
+function debugSwitch(device, status) {
+  const input = el("input", {
     attrs: {
-      type: "button",
-      "data-debug-device": deviceId,
-      "data-debug-enable": enable ? "true" : "false",
-      title: enable
-        ? "Turn Debug Mode ON for this device (blocks destructive commands)"
-        : "Turn Debug Mode OFF for this device (destructive commands can execute)",
+      type: "checkbox",
+      "data-debug-device": device.id,
+      "aria-label": `Debug Mode for ${device.name || "this device"}`,
+      ...(status ? {} : { "data-debug-unknown": "true" }),
     },
   });
+  input.checked = Boolean(status?.debug_mode);
+  input.disabled = !status;
+  return el("label", {
+    className: "switch",
+    attrs: {
+      title: status
+        ? "ON blocks Force Reset; OFF allows destructive remote commands."
+        : "The current value appears after the device's first sync.",
+    },
+  }, [
+    input,
+    el("span", { className: "switch-track", attrs: { "aria-hidden": "true" } }, [
+      el("span", { className: "switch-thumb" }),
+    ]),
+  ]);
 }
 
-/** Enable and Disable both explain the effect; Disable keeps the danger styling. */
-async function toggleDebugMode(deviceId, enabled, button) {
+/** The switch sends one per-device command; cancelling restores the previous position. */
+async function toggleDebugMode(deviceId, enabled, input) {
   if (!state.online) {
+    input.checked = !enabled;
     toast(actionUnavailableMessage(state.connectionReason), "error");
     return;
   }
@@ -756,20 +776,21 @@ async function toggleDebugMode(deviceId, enabled, button) {
           confirmLabel: "Disable",
         },
   );
-  if (!confirmed) return;
+  if (!confirmed) {
+    input.checked = !enabled;
+    return;
+  }
 
-  const group = button.closest(".inline-actions");
-  const buttons = group ? [...group.querySelectorAll("button")] : [button];
-  for (const candidate of buttons) candidate.disabled = true;
-
+  input.disabled = true;
   try {
     await setDeviceDebugMode(state.client, deviceId, enabled, newIdempotencyKey());
     toast(`${enabled ? "Enable" : "Disable"} command queued for 1 device.`);
     scheduleRefresh();
   } catch (error) {
+    input.checked = !enabled;
     toast(error.message, "error");
   } finally {
-    for (const candidate of buttons) candidate.disabled = false;
+    input.disabled = false;
   }
 }
 
@@ -972,16 +993,13 @@ function wireDashboard() {
     }
   });
 
+  $("#devices").addEventListener("change", (event) => {
+    const debug = event.target.closest("input[data-debug-device]");
+    if (!debug) return;
+    toggleDebugMode(debug.dataset.debugDevice, debug.checked, debug);
+  });
+
   $("#devices").addEventListener("click", (event) => {
-    const debug = event.target.closest("button[data-debug-device]");
-    if (debug) {
-      toggleDebugMode(
-        debug.dataset.debugDevice,
-        debug.dataset.debugEnable === "true",
-        debug,
-      );
-      return;
-    }
     const rename = event.target.closest("button[data-device-rename]");
     if (rename) {
       openRenameDialog(rename.dataset.deviceRename, rename.dataset.deviceName, rename);

@@ -3,7 +3,7 @@
   "releases": [
     {
       "appVersion": "3.0.0",
-      "schemaVersion": 5,
+      "schemaVersion": 6,
       "migrations": [
         "20261018125854_remote_schema.sql",
         "20261018133312_remote_rpcs.sql",
@@ -23,7 +23,9 @@
         "20261105054451_remote_display_names.sql",
         "20261105064544_remote_single_owner_signup_hook.sql",
         "20261105152455_remote_free_plan_guardrails.sql",
-        "20261105152713_remote_schema_marker_5.sql"
+        "20261105152713_remote_schema_marker_5.sql",
+        "20261105183606_remote_enrollment_device_delete.sql",
+        "20261105183656_remote_schema_marker_6.sql"
       ]
     }
   ]

@@ -37,11 +37,21 @@ import me.lucky.wasted.trigger.lock.TimerCoordinator
 class ForegroundService : Service() {
     companion object {
         const val ACTION_RECONFIGURE = "me.lucky.wasted.action.RECONFIGURE"
+        const val ACTION_RESTART_REMOTE = "me.lucky.wasted.action.RESTART_REMOTE"
         private const val TAG = "ForegroundService"
         private const val NOTIFICATION_ID = 1000
         private const val NOTIFICATION_ID_REMOTE_SYNC = 1001
         private const val ACTION_USB_STATE = "android.hardware.usb.action.USB_STATE"
         private const val REMOTE_HEARTBEAT_MS = 60_000L
+
+        /** Rebuilds the remote client after enrollment so it loads the newly saved session. */
+        fun restartRemote(ctx: Context) {
+            androidx.core.content.ContextCompat.startForegroundService(
+                ctx.applicationContext,
+                Intent(ctx.applicationContext, ForegroundService::class.java)
+                    .setAction(ACTION_RESTART_REMOTE),
+            )
+        }
     }
 
     private lateinit var prefs: Preferences
@@ -71,6 +81,7 @@ class ForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        if (intent?.action == ACTION_RESTART_REMOTE) stopRemote()
         reconfigure()
         return START_STICKY
     }
@@ -215,6 +226,7 @@ class ForegroundService : Service() {
             RemoteRecoveryWorker.schedulePeriodic(this)
 
             Log.i(TAG, "Remote subsystem started")
+
         } catch (e: Exception) {
             Log.e(TAG, "Remote subsystem failed to start: ${e.javaClass.simpleName}")
             remoteStarted = false

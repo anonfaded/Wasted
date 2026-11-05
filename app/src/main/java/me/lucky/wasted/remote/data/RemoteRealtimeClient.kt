@@ -3,6 +3,7 @@ package me.lucky.wasted.remote.data
 import android.util.Log
 
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.RealtimeChannel
@@ -38,6 +39,7 @@ class RemoteRealtimeClient(
     ) {
         stop()
         val client = clientProvider() ?: return
+        runCatching { client.auth.awaitInitialization() }
 
         val newChannel = client.channel(CHANNEL_TOPIC)
 

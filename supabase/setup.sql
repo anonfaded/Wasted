@@ -3,7 +3,7 @@
 -- Run it once. Do not run it again on an existing project and do not mix it with
 -- "supabase db push" on the same project.
 --
--- App release: 3.0.0 (schema 5)
+-- App release: 3.0.0 (schema 6)
 --
 -- This file configures the DATABASE (tables, RLS, RPCs, grants, Realtime, cron).
 -- In Authentication settings (Dashboard -> Authentication):
@@ -2082,5 +2082,21 @@ select cron.schedule(
 -- ===== 20261105152713_remote_schema_marker_5.sql =====
 -- The generated setup/verify contract uses the public schema comment as its version marker.
 comment on schema public is 'wasted-remote-schema:5';
+
+-- ===== 20261105183606_remote_enrollment_device_delete.sql =====
+-- A consumed enrollment token cannot survive its device: setting only
+-- consumed_by_device_id to null violates device_enrollments_consumed_pair.
+-- Removing the device must remove its enrollment audit row instead.
+
+alter table private.device_enrollments
+    drop constraint device_enrollments_consumed_by_device_id_fkey;
+
+alter table private.device_enrollments
+    add constraint device_enrollments_consumed_by_device_id_fkey
+    foreign key (consumed_by_device_id) references public.devices (id) on delete cascade;
+
+-- ===== 20261105183656_remote_schema_marker_6.sql =====
+-- Keep the generated setup/verify contract aligned with the current schema release.
+comment on schema public is 'wasted-remote-schema:6';
 
 notify pgrst, 'reload schema';
