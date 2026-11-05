@@ -3,13 +3,14 @@
 -- Run it once. Do not run it again on an existing project and do not mix it with
 -- "supabase db push" on the same project.
 --
--- App release: 3.0.0 (schema 3)
+-- App release: 3.0.0 (schema 4)
 --
 -- This file configures the DATABASE (tables, RLS, RPCs, grants, Realtime, cron).
 -- In Authentication settings (Dashboard -> Authentication):
 --   1) enable "Allow anonymous sign-ins" (device identities)
---   2) leave "Confirm email" enabled (recommended; click the link, then sign in)
---   3) set the Auth Site URL to the hosted dashboard URL
+--   2) turn "Confirm email" OFF (direct owner signup; no email is sent)
+--   3) enable Authentication > Hooks > Before User Created:
+--      public.hook_single_owner_signup (allows anonymous devices, blocks later email accounts)
 --   4) review the sign-up / sign-in rate limits
 --
 -- Extensions: pgcrypto is available on Supabase; pg_cron is enabled by the script.
@@ -1946,5 +1947,52 @@ revoke execute on function public.update_owner_handle(text) from public, anon, a
 grant execute on function public.update_owner_handle(text) to authenticated;
 
 comment on schema public is 'wasted-remote-schema:3';
+
+-- ===== 20261105064544_remote_single_owner_signup_hook.sql =====
+-- Server-side signup gate: allow the first non-anonymous owner and anonymous devices only.
+-- Enable this function in Authentication > Hooks > Before User Created.
+-- Forward-only migration.
+
+create or replace function public.hook_single_owner_signup(event jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    is_anonymous boolean := coalesce((event->'user'->>'is_anonymous')::boolean, false);
+begin
+    -- Device identities are anonymous and must always be allowed.
+    if is_anonymous then
+        return '{}'::jsonb;
+    end if;
+
+    -- Serialize concurrent signup attempts so only one owner can pass.
+    perform pg_catalog.pg_advisory_xact_lock(741852963);
+
+    if exists (select 1 from public.accounts)
+        or exists (
+            select 1
+              from auth.users u
+             where u.is_anonymous = false
+               and u.email is not null
+        ) then
+        return jsonb_build_object(
+            'error', jsonb_build_object(
+                'message', 'This dashboard already has an owner. Sign in instead.',
+                'http_code', 403
+            )
+        );
+    end if;
+
+    return '{}'::jsonb;
+end;
+$$;
+
+grant usage on schema public to supabase_auth_admin;
+grant execute on function public.hook_single_owner_signup(jsonb) to supabase_auth_admin;
+revoke execute on function public.hook_single_owner_signup(jsonb) from public, anon, authenticated;
+
+comment on schema public is 'wasted-remote-schema:4';
 
 notify pgrst, 'reload schema';

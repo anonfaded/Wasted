@@ -113,8 +113,8 @@ function applySetupLinks(cfg) {
   if (sql) sql.href = `${base}/sql/new`;
   const auth = $("#setup-auth-link");
   if (auth) auth.href = `${base}/auth/providers`;
-  const url = $("#setup-url-link");
-  if (url) url.href = `${base}/auth/url-configuration`;
+  const hooks = $("#setup-hooks-link");
+  if (hooks) hooks.href = `${base}/auth/hooks`;
 }
 
 function projectRef(value) {
@@ -300,7 +300,7 @@ function setDashboardOnline(online) {
         "Offline — sign-in, account creation, and dashboard access require a connection. Reconnect and try again.";
       banner.hidden = online;
     }
-    for (const selector of ["#sign-in", "#create-account", "#resend-confirmation"]) {
+    for (const selector of ["#sign-in", "#create-account"]) {
       const button = $(selector);
       if (button) button.disabled = !online;
     }

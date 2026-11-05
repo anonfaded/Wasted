@@ -305,14 +305,14 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="3. Turn on Authentication settings"
+                    android:text="3. Configure Authentication"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="In Supabase → Authentication:\n\n• Providers: enable “Allow anonymous sign-ins”. Remote Management uses this to give each device its own private identity, so your email and password never have to be stored on the device.\n• Providers: leave “Confirm email” enabled (recommended). Supabase sends a confirmation link; click it, then sign in.\n• Rate Limits: 10 anonymous/hour/IP and 10 sign-in/sign-up per 5 minutes/IP.\n\nCAPTCHA can stay off. If you do not want Remote Management, you can leave anonymous sign-ins off. Your owner account and dashboard still work, but this device cannot enroll or sync."
+                    android:text="In Supabase → Authentication:\n\n• Providers: enable “Allow anonymous sign-ins”. Remote Management uses this to give each device its own private identity, so your email and password never have to be stored on the device.\n• Providers → Email: turn “Confirm email” OFF. Signup is direct; no confirmation email is sent.\n• Hooks: open “Before User Created” and select public.hook_single_owner_signup. This allows anonymous device identities and blocks every later email/password account.\n• Rate Limits: 10 anonymous/hour/IP and 10 sign-in/sign-up per 5 minutes/IP.\n\nThe first account becomes the owner. No further email accounts can be created. Account name changes are in the dashboard; password/account recovery is handled from the Supabase dashboard. CAPTCHA can stay off. If you do not want Remote Management, you can leave anonymous sign-ins off; the owner dashboard still works, but this device cannot enroll or sync."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -322,6 +322,14 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:text="Open Authentication settings" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openAuthHooks"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Open Auth Hooks" />
             </LinearLayout>
         </ScrollView>
 
@@ -441,27 +449,6 @@
                     android:layout_marginTop="6dp"
                     android:text="Paste the live URL to save it now. If you prefer, leave it blank and add it later in Remote Management → 2. Dashboard URL. Tap Finish setup when you are done."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="Supabase Auth URL Configuration"
-                    android:textAppearance="?attr/textAppearanceTitleSmall" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Open Authentication → URL Configuration, then do both steps:\n\n1. Site URL — delete the default http://localhost:3000 and paste the dashboard URL above, including the final slash.\n2. Redirect URLs — add the exact same URL. The dashboard sends the root URL with a trailing slash after confirmation, so it must be allowlisted.\n\nImportant: the placeholder without a slash is only an example. Use the full URL with the final slash in both fields. For example: https://site.netlify.app/. Then click Save."
-                    android:textAppearance="?attr/textAppearanceBodySmall" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/openAuthUrlConfiguration"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Open Supabase URL Configuration" />
             </LinearLayout>
         </ScrollView>
 

@@ -30,21 +30,21 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
 
 - App v3.0.0 (versionCode 42); debug APK builds. The signed-release task is fail-closed, but the
   actual release certificate still needs release-gate verification.
-- Tests: Android **110/110**, web **43/43**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
+- Tests: Android **110/110**, web **41/41**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
   the verifier drift negative test, run against the linked project in rolled-back transactions.
-  Schema version is **3**; the linked project has the display-name constraints and schema-3 marker.
+  Schema version is **4**; the linked project has display-name support and the single-owner signup hook.
 - Implemented: Debug Mode boundary, ResetExecutor, reset ordering, per-device Debug Mode commands,
   notifications, Android Remote Management screen, setup wizard, dashboard, enrollment, sync,
   recovery worker, docs.
 - Offline UX: the PWA shell shows an explicit offline banner, distinguishes cached from missing data, and disables remote actions/settings/enrollment until reconnect.
 - Latest dashboard/auth UX: separate Sign In/Create Account forms, live email filtering and
-  lowercasing, password visibility toggle, Confirm email + Site URL guidance, editable device names,
+  lowercasing, password visibility toggle, direct owner signup, editable device names,
   dashboard rename/revoke, confirmation dialogs for settings/tokens/commands, setup-guide links, and
   a `npm run dev` source-testing path, and a responsive tabbed dashboard (Devices, Controls, Account, Help) with inline SVG icons, switches, semantic message colors, and an installable PWA package with offline app shell.
-- Account persistence fix: the signup handle is stored in Supabase auth metadata, the owner row is
-  created automatically after confirmation/sign-in, and the dashboard Account panel edits the
-  Supabase-backed name. There is no browser-local profile fallback. Sign-in now shows explicit
-  inline validation, Create Account confirms the password, and unconfirmed emails can be resent.
+- Account persistence fix: the signup handle is stored in Supabase auth metadata, the first
+  direct signup creates the owner row immediately, and the dashboard Account panel edits the
+  Supabase-backed name. There is no browser-local profile fallback or confirmation-email UI.
+  Sign-in shows explicit inline validation and Create Account confirms the password.
 - Latest audit fixes: exact verifier policy/ACL checks + real-verifier negative harness, single-owner
   account guard, idempotent legacy command repair, deployable ZIP (`index.html` + `_headers`), Sign In
   accepts existing passwords, clipboard warning, cumulative update documentation, and P2P
@@ -155,25 +155,25 @@ Android app ── HTTPS/WSS ──► Supabase project (Auth / PostgREST / Real
 2. In the app: Remote Management → **Open setup wizard**; paste the Project URL + publishable key
    (never the secret/service-role key).
 3. In Supabase SQL Editor: paste and run `setup.sql` once.
-4. In Authentication → Providers: **enable Anonymous sign-ins** for devices and **leave Confirm
-   email enabled** for the owner. Keep the documented rate limits. After hosting, set
-   Authentication → URL Configuration → **Site URL** to the dashboard URL so confirmation links
-   return there.
+4. In Authentication → Providers: **enable Anonymous sign-ins** for devices and **turn Confirm
+   email OFF**. Under Authentication → Hooks → Before User Created, select
+   `public.hook_single_owner_signup`. Keep the documented rate limits. The first account becomes
+   owner directly; later email accounts are rejected.
 5. Run `verify.sql`; every row must say PASS.
 6. In the wizard: **Generate dashboard file** → save as `index.html` via SAF, or use **Save
    deployable package (.zip)** for `index.html` + `_headers`.
 7. Host the file (Netlify Drop recommended; any HTTPS static host), claim the site, and copy the
    final URL. When updating, replace `index.html` in the **same site**; a new site changes the URL.
-8. Open the dashboard → Create Account (confirm the email, then sign in, then choose an account
-   name). In the app: paste the dashboard URL, Save, Enable; optionally set a device name; create
-   an enrollment token in the dashboard and claim it in the app.
+8. Open the dashboard → Create Account. The first account becomes the owner immediately; no
+   email is sent and later accounts are blocked. In the app: paste the dashboard URL, Save, Enable;
+   optionally set a device name; create an enrollment token in the dashboard and claim it in the app.
 9. Send Reset Timer and confirm the device card updates.
 
-**Why the Auth toggles are needed:** device identities call `signInAnonymously()`; Supabase treats
-anonymous sign-ins as an opt-in provider. Confirm email verifies the owner's address; with it on,
-Create Account sends a link, the user clicks it and signs in, then finishes the account-name step.
-Confirm email does **not** restrict who can create an account; a single-owner signup guard or
-host-level access control would be a separate hardening decision.
+**Why the Auth settings are needed:** device identities call `signInAnonymously()`; Supabase treats
+anonymous sign-ins as an opt-in provider. Confirm email is **off** so signup is direct and no email
+delivery can delay or block the owner. The Before User Created hook
+`public.hook_single_owner_signup` allows anonymous devices and rejects every later email/password
+account; `initialize_owner_account` remains a second single-owner guard.
 
 ## 6. Update management (the confusing part — read this)
 
@@ -337,10 +337,10 @@ for production. Docker would add work, not remove it, for hosted Supabase users.
   impossible while ON.
 - No secrets in Git: `.env`, keystore, service keys, dumps, tokens. APK scan shows no key material
   or project URL/ref.
-- The generated dashboard URL is public; anyone with it can attempt signups. A single-owner guard
-  prevents a second dashboard account; additional Auth users remain inert. Confirm email verifies
-  ownership but does not restrict signups. RLS prevents cross-account access; rate limits and the
-  anonymous-identity cleanup limit abuse. Host-level access control remains optional hardening.
+- The generated dashboard URL is public; the first account claims ownership. The Before User Created
+  hook rejects every later non-anonymous account and `initialize_owner_account` is a second guard;
+  anonymous device identities remain allowed. RLS prevents cross-account access; rate limits and the
+  anonymous-identity cleanup limit abuse. Keep the URL private until the owner is created.
 
 ## 8. Verification checklist for the reviewing agent
 

@@ -4,7 +4,6 @@ import {
   createAccount,
   friendlyAuthError,
   normalizeEmail,
-  resendConfirmation,
   signIn,
   validateCreateAccount,
   validateSignIn,
@@ -60,17 +59,15 @@ test("signup stores the handle in Supabase auth metadata", async () => {
     auth: {
       signUp: async (value) => {
         payload = value;
-        return { data: { session: null }, error: null };
+        return { data: { session: { access_token: "token" } }, error: null };
       },
     },
-    rpc: async () => {
-      throw new Error("RPC must not run without a session");
-    },
+    rpc: async () => ({ data: { handle: "Alex" }, error: null }),
   };
 
-  assert.equal(await createAccount(client, "Owner@Example.com", "long-enough-1", " Alex "), null);
+  const session = await createAccount(client, "Owner@Example.com", "long-enough-1", " Alex ");
+  assert.ok(session);
   assert.equal(payload.email, "owner@example.com");
-  assert.equal(payload.options.emailRedirectTo, "https://dashboard.test/");
   assert.deepEqual(payload.options.data, { handle: "Alex" });
 });
 
@@ -95,60 +92,21 @@ test("immediate signup session initializes the owner row", async () => {
   ]);
 });
 
-test("an existing-user signup does not reveal account existence", async () => {
+test("a signup without a session fails closed", async () => {
   globalThis.window = { location: { origin: "https://dashboard.test", pathname: "/" } };
   const client = {
     auth: {
-      signUp: async () => ({
-        data: { session: null, user: { identities: [] } },
-        error: null,
-      }),
+      signUp: async () => ({ data: { session: null }, error: null }),
     },
     rpc: async () => {
       throw new Error("RPC must not run without a session");
     },
   };
 
-  assert.equal(
-    await createAccount(client, "owner@example.com", "long-enough-1", "Alex"),
-    null,
-  );
-});
-
-test("unconfirmed email is mapped and tagged for the resend action", async () => {
-  const client = {
-    auth: {
-      signInWithPassword: async () => ({
-        data: null,
-        error: { message: "Email not confirmed", code: "email_not_confirmed" },
-      }),
-    },
-  };
   await assert.rejects(
-    () => signIn(client, "owner@example.com", "long-enough-1"),
-    (error) =>
-      error.code === "EMAIL_NOT_CONFIRMED" &&
-      /Confirm your email address first/.test(error.message),
+    () => createAccount(client, "owner@example.com", "long-enough-1", "Alex"),
+    /Confirm email is disabled/,
   );
-});
-
-test("resend confirmation forwards the normalized email", async () => {
-  globalThis.window = { location: { origin: "https://dashboard.test", pathname: "/" } };
-  let payload = null;
-  const client = {
-    auth: {
-      resend: async (value) => {
-        payload = value;
-        return { error: null };
-      },
-    },
-  };
-  await resendConfirmation(client, " Owner@Example.com ");
-  assert.deepEqual(payload, {
-    type: "signup",
-    email: "owner@example.com",
-    options: { emailRedirectTo: "https://dashboard.test/" },
-  });
 });
 
 test("auth errors are translated without changing unknown messages", () => {
@@ -157,13 +115,9 @@ test("auth errors are translated without changing unknown messages", () => {
     friendlyAuthError("Failed to fetch"),
     "Could not reach Supabase. Check your connection and try again.",
   );
-  assert.match(
-    friendlyAuthError("Email address not authorized"),
-    /built-in email service only sends to project team members/,
-  );
-  assert.match(
-    friendlyAuthError("email rate limit exceeded"),
-    /confirmation-email limit was reached/,
+  assert.equal(
+    friendlyAuthError("This dashboard already has an owner."),
+    "This dashboard already has an owner. Sign in instead.",
   );
   assert.equal(friendlyAuthError("Custom backend error"), "Custom backend error");
 });

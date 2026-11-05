@@ -25,11 +25,11 @@ connection form was considered and rejected by the client.
 
 **Context:** End users should not need CLI/Docker.
 **Decision:** `setup.sql` (generated from migrations) is pasted once into Supabase SQL Editor.
-Two Auth dashboard toggles are required: enable anonymous sign-ins, leave Confirm email enabled.
-Anonymous sign-ins give each device a private identity so the owner password never has to be stored
-on devices. Confirm email verifies the owner's address; it does not restrict who can sign up. Set the
-Auth Site URL to the hosted dashboard URL so confirmation links return there. Both toggles can be
-left off if Remote Management is not wanted; the rest of the app and dashboard still work, but device
+Required Auth settings: enable anonymous sign-ins, turn Confirm email **off**, and enable the
+Before User Created hook `public.hook_single_owner_signup`. Signup is direct: the first
+email/password account becomes the owner, and the hook rejects every later non-anonymous account
+while allowing anonymous device identities. No email delivery or SMTP is used. Anonymous sign-ins
+can be left off if Remote Management is not wanted; the owner dashboard still works, but device
 enrollment and sync will not.
 **Consequences:** No tooling; Auth settings cannot be set via SQL and remain a manual step.
 Docker/CLI stays a developer path only.

@@ -116,6 +116,7 @@ class RemoteSetupActivity : AppCompatActivity() {
         binding.saveUpdateSql.setOnClickListener { saveUpdateSql() }
         binding.openSqlEditor.setOnClickListener { openProjectPage("sql/new") }
         binding.openAuthSettings.setOnClickListener { openProjectPage("auth/providers") }
+        binding.openAuthHooks.setOnClickListener { openProjectPage("auth/hooks") }
         binding.generateDashboard.setOnClickListener {
             if (saveDetails()) createDocument.launch("index.html")
         }
@@ -123,9 +124,6 @@ class RemoteSetupActivity : AppCompatActivity() {
             if (saveDetails()) createPackage.launch("wasted-dashboard.zip")
         }
         binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/") }
-        binding.openAuthUrlConfiguration.setOnClickListener {
-            openProjectPage("auth/url-configuration")
-        }
         binding.skipToDashboard.setOnClickListener {
             if (saveDetails()) showStep(STEP_DASHBOARD)
         }

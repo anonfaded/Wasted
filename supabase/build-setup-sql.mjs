@@ -94,8 +94,9 @@ function setupHeader(release) {
 -- This file configures the DATABASE (tables, RLS, RPCs, grants, Realtime, cron).
 -- In Authentication settings (Dashboard -> Authentication):
 --   1) enable "Allow anonymous sign-ins" (device identities)
---   2) leave "Confirm email" enabled (recommended; click the link, then sign in)
---   3) set the Auth Site URL to the hosted dashboard URL
+--   2) turn "Confirm email" OFF (direct owner signup; no email is sent)
+--   3) enable Authentication > Hooks > Before User Created:
+--      public.hook_single_owner_signup (allows anonymous devices, blocks later email accounts)
 --   4) review the sign-up / sign-in rate limits
 --
 -- Extensions: pgcrypto is available on Supabase; pg_cron is enabled by the script.`;
@@ -139,8 +140,9 @@ function releaseReadme(release, updates, checksums) {
     "1. Back up or export the project first if it contains anything you care about.",
     "2. Open **SQL Editor**, paste `setup.sql`, and press **Run** once.",
     "3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** and",
-    "   leave **Confirm email** enabled (recommended). Set **Authentication → URL Configuration**",
-    "   **Site URL** to the hosted dashboard URL. Set rate limits to anonymous 10/hour/IP and",
+    "   turn **Confirm email** OFF (signup is direct; no email is sent). Enable",
+    "   **Authentication → Hooks → Before User Created** and select",
+    "   `public.hook_single_owner_signup`. Set rate limits to anonymous 10/hour/IP and",
     "   sign-in/sign-up 10 per 5 minutes/IP.",
     "4. Run `verify.sql`; every row must say PASS.",
     "",
@@ -172,8 +174,8 @@ function releaseReadme(release, updates, checksums) {
     "## Authentication checklist",
     "",
     "- Enable **Allow anonymous sign-ins** (per-device identities).",
-    "- Leave **Confirm email** enabled (recommended; click the link, then sign in).",
-    "- Set the Auth **Site URL** to the hosted dashboard URL.",
+    "- Turn **Confirm email** OFF (direct owner signup; no email is sent).",
+    "- Enable **Before User Created** hook: `public.hook_single_owner_signup`.",
     "- Review sign-up/sign-in rate limits.",
     "- CAPTCHA is optional and not required by this project.",
     "",

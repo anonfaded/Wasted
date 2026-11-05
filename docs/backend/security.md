@@ -15,24 +15,19 @@
 | Hosted dashboard contains secrets | False: the generated file contains only URL + publishable key |
 | Clickjacking of destructive confirmations | Use the full app package (`index.html` + `manifest.webmanifest` + `sw.js` + `icons/` + `_headers`) on a header-capable host, or configure `frame-ancestors 'none'`/`X-Frame-Options: DENY`; the page also ships a frame-busting fallback |
 
-## Confirmation email
+## Single-owner signup
 
-- Supabase Auth sends the confirmation email; the dashboard does not build email HTML, run SMTP,
-  or handle confirmation tokens.
-- The email address is normalized and validated again by Supabase. The account name is stored as
-  metadata/display text, never interpolated into dashboard HTML (`textContent` only).
-- `emailRedirectTo` is derived only from the current origin and pathname and must be allowlisted in
-  Supabase URL Configuration; this prevents arbitrary redirect targets.
-- The dashboard does not consume implicit-flow fragments (`detectSessionInUrl: false`) and removes
-  `access_token`/`refresh_token` fragments from the address bar and history on load. CSP and
-  `Referrer-Policy: no-referrer` limit token/referrer exposure.
-- Signup and resend responses use generic messages for existing emails so the dashboard does not add
-  another account-enumeration channel. Supabase Auth rate limits remain the server-side control.
-- Supabase’s built-in email service only sends to project team members and is limited to 2 emails/hour.
-  Configure custom SMTP under **Authentication → Emails → SMTP Settings** before using a
-  non-team owner email; otherwise the confirmation email will not be delivered.
-- If you customize the Supabase email template, HTML-escape any custom metadata such as the account
-  name; the default template does not include it.
+- Supabase password signup is direct. No confirmation email is sent and no email delivery service
+  or SMTP path is involved.
+- The first non-anonymous Auth user becomes the owner. The Before User Created hook
+  (`public.hook_single_owner_signup`) permits anonymous device identities and rejects every later
+  email/password account with HTTP 403.
+- The hook serializes concurrent signup attempts with an advisory lock; `initialize_owner_account`
+  also retains its single-owner guard as defense in depth.
+- Create the owner immediately after deployment and keep the dashboard URL private until that is
+  done; the first account can claim ownership.
+- Email ownership is not verified by design. Password/account recovery is performed by the project
+  owner through the Supabase dashboard, not through email.
 
 ## Key boundaries
 
@@ -100,7 +95,7 @@ URL + publishable key.
   exist but cannot access an account, so public email signups cannot create a usable dashboard.
 - Create the owner account before sharing the dashboard URL: the first authenticated user wins the
   bootstrap. Disabling email signups after bootstrap or host access control are optional additional
-  controls; Confirm email is not a signup restriction.
+  controls; the single-owner hook is the signup restriction.
 
 ## P2P peer authentication
 

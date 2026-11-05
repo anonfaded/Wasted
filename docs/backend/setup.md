@@ -42,11 +42,10 @@ design.
    - enable **Allow anonymous sign-ins**. Remote Management uses this to give each device its own
      private, unnamed identity, so the app can link a device to your account without storing your
      email or password on the device.
-   - leave **Confirm email** enabled (recommended). Supabase sends a confirmation link; click
-     it, then sign in. Confirm email verifies that you own the address, but it does not prevent
-     other people from signing up with their own email;
-   - configure **Authentication → Emails → SMTP Settings** before using a non-team email. The
-     built-in email service only sends to project team members and is limited to 2 emails/hour;
+   - turn **Confirm email OFF**. Signup is direct and no email is sent;
+   - open **Authentication → Hooks → Before User Created** and select
+     `public.hook_single_owner_signup`. This allows anonymous devices and rejects every later
+     email/password account;
    - in **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up
      to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 
@@ -73,9 +72,6 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
    private, make it public. To update later, open the same project → project menu → **Deploys**,
    use the deploy drop zone, and upload the new ZIP; do not create another project. Alternatives:
    Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static host.
-5. In **Authentication → URL Configuration**, replace the default `http://localhost:3000` with the
-   dashboard URL in **Site URL**, and add the exact same URL to **Redirect URLs**. Both must match
-   including the final slash, then save.
 
 The file contains only the project URL + publishable key. It is not a secret, but anyone who can
 open the URL can attempt to create an account; RLS protects the data.
@@ -86,10 +82,11 @@ Create the owner account before sharing the dashboard URL: the first authenticat
 single-owner bootstrap.
 
 1. Open the hosted dashboard → **Create Account** (email, password ≥ 12 characters, confirmed
-   password, account name). With Confirm email enabled, click the email link, then sign in; the
-   account name is stored in Supabase auth metadata and the owner row is created automatically.
-2. If the dashboard already has an owner, the second account is signed out with an owner-exists
-   message; use the owner account instead.
+   password, account name). Signup is direct: the first account becomes the owner immediately and
+   no email is sent.
+2. The Before User Created hook rejects every later email/password account. Use the owner account.
+   Account-name changes are in the dashboard; password/account recovery is handled from the
+   Supabase dashboard.
 3. In the dashboard, **Enroll a device → Create enrollment token** (valid 10 minutes).
 4. In the app: paste the **Dashboard website URL**, Save.
 5. Enable **Remote Management** (forces Debug Mode ON) → paste the token → **Claim**.

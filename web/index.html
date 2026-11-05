@@ -24,8 +24,7 @@
       try { window.top.location = window.self.location; }
       catch (_) { document.documentElement.hidden = true; }
     }
-    // Supabase confirmation links can carry tokens in the URL fragment. The dashboard
-    // does not consume implicit-flow fragments, so remove them from history immediately.
+    // Remove legacy auth callback fragments from the address bar and history.
     if (/(?:access_token|refresh_token|error_description|error_code)=/.test(location.hash)) {
       history.replaceState(null, "", location.pathname + location.search);
     }
@@ -230,10 +229,9 @@
       </span>
     </p>
 
+    <p class="hint auth-policy">The first account becomes the owner. No email confirmation is used, and later signups are rejected.</p>
+
     <p id="auth-message" class="message" role="status"></p>
-    <button id="resend-confirmation" type="button" class="link" hidden>
-      Resend confirmation email
-    </button>
 
     <details class="help">
       <summary>Setup guide</summary>
@@ -251,7 +249,11 @@
             and run the setup SQL copied from the wizard (one paste). Then in
             <a id="setup-auth-link" href="https://supabase.com/dashboard"
                target="_blank" rel="noopener noreferrer">Authentication → Providers</a>:
-            enable “Allow anonymous sign-ins” and leave “Confirm email” enabled.</li>
+            enable “Allow anonymous sign-ins” and turn <strong>Confirm email OFF</strong>.
+            Then open <a id="setup-hooks-link" href="https://supabase.com/dashboard"
+               target="_blank" rel="noopener noreferrer">Authentication → Hooks</a>, choose
+            <strong>Before User Created</strong>, and select
+            <code>public.hook_single_owner_signup</code>.</li>
           <li>In the wizard, <strong>save the deployable ZIP</strong>. In
             <a id="setup-netlify-link" href="https://app.netlify.com/"
                target="_blank" rel="noopener noreferrer">Netlify</a>, create a project with
@@ -265,16 +267,15 @@
           <li>Send Reset Timer here and confirm the device card updates.</li>
         </ol>
         <p class="muted">
-          <strong>Confirm email:</strong> recommended and usually enabled by default. After
-          Create Account, click the confirmation link in the email, then sign in. Set the
-          <a id="setup-url-link" href="https://supabase.com/dashboard"
-             target="_blank" rel="noopener noreferrer">Authentication → URL Configuration</a>
-          Site URL to this dashboard, replacing the default http://localhost:3000, and add the exact
-          same URL under <strong>Redirect URLs</strong>; both must match including the final slash,
-          or email confirmation links may fail or redirect elsewhere. Supabase’s built-in email
-          service only sends to project team members (2/hour); configure
-          <strong>Authentication → Emails → SMTP Settings</strong> before using a non-team email.
-          That email is for the owner account only; devices never use it.
+          <strong>Owner signup:</strong> signup is direct and no email is sent. The first account
+          becomes the owner. The Before User Created hook blocks every later email/password signup;
+          anonymous device identities remain allowed. Keep the dashboard URL private until the
+          owner account exists.
+        </p>
+        <p class="muted">
+          <strong>Changing your account:</strong> use the Account section to change the display
+          name. Password reset or account recovery is handled by the Supabase project owner from
+          the Supabase dashboard, because this setup deliberately does not depend on email delivery.
         </p>
         <p class="muted">
           <strong>Account name:</strong> saved to your Supabase account. Sign in on another
@@ -545,9 +546,9 @@
                 abuse.
               </p>
               <ol>
-                <li>In Supabase, run the setup SQL, enable anonymous sign-ins, and leave
-                  “Confirm email” enabled.</li>
-                <li>Create your account on this page.</li>
+                <li>In Supabase, run the setup SQL, enable anonymous sign-ins, turn Confirm email
+                  off, and enable the Before User Created single-owner hook.</li>
+                <li>Create the first account on this page; it becomes the owner immediately.</li>
                 <li>In the app, paste this page's URL under Remote Management, Save, and Enable.</li>
                 <li>Create an enrollment token on the Devices tab, then claim it in the app.</li>
                 <li>The device appears after its first sync.</li>

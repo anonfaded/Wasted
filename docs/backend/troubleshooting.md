@@ -3,9 +3,9 @@
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | `Anonymous sign-ins are disabled` / enrollment fails | Auth provider not enabled | Remote Management needs this to give each device its own private identity without storing your password on it. Authentication → Providers → enable **Allow anonymous sign-ins**. If you leave it off, your owner account and dashboard still work, but devices cannot enroll or sync. |
-| Create Account shows “check your email” but no email arrives | Supabase’s built-in email service only sends to project team members and is limited to 2/hour | Add the owner email to the Supabase organization, or configure **Authentication → Emails → SMTP Settings** with your own SMTP provider. Check spam before changing settings. |
-| Confirmation email arrives late or twice | The built-in Supabase test mailer is queued/shared and is not a production delivery service | Configure custom SMTP. Duplicate messages can be queued retries or repeated resend requests; they do not grant access without the email inbox. |
-| Sign-in returns 400 while the account is unconfirmed | The console call is `grant_type=password`, not a signup/resend request | Confirm the email first; the dashboard shows the confirmation error and a resend action. |
+| Create Account says the dashboard already has an owner | The Before User Created hook rejected a second email/password account | Sign in with the owner account. The hook intentionally allows only one non-anonymous account. |
+| Create Account fails with “Account creation did not complete” | Confirm email is still ON, or the Before User Created hook is not enabled | Turn **Confirm email OFF** and enable `public.hook_single_owner_signup` under Authentication → Hooks. |
+| Second email account cannot sign up | Expected single-owner behavior | Use the owner account. Anonymous device identities remain allowed for device enrollment. |
 | `Invalid API key` / 401 | Wrong key or URL | Re-copy Project URL + publishable key; never use the secret key |
 | `permission denied` (42501) | Direct table access / wrong role | Use the app/dashboard RPCs only; do not grant table writes |
 | Empty dashboard data | Wrong account, RLS, or not enrolled | Confirm the same project and owner account; check enrollment |

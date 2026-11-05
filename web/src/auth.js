@@ -15,7 +15,6 @@ export function wireAuth(client) {
   const title = $("#auth-title");
   const subtitle = $("#auth-subtitle");
   const message = "#auth-message";
-  const resend = $("#resend-confirmation");
 
   const showMode = (mode) => {
     const create = mode === "create";
@@ -27,7 +26,6 @@ export function wireAuth(client) {
     subtitle.textContent = create
       ? "Create an account to manage your devices."
       : "Sign in to manage your devices.";
-    resend.hidden = true;
     clearMessage(message);
   };
 
@@ -77,13 +75,11 @@ export function wireAuth(client) {
       $("#sign-in-password").value,
     );
     if (validation) {
-      resend.hidden = true;
       showMessage(message, validation.message, "error");
       document.getElementById(validation.field)?.focus();
       return;
     }
     clearMessage(message);
-    resend.hidden = true;
     const button = $("#sign-in");
     setBusy(button, true);
     try {
@@ -96,7 +92,6 @@ export function wireAuth(client) {
       toast("Signed in.", "success");
     } catch (error) {
       showMessage(message, error.message, "error");
-      resend.hidden = error.code !== "EMAIL_NOT_CONFIRMED";
     } finally {
       setBusy(button, false);
     }
@@ -111,13 +106,11 @@ export function wireAuth(client) {
       $("#create-handle").value,
     );
     if (validation) {
-      resend.hidden = true;
       showMessage(message, validation.message, "error");
       document.getElementById(validation.field)?.focus();
       return;
     }
     clearMessage(message);
-    resend.hidden = true;
     const button = $("#create-account");
     setBusy(button, true);
     try {
@@ -129,42 +122,16 @@ export function wireAuth(client) {
       );
       $("#create-password").value = "";
       $("#create-password-confirm").value = "";
-      if (session) {
-        toast("Account created.", "success");
-      } else {
-        showMode("sign-in");
-        $("#sign-in-email").value = $("#create-email").value.trim();
-        showMessage(
-          message,
-          "Check your email for the confirmation link, then sign in. If it does not arrive, configure Supabase SMTP.",
-          "info",
+      if (!session) {
+        throw new Error(
+          "Account creation did not complete. Ensure Confirm email is disabled and the single-owner Auth Hook is enabled.",
         );
-        resend.hidden = false;
       }
+      toast("Owner account created.", "success");
     } catch (error) {
       showMessage(message, error.message, "error");
-      resend.hidden = error.code !== "EMAIL_NOT_CONFIRMED";
     } finally {
       setBusy(button, false);
-    }
-  });
-
-  resend.addEventListener("click", async () => {
-    const email = $("#sign-in-email").value.trim();
-    const validation = validateEmail(email);
-    if (validation) {
-      showMessage(message, validation.message, "error");
-      $("#sign-in-email").focus();
-      return;
-    }
-    setBusy(resend, true, "Sending…");
-    try {
-      await resendConfirmation(client, email);
-      showMessage(message, "Confirmation email requested. Check your inbox and spam.", "success");
-    } catch (error) {
-      showMessage(message, error.message, "error");
-    } finally {
-      setBusy(resend, false, "Resend confirmation email");
     }
   });
 }
@@ -192,32 +159,19 @@ export async function createAccount(client, email, password, handle) {
   const handleError = validateHandle(handle);
   if (handleError) throw new Error(handleError);
   const trimmedHandle = String(handle).trim();
-  const redirectTo = dashboardRedirect();
   const { data, error } = await client.auth.signUp({
     email: normalizeEmail(email),
     password,
-    options: {
-      emailRedirectTo: redirectTo,
-      data: { handle: trimmedHandle },
-    },
+    options: { data: { handle: trimmedHandle } },
   });
   if (error) throw authError(error.message, error.code);
   if (!data.session) {
-    // Supabase intentionally returns an obfuscated user for an existing email.
-    // Do not branch on that response; keep the confirmation UI enumeration-resistant.
-    return null;
+    throw new Error(
+      "Account creation did not complete. Ensure Confirm email is disabled and the single-owner Auth Hook is enabled.",
+    );
   }
   await initializeOwnerAccount(client, trimmedHandle);
   return data.session;
-}
-
-export async function resendConfirmation(client, email) {
-  const { error } = await client.auth.resend({
-    type: "signup",
-    email: normalizeEmail(email),
-    options: { emailRedirectTo: dashboardRedirect() },
-  });
-  if (error) throw authError(error.message, error.code);
 }
 
 export function validateSignIn(email, password) {
@@ -283,9 +237,6 @@ export function normalizeEmail(value) {
   return cleaned;
 }
 
-function dashboardRedirect() {
-  return `${window.location.origin}${window.location.pathname}`;
-}
 
 function cleanEmailInsertion(input, data, start, end) {
   let cleaned = normalizeEmail(data);
@@ -309,33 +260,23 @@ function sanitizeEmailInput(input) {
 function authError(message, code) {
   const text = String(message || "Authentication failed.");
   const normalizedCode = String(code || "").toLowerCase();
-  const error = new Error(friendlyAuthError(text, normalizedCode));
-  if (normalizedCode === "email_not_confirmed" || /email not confirmed/i.test(text)) {
-    error.code = "EMAIL_NOT_CONFIRMED";
-  }
-  return error;
+  return new Error(friendlyAuthError(text, normalizedCode));
 }
 
-export function friendlyAuthError(message, code = "") {
+export function friendlyAuthError(message) {
   const text = String(message || "Authentication failed.");
-  if (code === "email_not_confirmed" || /email not confirmed/i.test(text)) {
-    return "Confirm your email address first. Check your inbox for the link, then sign in.";
+  if (/already has an owner|owner account already initialized/i.test(text)) {
+    return "This dashboard already has an owner. Sign in instead.";
+  }
+  if (/database error saving new user|hook/i.test(text)) {
+    return "Account could not be created. The dashboard may already have an owner; sign in instead.";
   }
   if (/invalid login credentials/i.test(text)) return "Wrong email or password.";
   if (/already registered|already exists/i.test(text)) {
-    return "If this email is already registered, sign in or resend the confirmation email.";
-  }
-  if (/owner account already initialized/i.test(text)) {
-    return "This dashboard already has an owner. Sign in instead.";
+    return "This email is already registered. Sign in instead.";
   }
   if (/password should be|weak password/i.test(text)) {
     return "Password rejected: use at least 12 characters with mixed character classes.";
-  }
-  if (/email_address_not_authorized|email address not authorized/i.test(text)) {
-    return "Supabase's built-in email service only sends to project team members. Add this email to the Supabase organization or configure custom SMTP in Authentication → Emails → SMTP Settings.";
-  }
-  if (/over_email_send_rate_limit|email rate limit exceeded/i.test(text)) {
-    return "Supabase's confirmation-email limit was reached. Wait, or configure custom SMTP in Authentication → Emails → SMTP Settings.";
   }
   if (/rate limit|too many/i.test(text)) {
     return "Too many attempts. Wait a moment and try again.";

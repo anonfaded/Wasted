@@ -6,10 +6,10 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
 2. **Open the app**: Remote Management → **Open setup wizard** → paste the **Project URL** and
    **Publishable key** (never the secret/service-role key).
 3. **Set up the database**: in Supabase, open **SQL Editor**, run the release's `setup.sql` once,
-   then **Authentication → Providers**: enable **Allow anonymous sign-ins** and keep **Confirm
-   email** enabled. Configure **Authentication → Emails → SMTP Settings** before using a
-   non-team email; the built-in service only sends to project team members (2/hour). Anonymous
-   sign-ins give each device its own private identity, so your
+   then **Authentication → Providers**: enable **Allow anonymous sign-ins** and turn
+   **Confirm email OFF**. Enable **Authentication → Hooks → Before User Created** and select
+   `public.hook_single_owner_signup`. Signup is direct; the first account becomes the owner and
+   later email accounts are rejected. Anonymous sign-ins give each device its own private identity, so your
    email/password is never stored on the device. If you do not want Remote Management, you can leave
    them off; the owner account and dashboard still work, but devices cannot enroll or sync. Under
    **Rate Limits**, set anonymous 10/hour/IP and sign-in/sign-up 10 per 5 minutes/IP (or verify your
@@ -19,12 +19,11 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    `manifest.webmanifest`, `sw.js`, `icons/`, `_headers`). The package supports PWA install and the
    offline app shell on supported browsers.
    In <https://app.netlify.com/>, sign in, choose **Add new project → Deploy manually**, and upload
-   the ZIP. Copy the project URL; make the project public if it starts private. In
-   **Authentication → URL Configuration**, replace `http://localhost:3000` with the dashboard URL in
-   **Site URL**, and add the exact same URL to **Redirect URLs**. Both must match including the final
-   slash, then save. For updates, use the same project → **Deploys**; do not create another project.
-5. **Create your account** on the hosted dashboard URL. With Confirm email enabled, click the link,
-   then sign in. The account name is saved to Supabase and can be changed under **Account**.
+   the ZIP. Copy the project URL; make the project public if it starts private. For updates, use the
+   same project → **Deploys**; do not create another project.
+5. **Create your account** on the hosted dashboard URL. The first account becomes the owner
+   immediately; no email is sent. The account name is saved to Supabase and can be changed under
+   **Account**.
 6. **Connect the app**: paste the dashboard URL into Remote Management, Save, Enable; create an
    enrollment token in the dashboard and claim it in the app. Send Reset Timer to verify.
 

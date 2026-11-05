@@ -171,7 +171,16 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:3'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:4'
+    union all
+    select 'single-owner hook present', count(*), 1
+      from pg_proc
+     where oid = to_regprocedure('public.hook_single_owner_signup(jsonb)')
+    union all
+    select 'single-owner hook auth-admin execute', count(*), 1
+      from pg_proc
+     where oid = to_regprocedure('public.hook_single_owner_signup(jsonb)')
+       and has_function_privilege('supabase_auth_admin', oid, 'EXECUTE')
     union all
     select 'future functions deny PUBLIC', count(*), 0
       from pg_default_acl d

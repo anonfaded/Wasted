@@ -35,10 +35,8 @@ password-protected. Make it public (or disable password protection), then test a
 - **Vercel** — `vercel deploy --prod` from a folder containing only `index.html`.
 - Any HTTPS static host (S3 + CloudFront, nginx, Caddy, …).
 
-No CORS setup is needed (password sign-in only). The dashboard’s sign-up flow passes an
-`emailRedirectTo`, so replace `http://localhost:3000` in **Authentication → URL Configuration → Site
-URL** with the dashboard URL, and add the exact same URL to **Redirect URLs**. Both must match
-including the final slash. HTTPS is required.
+No CORS setup is needed (password sign-in only). Signup is direct and does not send email, so no
+No Auth Site URL or Redirect URL is required for owner signup. HTTPS is still required.
 
 ## Updating the dashboard
 

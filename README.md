@@ -63,7 +63,7 @@ This fork adds optional remote management through your own Supabase project. It 
 
 1. Create a free Supabase project and open **SQL Editor**.
 2. Paste `supabase/setup.sql` and press **Run** once. It creates the tables, RLS policies, RPCs, grants, Realtime publication, and cleanup job. No CLI or Docker is required.
-3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and leave **Confirm email** enabled (recommended: click the link in the email, then sign in). Supabase’s built-in email service only sends to project team members and is limited to 2 emails/hour; configure **Authentication → Emails → SMTP Settings** with your own SMTP provider before creating the owner with a non-team email address. In **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
+3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and turn **Confirm email OFF**. Then open **Authentication → Hooks → Before User Created** and select `public.hook_single_owner_signup`. The first account becomes the owner immediately; later email/password accounts are rejected, while anonymous devices remain allowed. In **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. Run `supabase/verify.sql`; every row should say PASS.
 5. The app setup wizard provides the same SQL and instructions. Developers can instead use the CLI/MCP path documented in `supabase/README.md`.
 
@@ -83,18 +83,16 @@ The dashboard file is generated **by the app**, already configured with your own
 
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
-3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and leave **Confirm email** enabled. Anonymous sign-ins give each device its own private identity, so your email/password is never stored on the device. Confirm email is recommended: click the link in the email, then sign in. If you do not want Remote Management, you can leave anonymous sign-ins off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
+3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins** and turn **Confirm email OFF**. Enable **Authentication → Hooks → Before User Created** and select `public.hook_single_owner_signup`. Anonymous sign-ins give each device its own private identity; the first email/password account becomes the owner and later email accounts are rejected. If you do not want Remote Management, you can leave anonymous sign-ins off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. In the wizard, use **Save deployable package (.zip)**. It contains `index.html`,
    `manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. The package installs as a standalone
    app and provides the offline app shell on supported browsers. Use **Download index.html only**
    only when the host cannot accept the ZIP; that loses the manifest, service worker, icons, and
    installability.
 5. In Netlify, sign in and create one project: **Add new project → Deploy manually**, then upload
-   the ZIP. Copy the project’s HTTPS URL. If the project starts private, make it public. In Supabase →
-   **Authentication → URL Configuration**, replace the default `http://localhost:3000` with the
-   dashboard URL in **Site URL**, and add the exact same URL to **Redirect URLs**. Both must match
-   including the final slash. Then save. Alternatives: Cloudflare Pages direct upload, GitHub Pages,
-   Vercel, any HTTPS static host.
+   the ZIP. Copy the project’s HTTPS URL. If the project starts private, make it public.
+   No Supabase Auth URL configuration is needed for owner signup. Alternatives: Cloudflare Pages
+   direct upload, GitHub Pages, Vercel, any HTTPS static host.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app. The account name is
    saved to Supabase and appears on every browser; change it under **Account**.
@@ -129,9 +127,7 @@ For UI work, you do not need the APK or a redeploy. Use the Vite dev server:
    still uses the config generated by the app.
 
 Local login uses the same Supabase project as the hosted dashboard, so the same owner
-account and devices appear. For confirmation emails from the local origin, add
-`http://localhost:5173/**` and `http://127.0.0.1:5173/**` under Supabase
-**Authentication → URL Configuration → Redirect URLs**.
+account and devices appear. Owner signup is direct; no confirmation email is involved.
 
 ### Building the APK
 
@@ -149,13 +145,12 @@ migrations and schema version, and the build emits a folder per release
 checksummed manifest, and generated apply instructions. There is no automatic update check; release
 notes name the exact bundle to run after a backup.
 
-No CORS setup or build step is needed at the host. With Confirm email enabled, set the Supabase Auth
-**Site URL** to the hosted dashboard URL. Updating the dashboard means replacing `index.html` in the
-same site; use the app's deployable ZIP when strict framing headers are required.
+No CORS setup or build step is needed at the host. Updating the dashboard means replacing
+`index.html` in the same site; use the app's deployable ZIP when strict framing headers are required.
 
 The publishable key is public by design and safe to expose. Never embed a secret/service-role key or the database password. The generated file contains no secret. Anyone who can open the hosted page can attempt to sign up, but only the first owner can initialize the dashboard; extra Auth users cannot access account data.
 
-* Sign In and Create Account are explicit; a failed sign-in never creates an account. Confirm email is recommended and verifies ownership, but it is not a signup restriction.
+* Sign In and Create Account are explicit; a failed sign-in never creates an account. Signup is direct, the first account becomes the owner, and the Before User Created hook rejects later email accounts while allowing anonymous devices.
 * The account name is stored in Supabase auth metadata at signup and saved to `public.accounts` on first sign-in. It appears on every browser and can be edited under **Account**. Browser storage is not used.
 * The page ships a restrictive CSP meta policy (`default-src 'none'`, Supabase-only connections, inline scripts/styles) and `no-referrer`. Meta policies cannot set `frame-ancestors`; production hosting must send `frame-ancestors 'none'` (or `X-Frame-Options: DENY`) via response headers. Use the app's deployable ZIP (`index.html` + `manifest.webmanifest` + `sw.js` + `icons/` + `_headers`) on a header-capable host, or configure the headers there. The page also has a frame-busting fallback.
 
