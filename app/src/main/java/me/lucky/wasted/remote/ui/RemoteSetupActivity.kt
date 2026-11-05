@@ -437,7 +437,13 @@ class RemoteSetupActivity : AppCompatActivity() {
         val template = assets.open("dashboard-template.html")
             .bufferedReader()
             .use { it.readText() }
-        return DashboardTemplate.render(template, projectUrl, key, version)
+        return DashboardTemplate.render(
+            template,
+            projectUrl,
+            key,
+            version,
+            configStore.load()?.websiteUrl.orEmpty(),
+        )
     }
 
     private fun snackbar(message: String) {

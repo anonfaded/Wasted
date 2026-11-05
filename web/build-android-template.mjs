@@ -4,6 +4,7 @@ import { renderDashboardHtml } from "./build-lib.mjs";
 const html = await renderDashboardHtml({
   supabaseUrl: "__WASTED_SUPABASE_URL__",
   supabasePublishableKey: "__WASTED_PUBLISHABLE_KEY__",
+  dashboardUrl: "__WASTED_DASHBOARD_URL__",
   version: "__WASTED_VERSION__",
 });
 

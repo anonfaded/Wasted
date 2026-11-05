@@ -3,17 +3,19 @@ package me.lucky.wasted.remote.domain
 /** Injects connection values into the bundled dashboard HTML shell. */
 object DashboardTemplate {
     private val PLACEHOLDER =
-        Regex("__WASTED_(SUPABASE_URL|PUBLISHABLE_KEY|VERSION)__")
+        Regex("__WASTED_(SUPABASE_URL|PUBLISHABLE_KEY|DASHBOARD_URL|VERSION)__")
 
     fun render(
         template: String,
         projectUrl: String,
         publishableKey: String,
         version: String,
+        dashboardUrl: String = "",
     ): String {
         val values = mapOf(
             "SUPABASE_URL" to projectUrl.trim(),
             "PUBLISHABLE_KEY" to publishableKey.trim(),
+            "DASHBOARD_URL" to dashboardUrl.trim(),
             "VERSION" to version.trim(),
         )
         return PLACEHOLDER.replace(template) { match ->

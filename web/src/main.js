@@ -35,7 +35,7 @@ const state = {
   refreshFailures: 0,
   refreshInFlight: false,
   explicitSignOut: false,
-  connection: { projectUrl: "", publishableKey: "" },
+  connection: { projectUrl: "", publishableKey: "", dashboardUrl: "" },
   tokenTimer: null,
   liveTimers: [],
   data: {
@@ -122,15 +122,31 @@ function applyConnectionInfo(cfg) {
   const section = $("#menu-connection");
   if (!section || !projectUrl || !publishableKey) return;
 
-  state.connection = { projectUrl, publishableKey };
+  const localPreview = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+  let dashboardUrl = "";
+  if (!localPreview) {
+    const current = new URL(location.href);
+    current.hash = "";
+    current.search = "";
+    dashboardUrl = current.origin + current.pathname;
+  }
+  if (!dashboardUrl) dashboardUrl = String(cfg.dashboardUrl ?? "").trim();
+
+  state.connection = { projectUrl, publishableKey, dashboardUrl };
   $("#menu-project-url").textContent = projectUrl;
   $("#menu-publishable-key").textContent = publishableKey;
+  const dashboardField = $("#menu-dashboard-url-field");
+  if (dashboardField) {
+    $("#menu-dashboard-url").textContent = dashboardUrl;
+    dashboardField.hidden = !dashboardUrl;
+  }
   section.hidden = false;
   $("#menu-divider").hidden = false;
 
   const fields = [
     ["#copy-project-url", "projectUrl", "Project URL"],
     ["#copy-publishable-key", "publishableKey", "Publishable key"],
+    ["#copy-dashboard-url", "dashboardUrl", "Dashboard URL"],
   ];
   for (const [selector, key, label] of fields) {
     $(selector)?.addEventListener("click", async () => {

@@ -9,6 +9,7 @@ class DashboardTemplateTest {
         window.WASTED_CONFIG = {
           supabaseUrl: "__WASTED_SUPABASE_URL__",
           supabasePublishableKey: "__WASTED_PUBLISHABLE_KEY__",
+          dashboardUrl: "__WASTED_DASHBOARD_URL__",
           version: "__WASTED_VERSION__",
         };
     """.trimIndent()
@@ -20,10 +21,12 @@ class DashboardTemplateTest {
             " https://abcdefgh.supabase.co ",
             " sb_publishable_abc123 ",
             " 3.0.0 ",
+            " https://dashboard.example/ ",
         )
 
         assertTrue(rendered.contains("https://abcdefgh.supabase.co"))
         assertTrue(rendered.contains("sb_publishable_abc123"))
+        assertTrue(rendered.contains("https://dashboard.example/"))
         assertTrue(rendered.contains("3.0.0"))
         assertFalse(rendered.contains("__WASTED_"))
     }

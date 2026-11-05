@@ -2,7 +2,7 @@ import { build } from "esbuild";
 import { readFile } from "node:fs/promises";
 
 /** Builds the self-contained dashboard HTML with an injected CONFIG block. */
-export async function renderDashboardHtml({ supabaseUrl, supabasePublishableKey, version }) {
+export async function renderDashboardHtml({ supabaseUrl, supabasePublishableKey, dashboardUrl = "", version }) {
   const bundle = await build({
     entryPoints: ["src/main.js"],
     bundle: true,
@@ -24,6 +24,7 @@ export async function renderDashboardHtml({ supabaseUrl, supabasePublishableKey,
     supabasePublishableKey: ${JSON.stringify(supabasePublishableKey)},
     productName: "Wasted Remote",
     version: ${JSON.stringify(version)},
+    dashboardUrl: ${JSON.stringify(dashboardUrl)},
     privacyUrl: "",
     supportUrl: "",
   };

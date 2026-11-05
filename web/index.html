@@ -137,6 +137,16 @@
           </button>
         </div>
       </div>
+      <div id="menu-dashboard-url-field" class="menu-field" hidden>
+        <span class="menu-field-label">Dashboard URL</span>
+        <div class="menu-value-row">
+          <code id="menu-dashboard-url" class="menu-value"></code>
+          <button id="copy-dashboard-url" type="button" class="quiet menu-copy"
+                  aria-label="Copy dashboard URL" title="Copy dashboard URL">
+            <svg class="icon" aria-hidden="true"><use href="#icon-copy"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
     <div class="menu-divider" id="menu-divider" hidden></div>
     <button id="install-app" type="button" class="quiet">
@@ -591,10 +601,11 @@
                 <li>The device appears after its first sync.</li>
               </ol>
               <p class="muted">
-                The header menu shows the configured Project URL and publishable key with copy
-                buttons. They are baked into this page, so reading or copying them makes no Supabase
-                request. The publishable key is public by design; never paste a secret or
-                service-role key here.
+                The header menu shows the configured Project URL, publishable key, and hosted
+                Dashboard URL with copy buttons. The connection values are baked into this page and
+                the Dashboard URL comes from the address you are using, so reading or copying them
+                makes no Supabase request. The publishable key is public by design; never paste a
+                secret or service-role key here.
               </p>
             </div>
           </details>

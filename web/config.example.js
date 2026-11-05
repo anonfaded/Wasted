@@ -6,6 +6,7 @@ window.WASTED_CONFIG = {
   supabasePublishableKey: "sb_publishable_YOUR_KEY",
   productName: "Wasted Remote",
   version: "3.0.0",
+  dashboardUrl: "",
   privacyUrl: "",
   supportUrl: "",
 };
