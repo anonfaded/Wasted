@@ -24,17 +24,20 @@ function clientWithAccount(handle, rpc = null) {
   };
 }
 
-test("handle validation accepts the SQL character set and length", () => {
+test("display-name validation accepts spaces and normal punctuation", () => {
   assert.equal(validateHandle("Alex"), "");
   assert.equal(validateHandle("Alex.01"), "");
-  assert.match(validateHandle("a"), /3–32/);
-  assert.match(validateHandle("bad name"), /3–32/);
+  assert.equal(validateHandle("John Doe"), "");
+  assert.equal(validateHandle("O'Connor"), "");
+  assert.equal(validateHandle("José García"), "");
   assert.match(validateHandle(""), /Enter an account name/);
+  assert.match(validateHandle("x".repeat(33)), /32 characters/);
+  assert.match(validateHandle("bad\nname"), /control characters/);
 });
 
 test("handleFromSession only trusts valid metadata", () => {
-  assert.equal(handleFromSession({ user: { user_metadata: { handle: "Alex" } } }), "Alex");
-  assert.equal(handleFromSession({ user: { user_metadata: { handle: "a" } } }), "");
+  assert.equal(handleFromSession({ user: { user_metadata: { handle: "John Doe" } } }), "John Doe");
+  assert.equal(handleFromSession({ user: { user_metadata: { handle: "" } } }), "");
   assert.equal(handleFromSession(null), "");
 });
 

@@ -8,7 +8,7 @@ Self-sufficient reference for the Supabase backend. Generated install/update SQL
 
 | Table | Purpose | Key points |
 | --- | --- | --- |
-| `accounts` | Owner profile | `id` = auth user id; unique handle (case-insensitive), 3–32 chars |
+| `accounts` | Owner profile | `id` = auth user id; unique display name (case-insensitive), 1–32 chars; spaces and normal punctuation allowed |
 | `devices` | Enrolled devices | `account_id` FK; unique `installation_id`; `auth_user_id` (anonymous); `revoked_at`; unique `(id, account_id)` |
 | `account_settings` | Desired account state | `revision` (monotonic), `lock_timer_minutes` (1–525600), `usb_trigger_enabled`, `initialized_at` |
 | `device_status` | Last reported device state | One row per device: applied revision, actual timer/USB, timer remaining/running, Debug Mode, reset support, remote enabled, app version, Android SDK, last error, `timer_sampled_at`, `last_seen_at` |

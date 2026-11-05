@@ -115,7 +115,7 @@ Use lowercase `snake_case`, `timestamptz`, named constraints, explicit foreign-k
 ### `public.accounts`
 
 - `id uuid primary key references auth.users(id) on delete cascade`
-- `handle text not null`; trimmed length 3–32; regex `^[A-Za-z0-9][A-Za-z0-9_.-]{2,31}$`
+- `handle text not null`; trimmed display name length 1–32; spaces and normal punctuation allowed; control characters rejected
 - `created_at timestamptz not null default now()`
 - unique index on `lower(handle)`
 

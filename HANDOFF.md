@@ -32,7 +32,7 @@ Debug Mode, optional notifications, offline behavior, and a portable self-hosted
   actual release certificate still needs release-gate verification.
 - Tests: Android **110/110**, web **43/43**, SQL suites **4/4** (schema, RLS, RPC, concurrency) plus
   the verifier drift negative test, run against the linked project in rolled-back transactions.
-  Schema version is **2**; the linked project has the `update_owner_handle` RPC and schema-2 marker.
+  Schema version is **3**; the linked project has the display-name constraints and schema-3 marker.
 - Implemented: Debug Mode boundary, ResetExecutor, reset ordering, per-device Debug Mode commands,
   notifications, Android Remote Management screen, setup wizard, dashboard, enrollment, sync,
   recovery worker, docs.

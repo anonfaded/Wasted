@@ -1,10 +1,11 @@
-const HANDLE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{2,31}$/;
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
 export function validateHandle(value) {
   const handle = String(value ?? "").trim();
   if (!handle) return "Enter an account name.";
-  if (handle.length < 3 || handle.length > 32 || !HANDLE_PATTERN.test(handle)) {
-    return "Use 3–32 characters: letters, digits, dot, dash, underscore.";
+  if (handle.length > 32) return "Use 32 characters or fewer.";
+  if (CONTROL_CHARACTERS.test(handle)) {
+    return "Account name cannot contain control characters.";
   }
   return "";
 }
@@ -105,6 +106,6 @@ function friendlyAccountError(message) {
   if (/handle missing from auth metadata/i.test(text)) {
     return "This account has no saved account name. Sign out and create the account again.";
   }
-  if (/handle must be/i.test(text)) return text;
+  if (/handle must be|account name must be/i.test(text)) return text;
   return text;
 }

@@ -68,14 +68,21 @@ begin
     account := public.update_owner_handle('RpcOwnerB');
     perform pg_temp.assert_true(account.handle = 'RpcOwnerB', 'owner handle update must persist');
 
+    account := public.update_owner_handle('John  Doe');
+    perform pg_temp.assert_true(account.handle = 'John  Doe', 'display names must preserve spaces');
+
     account := public.update_owner_handle('  RpcOwnerA  ');
     perform pg_temp.assert_true(account.handle = 'RpcOwnerA', 'owner handle update must trim');
 end;
 $$;
 
 select pg_temp.expect_error(
-    $$select public.update_owner_handle('no')$$,
-    'P0001', 'handle must be 3-32 characters'
+    $$select public.update_owner_handle('')$$,
+    'P0001', 'account name must be 1-32 characters'
+);
+select pg_temp.expect_error(
+    $$select public.update_owner_handle(E'Bad\nName')$$,
+    'P0001', 'account name must be 1-32 characters'
 );
 
 -- anonymous callers are rejected

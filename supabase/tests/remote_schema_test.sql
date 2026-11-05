@@ -88,7 +88,7 @@ $$;
 -- ─── Constraint behavior ─────────────────────────────────────────────────────
 
 select pg_temp.expect_error(
-    $$insert into public.accounts (id, handle) values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'ab')$$,
+    $$insert into public.accounts (id, handle) values ('0d0d0d0d-0000-4000-8000-0000000000d1', repeat('x', 33))$$,
     '23514'
 );
 select pg_temp.expect_error(
@@ -96,13 +96,13 @@ select pg_temp.expect_error(
     '23514'
 );
 select pg_temp.expect_error(
-    $$insert into public.accounts (id, handle) values ('0d0d0d0d-0000-4000-8000-0000000000d1', '_bad')$$,
+    $$insert into public.accounts (id, handle) values ('0d0d0d0d-0000-4000-8000-0000000000d1', E'Bad\nName')$$,
     '23514'
 );
 
-insert into public.accounts (id, handle) values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'CaseTest');
+insert into public.accounts (id, handle) values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'John Doe');
 select pg_temp.expect_error(
-    $$insert into public.accounts (id, handle) values ('0d0d0d0d-0000-4000-8000-0000000000d2', 'casetest')$$,
+    $$insert into public.accounts (id, handle) values ('0d0d0d0d-0000-4000-8000-0000000000d2', 'john doe')$$,
     '23505'
 );
 

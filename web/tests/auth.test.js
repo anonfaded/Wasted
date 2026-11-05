@@ -44,11 +44,11 @@ test("create-account validation checks password confirmation and handle", () => 
     { field: "create-password-confirm", message: "Passwords do not match." },
   );
   assert.deepEqual(
-    validateCreateAccount("owner@example.com", "long-enough-1", "long-enough-1", "a"),
-    { field: "create-handle", message: "Use 3–32 characters: letters, digits, dot, dash, underscore." },
+    validateCreateAccount("owner@example.com", "long-enough-1", "long-enough-1", ""),
+    { field: "create-handle", message: "Enter an account name." },
   );
   assert.equal(
-    validateCreateAccount("owner@example.com", "long-enough-1", "long-enough-1", "Alex"),
+    validateCreateAccount("owner@example.com", "long-enough-1", "long-enough-1", "John Doe"),
     null,
   );
 });

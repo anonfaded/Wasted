@@ -3,7 +3,7 @@
   "releases": [
     {
       "appVersion": "3.0.0",
-      "schemaVersion": 2,
+      "schemaVersion": 3,
       "migrations": [
         "20261018125854_remote_schema.sql",
         "20261018133312_remote_rpcs.sql",
@@ -19,7 +19,8 @@
         "20261021070916_remote_multi_enrollment.sql",
         "20261021150306_remote_single_owner.sql",
         "20261021150716_remote_legacy_revocation_repair.sql",
-        "20261103222448_remote_owner_handle_update.sql"
+        "20261103222448_remote_owner_handle_update.sql",
+        "20261105054451_remote_display_names.sql"
       ]
     }
   ]

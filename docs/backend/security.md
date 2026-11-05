@@ -69,9 +69,9 @@ URL + publishable key.
 - Passwords are never trimmed or altered. Create Account requires a confirmed password and at least
   12 characters; Sign In accepts existing passwords, including shorter ones if the project permits
   them. Configure the project's minimum password length if you need a server-side floor as well.
-- Account names are validated against the documented 3–32 character charset and stored in
-  `public.accounts`; the signup copy is also stored in auth metadata as a bootstrap fallback. Device
-  names are 1–80 characters.
+- Account names are display names: 1–32 characters, spaces and normal punctuation allowed,
+  control characters rejected. They are stored in `public.accounts`; the signup copy is also stored
+  in auth metadata as a bootstrap fallback. Device names are 1–80 characters.
 - Dynamic values are rendered with `textContent`, not HTML interpolation; RPC parameters are
   parameterized and RLS/RPC ownership checks remain the authorization boundary.
 

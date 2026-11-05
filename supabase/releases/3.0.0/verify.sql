@@ -171,7 +171,7 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:2'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:3'
     union all
     select 'future functions deny PUBLIC', count(*), 0
       from pg_default_acl d
