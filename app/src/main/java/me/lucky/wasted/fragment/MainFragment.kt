@@ -35,6 +35,9 @@ class MainFragment : Fragment() {
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         prefs.copyTo(prefsdb, key)
+        if (key == "triggers") {
+            binding.root.post { refreshSecretColor() }
+        }
     }
 
     override fun onCreateView(
@@ -57,7 +60,14 @@ class MainFragment : Fragment() {
         super.onResume()
         // Refresh whenever we return to screen — covers returning from:
         // Shizuku app (after starting/granting permission), Settings (after removing accounts/granting files access)
+        refreshSecretColor()
         refreshProtectionUI()
+    }
+
+    private fun refreshSecretColor() {
+        binding.secret.setBackgroundColor(
+            ctx.getColor(if (prefs.triggers != 0) R.color.secret_1 else R.color.secret_0),
+        )
     }
 
     override fun onStop() {
@@ -72,9 +82,7 @@ class MainFragment : Fragment() {
         if (prefs.secret.isEmpty()) prefs.secret = makeSecret()
         binding.apply {
             secret.text = prefs.secret
-            secret.setBackgroundColor(ctx.getColor(
-                if (prefs.triggers != 0) R.color.secret_1 else R.color.secret_0
-            ))
+            refreshSecretColor()
             wipeData.isChecked = prefs.isWipeData
             wipeEmbeddedSim.isChecked = prefs.isWipeEmbeddedSim
             wipeEmbeddedSim.isEnabled = wipeData.isChecked

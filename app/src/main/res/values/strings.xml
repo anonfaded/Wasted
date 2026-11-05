@@ -11,7 +11,7 @@
     <string name="shortcut_label">Panic</string>
     <string name="trigger_lock_time_hint">time</string>
     <string name="trigger_lock_time_error">7d / 48h / 120m</string>
-    <string name="trigger_lock_time_helper_text">How much time to wait. Modifiers: [d]ays [h]ours [m]inutes</string>
+    <string name="trigger_lock_time_helper_text">How long Wasted waits after the screen turns off or the phone locks before firing the Lock trigger. Use d for days, h for hours, m for minutes (for example 7d, 48h, 120m).</string>
     <string name="trigger_tile_delay_description">Safe delay before it will fire. Gives you some time to cancel fire if you will tap a tile accidentally.</string>
     <string name="notification_channel_default_name">Default</string>
     <string name="notification_channel_remote_name">Remote events</string>

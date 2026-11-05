@@ -455,8 +455,10 @@
                 <p class="eyebrow">Account-wide</p>
                 <h3 id="settings-title">Account settings</h3>
                 <p class="section-desc">
-                  Applied to every enrolled device at its next sync. Saving creates a new revision;
-                  devices ignore older revisions, so edits converge without overwriting newer ones.
+                  These are account-wide settings applied to every enrolled device. Lock timer and
+                  USB trigger are saved together as one settings version; devices apply the newest
+                  version at their next sync. Changing a setting on the phone affects only that
+                  phone; the device card shows its reported value separately from this account value.
                 </p>
               </div>
             </div>
@@ -465,12 +467,14 @@
                 <div class="setting-copy">
                   <label for="lock-minutes">Lock timer (minutes)</label>
                   <p id="lock-hint" class="hint">
-                    How long to wait after a trigger before locking. 10080 = 7 days, 1440 = 1 day,
-                    60 = 1 hour.
+                    How long the phone waits after it locks or its screen turns off before firing
+                    the Lock trigger. If Wipe data is enabled on the phone, the reset starts after
+                    this delay. Examples: 10080 = 7 days, 1440 = 1 day, 60 = 1 hour.
                   </p>
+                  <p id="lock-human" class="hint"></p>
                 </div>
                 <input id="lock-minutes" name="lockMinutes" type="number" min="1" max="525600"
-                       step="1" inputmode="numeric" placeholder="10080" aria-describedby="lock-hint"
+                       step="1" inputmode="numeric" placeholder="10080" aria-describedby="lock-hint lock-human"
                        title="1–525600 minutes (1 minute to 1 year)" required class="compact-input">
               </div>
               <div class="setting-row">
@@ -493,6 +497,8 @@
                   <span class="button-label">Save settings</span>
                 </button>
                 <span id="settings-revision" class="muted"></span>
+                <button id="settings-info" type="button" class="info-button"
+                        aria-label="About settings version" title="The version increases each time account settings are saved. Devices apply the newest version.">?</button>
               </div>
               <p id="settings-message" class="message" role="status"></p>
             </form>
@@ -519,6 +525,7 @@
                 </button>
                 <p class="hint">
                   Restarts the lock timer. Devices that are unlocked stay inactive. Safe to repeat.
+                  The card updates from the device's next status report, not a simulated value.
                 </p>
               </div>
               <div class="command-card danger-zone">

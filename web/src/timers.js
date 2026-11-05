@@ -43,6 +43,7 @@ export function relativeTime(timestamp, nowMs = Date.now()) {
 
 export function formatDateTime(timestamp) {
   return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -50,6 +51,23 @@ export function formatDateTime(timestamp) {
     minute: "2-digit",
     hour12: true,
   }).format(new Date(timestamp));
+}
+
+export function formatMinutes(minutes) {
+  const value = Math.max(0, Math.floor(Number(minutes) || 0));
+  if (value < 60) return `${value} min`;
+  if (value < 1440 && value % 60 === 0) {
+    const hours = value / 60;
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  if (value < 1440) {
+    return `${Math.floor(value / 60)} hr ${value % 60} min`;
+  }
+  const days = Math.floor(value / 1440);
+  const remainingHours = Math.floor((value % 1440) / 60);
+  return `${days} day${days === 1 ? "" : "s"}${
+    remainingHours ? ` ${remainingHours} hr` : ""
+  }`;
 }
 
 /** Relative + exact last-contact label; never hides staleness. */

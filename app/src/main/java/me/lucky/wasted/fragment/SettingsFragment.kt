@@ -3,6 +3,7 @@ package me.lucky.wasted.fragment
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import android.widget.CompoundButton
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -20,9 +21,13 @@ class SettingsFragment : Fragment() {
     private lateinit var prefs: Preferences
     private lateinit var prefsdb: Preferences
     private val applier by lazy { LocalSettingsApplier.create(ctx) }
+    private var applyingRemote = false
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         prefs.copyTo(prefsdb, key)
+        if (key == "triggers") {
+            binding.root.post { renderTriggers() }
+        }
     }
 
     override fun onCreateView(
@@ -50,8 +55,13 @@ class SettingsFragment : Fragment() {
         ctx = requireContext()
         prefs = Preferences(ctx)
         prefsdb = Preferences(ctx, encrypted = false)
+        binding.biometricUnlock.isChecked = prefs.isBiometricUnlockEnabled
+        renderTriggers()
+    }
+
+    private fun renderTriggers() {
+        applyingRemote = true
         binding.apply {
-            biometricUnlock.isChecked = prefs.isBiometricUnlockEnabled
             val triggers = prefs.triggers
             panicKit.isChecked = triggers.and(Trigger.PANIC_KIT.value) != 0
             tile.isEnabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
@@ -63,35 +73,27 @@ class SettingsFragment : Fragment() {
             usb.isChecked = triggers.and(Trigger.USB.value) != 0
             application.isChecked = triggers.and(Trigger.APPLICATION.value) != 0
         }
+        applyingRemote = false
     }
 
     private fun setup() = binding.apply {
         biometricUnlock.setOnCheckedChangeListener { _, isChecked ->
             prefs.isBiometricUnlockEnabled = isChecked
         }
-        panicKit.setOnCheckedChangeListener { _, isChecked ->
-            applier.setTrigger(Trigger.PANIC_KIT, isChecked)
-        }
-        tile.setOnCheckedChangeListener { _, isChecked ->
-            applier.setTrigger(Trigger.TILE, isChecked)
-        }
-        shortcut.setOnCheckedChangeListener { _, isChecked ->
-            applier.setTrigger(Trigger.SHORTCUT, isChecked)
-        }
-        broadcast.setOnCheckedChangeListener { _, isChecked ->
-            applier.setTrigger(Trigger.BROADCAST, isChecked)
-        }
-        notification.setOnCheckedChangeListener { _, isChecked ->
-            applier.setTrigger(Trigger.NOTIFICATION, isChecked)
-        }
-        lock.setOnCheckedChangeListener { _, isChecked ->
-            applier.setTrigger(Trigger.LOCK, isChecked)
-        }
-        usb.setOnCheckedChangeListener { _, isChecked ->
-            applier.setTrigger(Trigger.USB, isChecked)
-        }
-        application.setOnCheckedChangeListener { _, isChecked ->
-            applier.setTrigger(Trigger.APPLICATION, isChecked)
+        val triggerViews = listOf<Pair<CompoundButton, Trigger>>(
+            panicKit to Trigger.PANIC_KIT,
+            tile to Trigger.TILE,
+            shortcut to Trigger.SHORTCUT,
+            broadcast to Trigger.BROADCAST,
+            notification to Trigger.NOTIFICATION,
+            lock to Trigger.LOCK,
+            usb to Trigger.USB,
+            application to Trigger.APPLICATION,
+        )
+        for ((view, trigger) in triggerViews) {
+            view.setOnCheckedChangeListener { _, isChecked ->
+                if (!applyingRemote) applier.setTrigger(trigger, isChecked)
+            }
         }
     }
 }

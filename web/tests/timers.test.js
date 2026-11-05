@@ -8,6 +8,7 @@ import {
   formatLastContact,
   relativeTime,
   formatDateTime,
+  formatMinutes,
 } from "../src/timers.js";
 
 test("formatRemaining renders HH:MM:SS and day prefixes", () => {
@@ -80,4 +81,12 @@ test("relative time uses readable units", () => {
   assert.equal(relativeTime(now - 3_600_000, now), "1 hour ago");
   assert.equal(relativeTime(now - 86_400_000, now), "1 day ago");
   assert.match(formatDateTime(now), /2026/);
+});
+
+test("lock durations are humanized", () => {
+  assert.equal(formatMinutes(10080), "7 days");
+  assert.equal(formatMinutes(1440), "1 day");
+  assert.equal(formatMinutes(60), "1 hour");
+  assert.equal(formatMinutes(90), "1 hr 30 min");
+  assert.equal(formatMinutes(1), "1 min");
 });

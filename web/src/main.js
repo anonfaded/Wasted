@@ -15,6 +15,7 @@ import {
   formatRemaining,
   formatLastContact,
   formatDateTime,
+  formatMinutes,
 } from "./timers.js";
 import { $, toast, setBusy, confirmAction, showMessage, clearMessage, copyText } from "./ui.js";
 import { actionUnavailableMessage, isReachabilityError, retryDelayMs } from "./connection.js";
@@ -600,19 +601,19 @@ function renderDevices() {
         lastContactEl,
         fieldTerm(
           "Timer",
-          "The lock timer remaining, estimated locally between device reports.",
+          "The remaining delay before the Lock trigger fires. It starts after the phone locks or the screen turns off, and is inactive while the phone is unlocked.",
         ),
         el("dd", {}, [timerSpan]),
         fieldTerm(
           "Lock timer",
-          "Actual is the device's current value. Desired is the account setting and revision it applies at the next sync.",
+          "Device is the value reported by the device; Account setting is the value saved in Controls. To change it, use Controls → Save settings; the device applies it at its next sync.",
         ),
-        el("dd", { text: desiredVsActual(settings?.lock_timer_minutes, settings?.revision, status?.actual_lock_timer_minutes, "min") }),
+        el("dd", { text: desiredVsActual(settings?.lock_timer_minutes, status?.actual_lock_timer_minutes, formatMinutes) }),
         fieldTerm(
           "USB trigger",
-          "When ON, connecting USB data while the device is locked can fire the USB trigger. Actual is reported by the device; desired is the account setting.",
+          "When ON, connecting USB data to a locked device can fire the USB trigger. Device is what the phone reports; Account setting is saved in Controls. Change it there and save.",
         ),
-        el("dd", { text: desiredVsActual(settings?.usb_trigger_enabled, settings?.revision, status?.actual_usb_trigger_enabled, null) }),
+        el("dd", { text: desiredVsActual(settings?.usb_trigger_enabled, status?.actual_usb_trigger_enabled, formatEnabled) }),
         fieldTerm(
           "Debug Mode",
           "ON blocks Force Reset; Reset Timer and settings sync still work. The switch sends a command to this device and asks for confirmation.",
@@ -683,20 +684,21 @@ function summaryCard(label, value, detail) {
 
 function timerText(status, now) {
   if (!status) return "unknown";
-  if (!status.timer_running) return "inactive";
+  if (!status.timer_running) return "inactive — no active lock countdown";
   return `running · ${formatRemaining(extrapolatedRemaining(status, now))} left (est.)`;
 }
 
-function desiredVsActual(desired, revision, actual, unit) {
+function desiredVsActual(desired, actual, formatValue) {
   const desiredText =
-    desired === undefined || desired === null
-      ? "uninitialized"
-      : `${desired}${unit ? ` ${unit}` : ""} (rev ${revision ?? 0})`;
+    desired === undefined || desired === null ? "not set" : formatValue(desired);
   const actualText =
-    actual === undefined || actual === null
-      ? "unknown"
-      : `${actual}${unit ? ` ${unit}` : ""}`;
-  return `${actualText} actual · ${desiredText} desired`;
+    actual === undefined || actual === null ? "unknown" : formatValue(actual);
+  if (actualText === desiredText) return `${actualText} · device and account match`;
+  return `Device: ${actualText} · Account setting: ${desiredText}`;
+}
+
+function formatEnabled(value) {
+  return value ? "ON" : "OFF";
 }
 
 const COMMAND_LABELS = {
@@ -756,9 +758,15 @@ function renderSettings() {
   }
   $("#lock-minutes").value = String(settings.lock_timer_minutes);
   $("#usb-trigger").checked = Boolean(settings.usb_trigger_enabled);
-  $("#settings-revision").textContent = `revision ${settings.revision}${
+  $("#lock-human").textContent =
+    `Current value: ${formatMinutes(settings.lock_timer_minutes)} ` +
+    `(${settings.lock_timer_minutes} minutes)`;
+  const revision = $("#settings-revision");
+  revision.textContent = `Settings version ${settings.revision}${
     settings.initialized_at ? "" : " · not initialized yet"
   }`;
+  revision.title =
+    "The version increases each time account settings are saved. Devices apply the newest version.";
   form.dataset.revision = String(settings.revision);
 }
 
@@ -1002,6 +1010,19 @@ function installHelp() {
 }
 
 function wireDashboard() {
+  $("#lock-minutes").addEventListener("input", (event) => {
+    const minutes = Number(event.target.value);
+    $("#lock-human").textContent = Number.isFinite(minutes) && minutes > 0
+      ? `Current value: ${formatMinutes(minutes)} (${minutes} minutes)`
+      : "";
+  });
+  $("#settings-info").addEventListener("click", () => {
+    toast(
+      "Lock timer and USB trigger are one account-wide settings version. Saving increments the version; each device applies the newest version at its next sync.",
+      "info",
+    );
+  });
+
   $("#account-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!requireOnline("#account-message")) return;
@@ -1114,9 +1135,23 @@ function wireDashboard() {
       toast("No active devices to reset.");
       return;
     }
+    const now = Date.now();
+    const activeTimers = state.data.devices
+      .map((device) => {
+        const status = state.data.statusByDevice.get(device.id);
+        if (!status?.timer_running) return null;
+        const remaining = formatRemaining(extrapolatedRemaining(status, now));
+        return `${device.name || "Unnamed device"}: ${remaining} remaining`;
+      })
+      .filter(Boolean);
+    const preview = activeTimers.length
+      ? `Active timers now:\n${activeTimers.join("\n")}`
+      : "No device currently has an active lock countdown.";
     const confirmed = await confirmAction({
       title: "Reset Timer",
-      message: `Restart the lock timer on ${count} device(s). Devices that are unlocked stay inactive.`,
+      message:
+        `${preview}\n\nRestart the lock timer on ${count} device(s). Devices that are ` +
+        "unlocked stay inactive. The cards update from the device after it syncs.",
     });
     if (confirmed) await sendAction(RESET_TIMER);
   });
