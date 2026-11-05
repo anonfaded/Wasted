@@ -3,24 +3,59 @@
 Per-user self-hosting keeps load isolated per Supabase project. This page records the sizing model
 so it survives without the development plan.
 
-## Free-plan limits (current)
+## Free-plan limits (verified November 5, 2026)
 
-- Database: 500 MB
-- Egress: 5 GB / month
-- Monthly active users: 50,000
-- Realtime: 2,000,000 messages / month, 200 peak connections
-- No PITR; Free projects can be paused after low activity
+- Database: **500 MB** per project
+- Egress: **5 GB / month** (plus 5 GB cached egress; not used by this app)
+- Monthly active users: **50,000**
+- Realtime: **2,000,000 messages / month**, **200 peak connections**
+- Storage: **1 GB**; Edge Functions: **500,000 invocations** (neither is used)
+- Free projects can be paused after one week of inactivity; there is no PITR or automatic backup.
 
-Review current limits in the Supabase dashboard before relying on them.
+The project is on the Free plan. The Usage page is the source of truth for monthly egress and
+Realtime messages; database size, MAU, and row growth can also be checked from SQL.
+
+## Measured baseline
+
+On November 5, 2026 this project measured:
+
+- Database size: **13 MB** (about 2.6% of 500 MB)
+- Auth MAU: **1** (the owner; anonymous device identities are created only when a device enrolls)
+- Realtime: **7–8 subscriptions** from the open dashboard clients, **0** broadcast messages retained
+- Storage and Edge Functions: **0**
+
+The only unbounded table before this change was command history; the dashboard also refetched up to
+200 command rows every 30 seconds. Both are now bounded.
 
 ## Load model
 
-- One device writes at most one status upsert per heartbeat (60 s) → 43,200/month; the row is
-  overwritten, so it does not create 43,200 retained rows.
-- Realtime deliveries count once per listening client. With ten devices and one always-open
-  dashboard, status delivery is roughly 432,000 messages/month; two open dashboards roughly
-  864,000, before settings/command events.
-- Conservative estimate: `device_count × 43,200 × concurrently_open_dashboards`.
+- **Device heartbeat:** one `device_reconcile` call per 60 seconds while enrolled, unlocked,
+  enabled, and connected → **43,200 calls/month/device**. The status is one overwritten row per
+  device, not history. Commands and settings changes also trigger an immediate reconcile through
+  the device's Realtime channel.
+- **Dashboard polling:** one full refresh per **60 seconds per visible tab**. Hidden tabs do not
+  poll, and wake up with an immediate refresh when they become visible.
+- **Dashboard Realtime:** subscribes only to `devices`, `account_settings`, and `device_commands`.
+  `device_status` is not a Realtime subscription; its 60-second heartbeat is read by the poll. This
+  removes the largest recurring Realtime message source.
+- **Command data:** the dashboard fetches **one latest command per device** through
+  `list_latest_device_commands()`. It never downloads command history.
+- **Retention:** terminal command/action history is deleted after **180 days**; stale enrollment
+  tokens are deleted after **30 days**; unbound/revoked anonymous identities are deleted daily by
+  the existing Auth cleanup. Realtime message partitions are managed by Supabase.
+
+## Recommended operating envelope
+
+For this single-owner dashboard, keep the working set within:
+
+- **25 active devices**
+- **2 simultaneously visible dashboard tabs**
+- Normal command/settings usage (the tables are cleaned, not treated as an unbounded audit archive)
+
+At this envelope, database growth is bounded by the retention job, MAU is ~26, Realtime peak
+connections are ~27, and Realtime messages are driven by actual commands/settings changes rather
+than every status heartbeat. Re-check the Usage page before going beyond it. If the account needs a
+larger envelope, reduce retention or polling first; do not assume the Free plan is unlimited.
 
 ## Internal review thresholds
 
@@ -31,33 +66,36 @@ Treat these as early warnings, not hard limits:
 - 350 MB database size
 - 3.5 GB egress/month
 
-At 70% / 85% / 95% of any quota, reduce subscriptions/refetches or status writes, then re-check.
+At 70% / 85% / 95% of any quota, reduce open dashboards, device count, or retention, then re-check.
 Never promise unlimited free operation.
 
-## Defaults that keep usage low
-
-- Scoped Realtime filters (own device or account only).
-- Realtime is only an invalidation signal; dashboards refetch durable state and coalesce refreshes.
-- One status row per device (upsert, no history table).
-- 60-second heartbeat, not per-second writes.
-- Command/status retention is measurable; define an export/retention policy before the database
-  approaches the threshold.
-
-## Retention policy (recommended; implement before thresholds)
+## Retention policy
 
 - `device_status`: current row only (overwritten), no history.
-- `device_commands` / `command_events` / `account_actions`: retain **180 days** for auditability;
-  export older rows before deletion. Anonymous identities are cleaned daily by the existing job.
-- Revoked devices: retain while their command history is needed; after the export window, purge the
-  device (cascades its history) or keep it if storage allows. Never purge without an export.
-- Define and document a scheduled purge/export job before the database approaches 350 MB or the
-  command tables grow unbounded. A purge must be bounded, logged, and reversible via the export.
+- `device_commands` / `command_events` / `account_actions`: deleted after **180 days**. The daily job
+  removes old actions in batches of 5,000; foreign keys cascade to commands and events.
+- `private.device_enrollments`: expired, consumed, or revoked rows older than **30 days** are
+  deleted.
+- Anonymous Auth identities: daily job removes unbound identities older than 24 hours and identities
+  for devices revoked for more than 30 days.
+- Revoked devices: kept while their command history is retained; device deletion cascades its
+  history. Export anything that must be kept longer before changing the retention interval.
+
+## Maintenance jobs
+
+| Job | Schedule | Purpose |
+| --- | --- | --- |
+| `wasted-cleanup-anonymous-identities` | Daily 03:30 UTC | Delete stale anonymous Auth identities |
+| `wasted-cleanup-remote-history` | Daily 03:45 UTC | Delete old command/action history and enrollment tokens |
+
+Both jobs are installed by the migrations and checked by `verify.sql`.
 
 ## What to monitor
 
-- Supabase Usage (database size, egress, MAU) and Realtime reports.
-- Command/event row counts and growth.
-- Anonymous-identity cleanup job health.
+- Supabase Usage: database size, egress, MAU, and Realtime messages.
+- Command/event/action row counts and growth.
+- Cron job health and the latest cleanup run.
+- Dashboard open-tab count and active device count.
 
 Record the expected device/dashboard count before rollout and check weekly during a soak, monthly
 afterward.

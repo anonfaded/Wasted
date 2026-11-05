@@ -1,7 +1,7 @@
 {
   "appVersion": "3.0.0",
-  "schemaVersion": 4,
-  "setupSha256": "af7d1646e07e01d3dc7ae64cdad655cb2a747a55ffd849c865ad25895a1ef24b",
-  "verifySha256": "0971ff79428ef0bf83b735049c7551f8d614d4eebe06578f24cfbea9cd594b05",
+  "schemaVersion": 5,
+  "setupSha256": "7ebb1ae80ec00a7ab7d07fc4bab8f7654c72f8926b1d1ca85cdbdb343aa19e68",
+  "verifySha256": "8f84ad435ad87e25ca970caecda83f07f52e69d095bf185528e52d8092f3dd29",
   "updates": []
 }

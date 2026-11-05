@@ -423,6 +423,7 @@ export type Database = {
         }
       }
       expire_account_commands: { Args: never; Returns: number }
+      hook_single_owner_signup: { Args: { event: Json }; Returns: Json }
       initialize_owner_account: {
         Args: { p_handle: string }
         Returns: {
@@ -436,6 +437,17 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      list_latest_device_commands: {
+        Args: never
+        Returns: {
+          command_type: string
+          created_at: string
+          device_id: string
+          id: string
+          result_code: string
+          state: string
+        }[]
       }
       update_owner_handle: {
         Args: { p_handle: string }

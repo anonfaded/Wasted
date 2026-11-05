@@ -67,6 +67,7 @@ from all roles.
 | `create_account_action(p_action_type, p_idempotency_key)` | Account-wide action (`reset_timer`/`force_reset`), fans out to active devices |
 | `set_device_debug_mode(p_device_id, p_debug_mode, p_idempotency_key)` | Per-device debug command, one command, owner-only |
 | `expire_account_commands()` | Owner-triggered expiry of overdue queued/received commands |
+| `list_latest_device_commands()` | Read-only, RLS-scoped latest command per device; bounded dashboard fetch |
 
 ### Device RPCs
 
@@ -80,17 +81,24 @@ from all roles.
 
 Publication `supabase_realtime` contains exactly: `account_settings`, `devices`, `device_status`,
 `device_commands`. Clients subscribe with filters (device id or account id) and treat events only as
-invalidation signals.
+invalidation signals. The dashboard deliberately does not subscribe to `device_status`; it reads
+that one row on its visible-tab poll so the 60-second heartbeat does not consume a Realtime message
+per open dashboard.
 
 ## Maintenance
 
-A `pg_cron` job (`wasted-cleanup-anonymous-identities`) removes unbound/stale anonymous identities.
+Two `pg_cron` jobs run daily:
+
+- `wasted-cleanup-anonymous-identities` removes unbound/stale anonymous identities.
+- `wasted-cleanup-remote-history` removes terminal command/action history older than 180 days
+  (cascading to commands and events) and enrollment tokens older than 30 days.
+
 If `pg_cron` is unavailable, enable it under Database → Extensions before running setup.
 
 ## Generated SQL
 
 - Fresh install: `supabase/releases/<current>/setup.sql` (all migrations + extensions guard).
 - Upgrade: `supabase/releases/<current>/update-from-<old>-to-<current>.sql`.
-- Checks: `verify.sql`; tests in `supabase/tests/` (schema, RLS, RPC, concurrency).
+- Checks: `verify.sql`; tests in `supabase/tests/` (schema, RLS, RPC, concurrency, maintenance).
 
 Never run setup on an existing project or edit applied migrations.

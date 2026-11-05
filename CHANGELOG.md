@@ -12,5 +12,6 @@
 ### Enhancements
 - P2P security now uses certificate pinning and an encrypted peer database (re-pair existing peers once).
 - Home screen Help explains the secret code, wipe options, protection level, and setup.
-- Sign-in shows inline validation, Create Account confirms the password, and unconfirmed emails can be resent.
+- Sign-in shows inline validation and Create Account confirms the password.
 - Account names accept spaces and normal punctuation, so full names are preserved.
+- Remote data stays within the Supabase free plan: command history is cleaned after 180 days, enrollment tokens after 30 days, and the dashboard only polls visible tabs.

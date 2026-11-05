@@ -57,7 +57,7 @@ design.
    enroll or sync remote commands.
 4. Run the release's [`verify.sql`](../../supabase/releases/) in SQL Editor; every row must say
    **PASS**. The verifier checks FORCE RLS, exact policies/grants, RPC properties, Realtime scope,
-   the cleanup job, and the schema marker — not just table names.
+   the cleanup jobs, and the schema marker — not just table names.
 
 Do not run `setup.sql` twice and do not mix it with `supabase db push` on the same project.
 

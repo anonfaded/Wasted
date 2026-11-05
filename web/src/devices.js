@@ -6,10 +6,7 @@ export async function fetchDashboardData(client) {
       .select("id, account_id, name, installation_id, enrolled_at, revoked_at")
       .order("created_at", { ascending: true }),
     client.from("device_status").select("*"),
-    client.from("device_commands")
-      .select("id, device_id, command_type, state, result_code, created_at")
-      .order("created_at", { ascending: false })
-      .limit(200),
+    client.rpc("list_latest_device_commands"),
     client.from("account_settings").select("*").maybeSingle(),
   ]);
 

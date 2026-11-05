@@ -72,7 +72,12 @@ async function boot(cfg) {
   });
 
   setInterval(tickTimers, 1000);
-  setInterval(refreshDashboard, 30_000);
+  setInterval(() => {
+    if (!document.hidden) refreshDashboard();
+  }, 60_000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshDashboard();
+  });
   let offlineTimer;
   window.addEventListener("online", () => {
     clearTimeout(offlineTimer);
@@ -351,7 +356,6 @@ function subscribeRealtime(accountId) {
     .channel("wasted-dashboard")
     .on("postgres_changes", { event: "*", schema: "public", table: "devices", filter }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "account_settings", filter }, scheduleRefresh)
-    .on("postgres_changes", { event: "*", schema: "public", table: "device_status", filter }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "device_commands", filter }, scheduleRefresh)
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
@@ -373,6 +377,7 @@ function teardownRealtime() {
 }
 
 function scheduleRefresh() {
+  if (document.hidden) return;
   clearTimeout(state.refreshTimeout);
   state.refreshTimeout = setTimeout(() => refreshDashboard(), 300);
 }

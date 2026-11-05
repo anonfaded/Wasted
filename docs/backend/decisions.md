@@ -25,8 +25,9 @@ connection form was considered and rejected by the client.
 
 **Context:** End users should not need CLI/Docker.
 **Decision:** `setup.sql` (generated from migrations) is pasted once into Supabase SQL Editor.
-Required Auth settings: enable anonymous sign-ins, turn Confirm email **off**, and enable the
-Before User Created hook `public.hook_single_owner_signup` (Hook type Postgres, schema public).
+Required Auth settings: enable anonymous sign-ins, keep the Email provider **on**, turn Confirm
+email **off**, and enable the Before User Created hook `public.hook_single_owner_signup` (Hook type
+Postgres, schema public).
 Signup is direct: the first email/password account becomes the owner, and the hook rejects every
 later non-anonymous account while allowing anonymous device identities. This protects the
 single-owner control plane if the public dashboard URL is discovered. No email delivery or SMTP is used. Anonymous sign-ins

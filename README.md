@@ -62,7 +62,7 @@ This fork adds optional remote management through your own Supabase project. It 
 ### Backend setup
 
 1. Create a free Supabase project and open **SQL Editor**.
-2. Paste `supabase/setup.sql` and press **Run** once. It creates the tables, RLS policies, RPCs, grants, Realtime publication, and cleanup job. No CLI or Docker is required.
+2. Paste `supabase/setup.sql` and press **Run** once. It creates the tables, RLS policies, RPCs, grants, Realtime publication, and cleanup jobs. No CLI or Docker is required.
 3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities). Keep the **Email provider ON** for email/password sign-in, but turn **Confirm email OFF**. Then open **Authentication → Hooks → Before User Created**: turn the hook ON, set **Hook type: Postgres**, **Postgres schema: public**, select **Postgres function: `hook_single_owner_signup`**, and click **Save**. The first account becomes the owner immediately; later email/password accounts are rejected, while anonymous devices remain allowed. This prevents another person who finds the dashboard URL from creating a second owner account. In **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. Run `supabase/verify.sql`; every row should say PASS.
 5. The app setup wizard provides the same SQL and instructions. Developers can instead use the CLI/MCP path documented in `supabase/README.md`.
@@ -162,6 +162,7 @@ The publishable key is public by design and safe to expose. Never embed a secret
 * Debug Mode is ON by default and blocks destructive remote commands. The dashboard asks for confirmation in both directions; the device applies remote toggles without a local dialog. Turning it OFF expires after 10 minutes if the device stays offline, and supersedes any pending Force Reset.
 * Local notifications (on by default, `remote_events` channel) cover settings applied, Reset Timer, Force Reset, blocked or failed commands, manual-sync success, and sync failures. Repeated notices replace each other instead of stacking, and heartbeat successes never notify.
 * Delivery is not push: an online device syncs over Realtime, otherwise at the next 60-second heartbeat or WorkManager recovery run. Nothing is queued forever: Reset Timer 24 h, Force Reset and Debug Mode OFF 10 min, Debug Mode ON 24 h.
+* Free-plan guardrails: the dashboard polls only visible tabs, does not treat the 60-second status heartbeat as a Realtime message, fetches one latest command per device, and keeps command history/action rows for 180 days. Stale enrollment tokens are removed after 30 days. See [`docs/backend/capacity.md`](docs/backend/capacity.md) for the measured budget.
 
 ### Troubleshooting and rollback
 

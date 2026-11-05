@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   activeDevices,
+  fetchDashboardData,
   latestCommandByDevice,
   renameDevice,
   revokeDevice,
@@ -30,6 +31,54 @@ test("latest command per device is taken from newest-first rows", () => {
 test("empty inputs are handled", () => {
   assert.deepEqual(activeDevices(undefined), []);
   assert.equal(latestCommandByDevice([]).size, 0);
+});
+
+test("dashboard data uses the bounded latest-command RPC", async () => {
+  let commandTableRead = false;
+  const client = {
+    rpc: async (name) => {
+      assert.equal(name, "list_latest_device_commands");
+      return {
+        data: [
+          {
+            id: "cmd-2",
+            device_id: "device-1",
+            command_type: "reset_timer",
+            state: "applied",
+            result_code: null,
+            created_at: "2026-11-05T15:00:00Z",
+          },
+        ],
+        error: null,
+      };
+    },
+    from: (table) => {
+      if (table === "devices") {
+        return {
+          select: () => ({
+            order: async () => ({
+              data: [{ id: "device-1", revoked_at: null }],
+              error: null,
+            }),
+          }),
+        };
+      }
+      if (table === "device_status") {
+        return { select: async () => ({ data: [], error: null }) };
+      }
+      if (table === "account_settings") {
+        return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
+      }
+      if (table === "device_commands") commandTableRead = true;
+      throw new Error(`unexpected table ${table}`);
+    },
+  };
+
+  const data = await fetchDashboardData(client);
+
+  assert.equal(commandTableRead, false);
+  assert.equal(data.latestCommand.get("device-1").id, "cmd-2");
+  assert.equal(data.devices.length, 1);
 });
 
 test("rename sends a trimmed name through the RPC", async () => {

@@ -101,7 +101,9 @@ function setupHeader(release) {
 --      (allows anonymous devices, blocks every later email account)
 --   4) review the sign-up / sign-in rate limits
 --
--- Extensions: pgcrypto is available on Supabase; pg_cron is enabled by the script.`;
+-- Extensions: pgcrypto is available on Supabase; pg_cron is enabled by the script.
+-- Maintenance: daily cleanup keeps command/action history to 180 days and enrollment tokens to
+-- 30 days; the dashboard polls visible tabs only and never downloads command history.`;
 }
 
 function updateHeader(from, to) {
@@ -182,6 +184,14 @@ function releaseReadme(release, updates, checksums) {
     "  `hook_single_owner_signup`; Save. This blocks every later email account.",
     "- Review sign-up/sign-in rate limits.",
     "- CAPTCHA is optional and not required by this project.",
+    "",
+    "## Free-plan maintenance",
+    "",
+    "- `wasted-cleanup-remote-history` runs daily: command/action history older than 180 days is",
+    "  removed (cascading to commands and events), and enrollment tokens older than 30 days are",
+    "  removed.",
+    "- The dashboard reads one latest command per device and polls only visible tabs; it does not",
+    "  download command history or subscribe to the 60-second device status heartbeat.",
     "",
   );
   return lines.join("\n");

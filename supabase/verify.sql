@@ -168,10 +168,34 @@ checks as (
       from cron.job
      where jobname = 'wasted-cleanup-anonymous-identities'
     union all
+    select 'remote history cleanup job', count(*), 1
+      from cron.job
+     where jobname = 'wasted-cleanup-remote-history'
+    union all
+    select 'remote cleanup function hardened', count(*), 1
+      from pg_proc
+     where oid = to_regprocedure('private.cleanup_remote_history()')
+       and prosecdef
+       and 'search_path=""' = any(proconfig)
+       and pg_get_userbyid(proowner) = 'postgres'
+       and not has_function_privilege('authenticated', oid, 'EXECUTE')
+    union all
+    select 'latest command RPC is invoker', count(*), 1
+      from pg_proc
+     where oid = to_regprocedure('public.list_latest_device_commands()')
+       and not prosecdef
+       and 'search_path=""' = any(proconfig)
+    union all
+    select 'latest command RPC authenticated-only', count(*), 1
+      from pg_proc
+     where oid = to_regprocedure('public.list_latest_device_commands()')
+       and has_function_privilege('authenticated', oid, 'EXECUTE')
+       and not has_function_privilege('anon', oid, 'EXECUTE')
+    union all
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:4'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:5'
     union all
     select 'single-owner hook present', count(*), 1
       from pg_proc

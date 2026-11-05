@@ -6,11 +6,14 @@ Reproducible infrastructure for the optional Remote Management feature. Git is t
 
 1. Create a free Supabase project.
 2. Open **SQL Editor**, paste `setup.sql`, and press **Run** once. It creates the schema, RLS
-   policies, RPCs, grants, Realtime publication, and the cleanup job; it also ensures
+   policies, RPCs, grants, Realtime publication, and the cleanup jobs; it also ensures
    `pgcrypto`/`pg_cron` are available.
-3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** (device identities)
-   and turn **Confirm email** OFF (signup is direct; no email is sent). Enable **Authentication → Hooks → Before User Created**: hook ON, Hook type Postgres, Postgres schema public, function `hook_single_owner_signup`, then Save. This blocks every later email account while allowing anonymous devices. In **Authentication → Rate Limits**,
-   set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your
+3. In **Authentication → Providers**: enable **Allow anonymous sign-ins** (device identities),
+   keep the **Email provider ON**, and turn **Confirm email** OFF (signup is direct; no email is
+   sent). Enable **Authentication → Hooks → Before User Created**: hook ON, Hook type Postgres,
+   Postgres schema public, function `hook_single_owner_signup`, then Save. This blocks every later
+   email account while allowing anonymous devices. In **Authentication → Rate Limits**, set
+   anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your
    chosen values). CAPTCHA is optional.
 4. Run `verify.sql`; every row must say PASS. The verifier checks FORCE RLS, exact policies/grants,
    RPC properties, Realtime scope, the cleanup job, and the schema marker.
@@ -24,7 +27,9 @@ Do not run `setup.sql` twice, and do not mix it with `supabase db push` on the s
   for a hosted project.
 - Recorded versions in `supabase_migrations.schema_migrations` must match the filenames in
   `migrations/`.
-- Run all four suites in `tests/` inside rolled-back transactions.
+- Run all five suites in `tests/` inside rolled-back transactions on a fresh/disposable project.
+  The RPC and concurrency suites require no existing owner account; on a live owner project use
+  `verify.sql` and `remote_maintenance_test.sql` only.
 - Regenerate `web/src/database.types.ts` when the schema changes.
 - Review advisors with MCP `get_advisors`.
 - Docker is only for local development (`supabase start` / `supabase db reset`). It is not
@@ -53,14 +58,15 @@ Record and verify these values for every project:
 | Setting | Expected |
 | --- | --- |
 | Auth providers | Email/password for owners; anonymous sign-ins for devices |
-| Sign-up | Confirmation email recommended; click the link, then sign in |
+| Sign-up | Direct, no confirmation email; first email/password account becomes owner; hook blocks later accounts |
 | Rate limits | Anonymous sign-ups 10/hour/IP; sign-in/sign-up 10 per 5 minutes/IP |
 | Hooks | Before User Created: Postgres / public / `hook_single_owner_signup` |
 | Exposed schemas | `public` only; `private` schema usage/grants revoked |
-| Extensions | `pgcrypto` (digest, random bytes); `pg_cron` (daily anonymous-identity cleanup) |
+| Extensions | `pgcrypto` (digest, random bytes); `pg_cron` (anonymous-identity and remote-history cleanup) |
 | Realtime | Publication `supabase_realtime` contains only `account_settings`, `devices`, `device_status`, `device_commands` |
 | RLS | Enabled and forced on every remote table; writes only through SECURITY DEFINER RPCs |
 | Advisors | `authenticated_security_definer_function_executable` (owner-only RPC surface by design), `rls_enabled_no_policy` on `private.device_enrollments` (deny-all by design), unused FK indexes on an empty schema |
+| Free-plan retention | `wasted-cleanup-remote-history` daily: command/action history 180 days, enrollment tokens 30 days |
 
 ## Verification commands
 
@@ -80,7 +86,7 @@ Record and verify these values for every project:
 2. Apply the tracked migrations in order (CLI/MCP), or run `setup.sql` once for a SQL-editor
    install.
 3. Apply the Auth manifest above.
-4. Run all four test suites, the advisors, and the clean replay/diff checks.
+4. Run all five test suites, the advisors, and the clean replay/diff checks.
 5. Generate the dashboard in the app for the target project (or build `web/dist/index.html` and inject the target values).
 6. Create the first owner through the dashboard Create Account flow, then enroll a spare device with a fresh token.
 
