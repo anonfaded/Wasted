@@ -10,7 +10,34 @@ so it survives without the development plan.
 - Monthly active users: **50,000**
 - Realtime: **2,000,000 messages / month**, **200 peak connections**
 - Storage: **1 GB**; Edge Functions: **500,000 invocations** (neither is used)
+- Postgres: **60 concurrent connections** (`max_connections`), not a monthly count
 - Free projects can be paused after one week of inactivity; there is no PITR or automatic backup.
+
+## Connections are not a monthly quota
+
+The `60` shown for database connections is the compute instance's **simultaneous open
+connection limit**, not something that accumulates during the month. Seventeen connections now and
+seventeen later are reused seats, not 34 used connections.
+
+The Free project's live snapshot on November 5, 2026 had `max_connections = 60` and 25 entries in
+`pg_stat_activity`: 5 Postgres background processes and 20 client backends owned by Supabase
+services. **Zero** were external/user connections. The breakdown included PostgREST
+(`authenticator`), Realtime, pg_cron, pg_net, the pooler, the metrics exporter, and the management
+API. Those services keep idle connections open, which is why a quiet project still shows a
+nonzero number.
+
+This app does not open direct Postgres connections from the browser or phone. Both use the
+Supabase Data API (PostgREST over HTTPS) and Realtime over WebSocket. A dashboard tab therefore
+does **not** consume one of the 60 Postgres seats; PostgREST uses its own small pool, and Realtime
+connections count against the separate **200 concurrent Realtime connections** allowance.
+
+The monthly quotas that can actually grow are database size, egress, MAU, Realtime messages, and
+Edge Function invocations. Connections matter only if concurrent clients exceed the limit and
+cause "too many connections" failures. Any future custom backend that opens direct Postgres
+connections should use the shared pooler, not one direct connection per request.
+
+Official references: [Connection management](https://supabase.com/docs/guides/database/connection-management)
+and [Pooling and limits](https://supabase.com/docs/guides/database/connecting-to-postgres/pooling-and-limits).
 
 The project is on the Free plan. The Usage page is the source of truth for monthly egress and
 Realtime messages; database size, MAU, and row growth can also be checked from SQL.
