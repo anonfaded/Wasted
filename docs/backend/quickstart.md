@@ -7,7 +7,9 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    **Publishable key** (never the secret/service-role key).
 3. **Set up the database**: in Supabase, open **SQL Editor**, run the release's `setup.sql` once,
    then **Authentication → Providers**: enable **Allow anonymous sign-ins** and keep **Confirm
-   email** enabled. Anonymous sign-ins give each device its own private identity, so your
+   email** enabled. Configure **Authentication → Emails → SMTP Settings** before using a
+   non-team email; the built-in service only sends to project team members (2/hour). Anonymous
+   sign-ins give each device its own private identity, so your
    email/password is never stored on the device. If you do not want Remote Management, you can leave
    them off; the owner account and dashboard still work, but devices cannot enroll or sync. Under
    **Rate Limits**, set anonymous 10/hour/IP and sign-in/sign-up 10 per 5 minutes/IP (or verify your

@@ -63,7 +63,7 @@ This fork adds optional remote management through your own Supabase project. It 
 
 1. Create a free Supabase project and open **SQL Editor**.
 2. Paste `supabase/setup.sql` and press **Run** once. It creates the tables, RLS policies, RPCs, grants, Realtime publication, and cleanup job. No CLI or Docker is required.
-3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and leave **Confirm email** enabled (recommended: click the link in the email, then sign in). In **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
+3. In **Authentication → Providers**, enable **Allow anonymous sign-ins** (per-device identities) and leave **Confirm email** enabled (recommended: click the link in the email, then sign in). Supabase’s built-in email service only sends to project team members and is limited to 2 emails/hour; configure **Authentication → Emails → SMTP Settings** with your own SMTP provider before creating the owner with a non-team email address. In **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 4. Run `supabase/verify.sql`; every row should say PASS.
 5. The app setup wizard provides the same SQL and instructions. Developers can instead use the CLI/MCP path documented in `supabase/README.md`.
 

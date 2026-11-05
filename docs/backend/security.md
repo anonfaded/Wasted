@@ -15,6 +15,25 @@
 | Hosted dashboard contains secrets | False: the generated file contains only URL + publishable key |
 | Clickjacking of destructive confirmations | Use the full app package (`index.html` + `manifest.webmanifest` + `sw.js` + `icons/` + `_headers`) on a header-capable host, or configure `frame-ancestors 'none'`/`X-Frame-Options: DENY`; the page also ships a frame-busting fallback |
 
+## Confirmation email
+
+- Supabase Auth sends the confirmation email; the dashboard does not build email HTML, run SMTP,
+  or handle confirmation tokens.
+- The email address is normalized and validated again by Supabase. The account name is stored as
+  metadata/display text, never interpolated into dashboard HTML (`textContent` only).
+- `emailRedirectTo` is derived only from the current origin and pathname and must be allowlisted in
+  Supabase URL Configuration; this prevents arbitrary redirect targets.
+- The dashboard does not consume implicit-flow fragments (`detectSessionInUrl: false`) and removes
+  `access_token`/`refresh_token` fragments from the address bar and history on load. CSP and
+  `Referrer-Policy: no-referrer` limit token/referrer exposure.
+- Signup and resend responses use generic messages for existing emails so the dashboard does not add
+  another account-enumeration channel. Supabase Auth rate limits remain the server-side control.
+- Supabase’s built-in email service only sends to project team members and is limited to 2 emails/hour.
+  Configure custom SMTP under **Authentication → Emails → SMTP Settings** before using a
+  non-team owner email; otherwise the confirmation email will not be delivered.
+- If you customize the Supabase email template, HTML-escape any custom metadata such as the account
+  name; the default template does not include it.
+
 ## Key boundaries
 
 | Key | Where it lives | Rules |

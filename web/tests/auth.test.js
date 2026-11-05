@@ -95,7 +95,7 @@ test("immediate signup session initializes the owner row", async () => {
   ]);
 });
 
-test("an obfuscated existing-user signup is reported clearly", async () => {
+test("an existing-user signup does not reveal account existence", async () => {
   globalThis.window = { location: { origin: "https://dashboard.test", pathname: "/" } };
   const client = {
     auth: {
@@ -109,9 +109,9 @@ test("an obfuscated existing-user signup is reported clearly", async () => {
     },
   };
 
-  await assert.rejects(
-    () => createAccount(client, "owner@example.com", "long-enough-1", "Alex"),
-    /may already exist/,
+  assert.equal(
+    await createAccount(client, "owner@example.com", "long-enough-1", "Alex"),
+    null,
   );
 });
 
@@ -156,6 +156,14 @@ test("auth errors are translated without changing unknown messages", () => {
   assert.equal(
     friendlyAuthError("Failed to fetch"),
     "Could not reach Supabase. Check your connection and try again.",
+  );
+  assert.match(
+    friendlyAuthError("Email address not authorized"),
+    /built-in email service only sends to project team members/,
+  );
+  assert.match(
+    friendlyAuthError("email rate limit exceeded"),
+    /confirmation-email limit was reached/,
   );
   assert.equal(friendlyAuthError("Custom backend error"), "Custom backend error");
 });

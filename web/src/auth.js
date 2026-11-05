@@ -134,7 +134,11 @@ export function wireAuth(client) {
       } else {
         showMode("sign-in");
         $("#sign-in-email").value = $("#create-email").value.trim();
-        showMessage(message, "Check your email for the confirmation link, then sign in.", "info");
+        showMessage(
+          message,
+          "Check your email for the confirmation link, then sign in. If it does not arrive, configure Supabase SMTP.",
+          "info",
+        );
         resend.hidden = false;
       }
     } catch (error) {
@@ -156,7 +160,7 @@ export function wireAuth(client) {
     setBusy(resend, true, "Sending…");
     try {
       await resendConfirmation(client, email);
-      showMessage(message, "Confirmation email sent. Check your inbox, then sign in.", "success");
+      showMessage(message, "Confirmation email requested. Check your inbox and spam.", "success");
     } catch (error) {
       showMessage(message, error.message, "error");
     } finally {
@@ -199,11 +203,8 @@ export async function createAccount(client, email, password, handle) {
   });
   if (error) throw authError(error.message, error.code);
   if (!data.session) {
-    if (Array.isArray(data.user?.identities) && data.user.identities.length === 0) {
-      throw new Error(
-        "An account with this email may already exist. Sign in or resend the confirmation email.",
-      );
-    }
+    // Supabase intentionally returns an obfuscated user for an existing email.
+    // Do not branch on that response; keep the confirmation UI enumeration-resistant.
     return null;
   }
   await initializeOwnerAccount(client, trimmedHandle);
@@ -322,13 +323,19 @@ export function friendlyAuthError(message, code = "") {
   }
   if (/invalid login credentials/i.test(text)) return "Wrong email or password.";
   if (/already registered|already exists/i.test(text)) {
-    return "An account with this email already exists — sign in instead.";
+    return "If this email is already registered, sign in or resend the confirmation email.";
   }
   if (/owner account already initialized/i.test(text)) {
     return "This dashboard already has an owner. Sign in instead.";
   }
   if (/password should be|weak password/i.test(text)) {
     return "Password rejected: use at least 12 characters with mixed character classes.";
+  }
+  if (/email_address_not_authorized|email address not authorized/i.test(text)) {
+    return "Supabase's built-in email service only sends to project team members. Add this email to the Supabase organization or configure custom SMTP in Authentication → Emails → SMTP Settings.";
+  }
+  if (/over_email_send_rate_limit|email rate limit exceeded/i.test(text)) {
+    return "Supabase's confirmation-email limit was reached. Wait, or configure custom SMTP in Authentication → Emails → SMTP Settings.";
   }
   if (/rate limit|too many/i.test(text)) {
     return "Too many attempts. Wait a moment and try again.";

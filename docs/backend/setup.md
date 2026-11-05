@@ -45,6 +45,8 @@ design.
    - leave **Confirm email** enabled (recommended). Supabase sends a confirmation link; click
      it, then sign in. Confirm email verifies that you own the address, but it does not prevent
      other people from signing up with their own email;
+   - configure **Authentication → Emails → SMTP Settings** before using a non-team email. The
+     built-in email service only sends to project team members and is limited to 2 emails/hour;
    - in **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up
      to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
 
