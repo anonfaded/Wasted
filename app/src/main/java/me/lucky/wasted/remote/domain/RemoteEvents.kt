@@ -9,6 +9,7 @@ data class RemoteEvent(
 ) {
     enum class Kind {
         SETTINGS_CHANGED,
+        SYNC_SUCCEEDED,
         RESET_TIMER_APPLIED,
         FORCE_RESET_INITIATED,
         DEBUG_BLOCKED,

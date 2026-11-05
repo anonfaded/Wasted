@@ -101,10 +101,10 @@ function friendlyAccountError(message) {
   }
   if (/handle is already taken/i.test(text)) return "That account name is already taken.";
   if (/owner account missing/i.test(text)) {
-    return "This account has no saved profile. Sign out and create the account again.";
+    return "This login has no owner profile in this Supabase project. Check the project URL and that setup.sql ran on the same project.";
   }
   if (/handle missing from auth metadata/i.test(text)) {
-    return "This account has no saved account name. Sign out and create the account again.";
+    return "This login has no saved account name. Check that this is the owner account and that the Supabase project is configured correctly.";
   }
   if (/handle must be|account name must be/i.test(text)) return text;
   return text;

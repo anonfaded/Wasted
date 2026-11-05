@@ -79,7 +79,7 @@ If Wasted is not the Device Owner on Android 14+, Remote Management shows a **De
 
 ### Hosting the dashboard
 
-The dashboard file is generated **by the app**, already configured with your own Supabase project URL and publishable key. There is no file editing and no dashboard server: the page talks directly to your Supabase project over HTTPS/WSS.
+The dashboard package is generated **by the app**, already configured with your own Supabase project URL and publishable key. There is no file editing and no dashboard server: the page talks directly to your Supabase project over HTTPS/WSS.
 
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
@@ -105,8 +105,8 @@ requires updating Remote Management.
 
 After deploying the ZIP over HTTPS, the dashboard can be installed like an app:
 
-- **Chrome/Edge (Android, Windows, macOS, desktop):** use the browser install icon or the in-app
-  **Install app** button.
+- **Chrome/Edge (Android, Windows, macOS, desktop):** use the browser install icon or the **Install
+  app** action in the header (inside the header menu on phones).
 - **Safari (iOS/iPadOS 16.4+, macOS 14+):** use **Share → Add to Home Screen** or **File → Add to
   Dock**. The app icon comes from the included Apple touch icon.
 - **Firefox desktop:** Firefox does not install manifest-based PWAs natively; it needs a PWA
@@ -145,10 +145,11 @@ migrations and schema version, and the build emits a folder per release
 checksummed manifest, and generated apply instructions. There is no automatic update check; release
 notes name the exact bundle to run after a backup.
 
-No CORS setup or build step is needed at the host. Updating the dashboard means replacing
-`index.html` in the same site; use the app's deployable ZIP when strict framing headers are required.
+No CORS setup or build step is needed at the host. Updating the dashboard means uploading the new
+ZIP to the same Netlify project through **Deploys**; do not replace only `index.html` or create a
+new site.
 
-The publishable key is public by design and safe to expose. Never embed a secret/service-role key or the database password. The generated file contains no secret. Anyone who can open the hosted page can attempt to sign up, but only the first owner can initialize the dashboard; extra Auth users cannot access account data.
+The publishable key is public by design and safe to expose. Never embed a secret/service-role key or the database password. The generated package contains no secret. Anyone who can open the hosted page can attempt to sign up, but only the first owner can initialize the dashboard; extra Auth users cannot access account data.
 
 * Sign In and Create Account are explicit; a failed sign-in never creates an account. Signup is direct, the first account becomes the owner, and the Before User Created hook rejects later email accounts while allowing anonymous devices.
 * The account name is stored in Supabase auth metadata at signup and saved to `public.accounts` on first sign-in. It appears on every browser and can be edited under **Account**. Browser storage is not used.
@@ -160,7 +161,7 @@ The publishable key is public by design and safe to expose. Never embed a secret
 * Lock Timer / USB Trigger changes are revision-protected and apply to every enrolled device.
 * Reset Timer restarts the lock timer. Force Reset sends a factory reset (typed confirmation in the dashboard) and only executes while Debug Mode is OFF.
 * Debug Mode is ON by default and blocks destructive remote commands. The dashboard asks for confirmation in both directions; the device applies remote toggles without a local dialog. Turning it OFF expires after 10 minutes if the device stays offline, and supersedes any pending Force Reset.
-* Local notifications (on by default, `remote_events` channel) cover settings applied, Reset Timer, Force Reset, blocked or failed commands, manual-sync success, and sync failures. Repeated notices replace each other instead of stacking, and heartbeat successes never notify.
+* Local notifications (on by default, `remote_events` channel) cover settings applied, Reset Timer, Force Reset, blocked or failed commands, the first sync, and sync restored after a reconnect. Repeated notices replace each other instead of stacking, and ordinary 60-second heartbeats stay silent.
 * Delivery is not push: an online device syncs over Realtime, otherwise at the next 60-second heartbeat or WorkManager recovery run. Nothing is queued forever: Reset Timer 24 h, Force Reset and Debug Mode OFF 10 min, Debug Mode ON 24 h.
 * Free-plan guardrails: the dashboard polls only visible tabs, does not treat the 60-second status heartbeat as a Realtime message, fetches one latest command per device, and keeps command history/action rows for 180 days. Stale enrollment tokens are removed after 30 days. See [`docs/backend/capacity.md`](docs/backend/capacity.md) for the measured budget.
 * Sign-in persists in browser storage and auto-refreshes; refresh tokens do not expire by default. Sign out asks for confirmation and ends only the current browser session, so other devices stay signed in. Signing out of the dashboard does not stop device sync; existing settings, timers, and queued commands remain on the backend.

@@ -84,14 +84,16 @@ device locally and never retry a wipe blindly.
 - **Dashboard URL change:** update Remote Management in the app; enrollment/session are unaffected.
 - **Supabase account password:** rotate in Supabase Auth; the app/dashboard never store it.
 - **Secret/service-role key:** never in the app/dashboard; rotate it only for server-side tooling.
-- **Enrollment token:** issue a new token and claim again on the device if needed. Open tokens are
-  independent; revoke unused ones explicitly if desired.
+- **Enrollment token:** issue a new token and claim again on the device if needed. Unused tokens
+  expire after 10 minutes; treat them as secrets and do not share them.
 
 ## Rollback
 
 - **App:** reinstall the previous APK (compatible with the additive schema).
-- **Dashboard:** re-upload the previous HTML file.
+- **Dashboard:** re-upload the previous package (or single-file export).
 - **Database:** restore the backup; do not attempt ad-hoc down-migrations.
-- **Remote off:** disable Remote Management locally to stop sync without touching local behavior.
+- **Remote off:** disable Remote Management locally to stop sync without touching local behavior;
+  the device stays enrolled, so re-enabling resumes sync. Use Reset enrollment to remove the local
+  identity.
 
 See [migrations-and-releases.md](./migrations-and-releases.md) for the full policy.

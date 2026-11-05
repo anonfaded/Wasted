@@ -150,8 +150,8 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 - OFF: only via local confirmation (app) or owner command (dashboard, confirmation). Remote OFF
   supersedes pending Force Resets.
 - Notifications: settings applied, Reset Timer, Force Reset initiated/blocked/rejected, Debug Mode
-  changed, command failures, manual-sync success, sync failure. Heartbeat successes are silent;
-  notification IDs are stable so repeats replace.
+  changed, command failures, first sync, and sync restored after a reconnect. Ordinary heartbeat
+  successes are silent; notification IDs are stable so repeats replace.
 
 ## RPC authorization
 

@@ -30,9 +30,9 @@ password-protected. Make it public (or disable password protection), then test a
 
 ## Alternatives
 
-- **Cloudflare Pages** — Create project → direct upload → drop the file.
-- **GitHub Pages** — publish from a `docs/` folder or an Actions workflow.
-- **Vercel** — `vercel deploy --prod` from a folder containing only `index.html`.
+- **Cloudflare Pages** — Create project → direct upload → drop the extracted package.
+- **GitHub Pages** — publish the extracted package from a `docs/` folder or an Actions workflow.
+- **Vercel** — `vercel deploy --prod` from a folder containing the extracted package.
 - Any HTTPS static host (S3 + CloudFront, nginx, Caddy, …).
 
 No CORS setup is needed (password sign-in only). Signup is direct and does not send email, so no
@@ -40,10 +40,10 @@ No Auth Site URL or Redirect URL is required for owner signup. HTTPS is still re
 
 ## Updating the dashboard
 
-Regenerate the file in the app, open the **same Netlify project → project menu → Deploys**, use the
-deploy drop zone, and upload the new ZIP. Do **not** create another project, because that changes the
+Regenerate the package in the app, open the **same Netlify project → project menu → Deploys**, use
+the deploy drop zone, and upload the new ZIP. Do **not** create another project, because that changes the
 URL and you would have to update Remote Management. Keep the previous deploy if you want a rollback
-path. If the publishable key rotates, regenerate the file and update the app's saved key.
+path. If the publishable key rotates, regenerate the package and update the app's saved key.
 
 ## Backups and restore
 

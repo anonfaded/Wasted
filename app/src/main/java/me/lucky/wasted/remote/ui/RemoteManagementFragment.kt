@@ -39,7 +39,6 @@ import me.lucky.wasted.remote.domain.RemoteConfigValidator
 import me.lucky.wasted.remote.domain.RemoteError
 import me.lucky.wasted.remote.domain.RemoteException
 import me.lucky.wasted.remote.domain.SyncOutcome
-import me.lucky.wasted.trigger.shared.NotificationManager
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -202,27 +201,29 @@ class RemoteManagementFragment : Fragment() {
         }
     }
 
-    private fun saveConfig() = with(binding) {
-        val config = RemoteConfig(
-            projectUrl = projectUrl.editText?.text?.toString().orEmpty(),
-            publishableKey = publishableKey.editText?.text?.toString().orEmpty(),
-            websiteUrl = websiteUrl.editText?.text?.toString().orEmpty(),
-        )
-        val errors = RemoteConfigValidator.validate(
-            config.projectUrl,
-            config.publishableKey,
-            config.websiteUrl,
-        )
-        applyFieldErrors(errors)
-        if (errors.isNotEmpty()) {
-            snackbar("Fix the highlighted fields.")
-            return
-        }
-        if (configStore.save(config)) {
-            snackbar("Configuration saved.")
-            refreshState()
-        } else {
-            snackbar("Configuration could not be saved.")
+    private fun saveConfig() {
+        with(binding) {
+            val config = RemoteConfig(
+                projectUrl = projectUrl.editText?.text?.toString().orEmpty(),
+                publishableKey = publishableKey.editText?.text?.toString().orEmpty(),
+                websiteUrl = websiteUrl.editText?.text?.toString().orEmpty(),
+            )
+            val errors = RemoteConfigValidator.validate(
+                config.projectUrl,
+                config.publishableKey,
+                config.websiteUrl,
+            )
+            applyFieldErrors(errors)
+            if (errors.isNotEmpty()) {
+                snackbar("Fix the highlighted fields.")
+                return
+            }
+            if (configStore.save(config)) {
+                snackbar("Configuration saved.")
+                refreshState()
+            } else {
+                snackbar("Configuration could not be saved.")
+            }
         }
     }
 
@@ -345,7 +346,7 @@ class RemoteManagementFragment : Fragment() {
                 code == 401 || code == 403 -> {
                     setDashboardTestVisual(false)
                     binding.dashboardStatus.text =
-                        "Dashboard responded with HTTP $code. Make the Netlify project public or disable password protection, then test again."
+                        "Dashboard responded with HTTP $code. Make the hosted site public or disable password protection, then test again."
                 }
                 code == 404 -> {
                     setDashboardTestVisual(false)
@@ -394,7 +395,8 @@ class RemoteManagementFragment : Fragment() {
             .setMessage(
                 "Claim enrollment — paste the one-time token from the dashboard. It links this phone to your owner account. Each token works once and expires after 10 minutes.\n\n" +
                     "Sync now — asks the app to reconcile with Supabase immediately instead of waiting for the next automatic sync.\n\n" +
-                    "Reset enrollment — removes this phone's local device identity and saved remote session. It does not delete the device from your dashboard; use Revoke there to remove it. You need a new token to enroll this phone again.\n\n" +
+                    "Reset enrollment — removes this phone's local device identity and saved remote session. It does not remove the device record from your dashboard; use Revoke there to stop its remote access. The record is kept for audit. You need a new token to enroll this phone again.\n\n" +
+                    "Turning Remote Management off stops sync but keeps this device enrolled. Use Reset enrollment when you want to remove the local identity.\n\n" +
                     "Open dashboard — opens your hosted dashboard to create a token or manage this device.",
             )
             .setPositiveButton(android.R.string.ok, null)
@@ -429,9 +431,9 @@ class RemoteManagementFragment : Fragment() {
             }
             // First enablement locally forces Debug Mode ON before enrollment.
             prefs.isDebugMode = true
-        } else {
-            credentials.session = null
         }
+        // Keep the device's encrypted auth session while sync is disabled. Reset enrollment is
+        // the explicit action that removes the device identity.
         configStore.remoteEnabled = enabled
         Utils(requireContext()).updateForegroundRequiredEnabled()
         refreshState()
@@ -521,16 +523,7 @@ class RemoteManagementFragment : Fragment() {
                 } else {
                     try {
                         when (val outcome = engine.runSync()) {
-                            is SyncOutcome.Success -> {
-                                if (credentials.notificationsEnabled) {
-                                    NotificationManager(ctx).notifyRemoteEvent(
-                                        1002,
-                                        "Remote sync complete",
-                                        "Manual sync finished successfully.",
-                                    )
-                                }
-                                "Sync complete."
-                            }
+                            is SyncOutcome.Success -> "Sync complete."
                             is SyncOutcome.Failed -> "Sync failed: ${outcome.reason}"
                             SyncOutcome.NotConfigured -> "Remote is not configured."
                             SyncOutcome.NotEnrolled -> "Device is not enrolled."
@@ -554,7 +547,7 @@ class RemoteManagementFragment : Fragment() {
             .setMessage(
                 "This stops remote sync, clears the device session and the encrypted " +
                     "remote journal/outbox, and rotates this device's installation ID. " +
-                    "The device record remains in your dashboard until you revoke it there. " +
+                    "The device record remains in your dashboard; revoke it there to stop remote access. " +
                     "A fresh enrollment token from the dashboard is required. Local " +
                     "settings, timers, Device Admin, and P2P are not affected.",
             )

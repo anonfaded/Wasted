@@ -37,7 +37,8 @@ import java.util.zip.ZipOutputStream
 
 /**
  * Guided, offline setup: choose a path, collect the project URL/key, provide the database SQL
- * and Auth checklist, generate the single-file dashboard, and optionally save its hosted URL.
+ * and Auth checklist, generate the dashboard package (or single-file fallback), and optionally save
+ * its hosted URL.
  */
 class RemoteSetupActivity : AppCompatActivity() {
     private companion object {

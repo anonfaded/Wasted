@@ -91,7 +91,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Use it for first-time setup, to generate or regenerate the dashboard file, or to add this device to an existing backend. You can also enter the details directly below."
+                    android:text="Use it for first-time setup, to generate or regenerate the dashboard package, or to add this device to an existing backend. You can also enter the details directly below."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.button.MaterialButton
@@ -182,7 +182,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Already hosted? Paste its HTTPS URL here and tap Test dashboard URL. If it is not hosted yet, use the setup wizard to generate index.html, then host it on any HTTPS static host (Netlify, GitHub Pages, Cloudflare Pages, Vercel)."
+                android:text="Already hosted? Paste its HTTPS URL here and tap Test dashboard URL. If it is not hosted yet, use the setup wizard to generate the deployable package (or index.html fallback), then host it on any HTTPS static host (Netlify, GitHub Pages, Cloudflare Pages, Vercel)."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <TextView
@@ -276,7 +276,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="On by default. Local alerts for settings applied, commands, Debug Mode changes, and failures. Turn off only if you do not want alerts."
+                android:text="On by default. Local alerts for settings applied, commands, Debug Mode changes, failures, the first sync, and sync restored after a reconnect. Turn off only if you do not want alerts."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <Space

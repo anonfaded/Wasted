@@ -9,10 +9,10 @@
 | Stolen/revoked device | `revoke_device` rejects pending commands, terminalizes `executing` with an unknown-outcome result, and blocks reconciliation |
 | Replay/duplicate command | Per-submission idempotency keys bound to action type/scope; server compare-and-set state transitions; local journal |
 | Remote wipe bypass | Debug Mode re-read by `ResetExecutor`; remote Force Reset blocked while ON; only reset boundary |
-| Someone learns an enrollment token | Token is single-use, 10-minute, hashed at rest; open tokens are independent, so revoke unused ones explicitly if needed |
+| Someone learns an enrollment token | Token is single-use, expires after 10 minutes, and is hashed at rest; there is no manual token-revocation endpoint, so treat it as a secret and let it expire if unused |
 | Direct table tampering | No write policies/grants; writes only through SECURITY DEFINER RPCs |
 | Secret key leakage | Secret/service-role keys are rejected by validation and never shipped; docs forbid them |
-| Hosted dashboard contains secrets | False: the generated file contains only URL + publishable key |
+| Hosted dashboard contains secrets | False: the generated package contains only URL + publishable key |
 | Clickjacking of destructive confirmations | Use the full app package (`index.html` + `manifest.webmanifest` + `sw.js` + `icons/` + `_headers`) on a header-capable host, or configure `frame-ancestors 'none'`/`X-Frame-Options: DENY`; the page also ships a frame-busting fallback |
 
 ## Single-owner signup

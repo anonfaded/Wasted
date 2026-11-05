@@ -39,6 +39,7 @@ class RemoteSyncCoordinator(
 ) {
     companion object {
         private const val KIND_TRANSITION = "transition"
+        private const val SYNC_RESTORED_GAP_MS = 5 * 60_000L
         private val json = Json { encodeDefaults = true }
     }
 
@@ -150,6 +151,7 @@ class RemoteSyncCoordinator(
     private suspend fun runReconcile(deviceId: String): SyncOutcome {
         drainOutbox()
 
+        val previousLastSync = credentials.lastSyncAt
         val status = statusProvider.snapshot()
         val params = ReconcileParams(
             deviceId = deviceId,
@@ -182,8 +184,19 @@ class RemoteSyncCoordinator(
                         ),
                     )
                 }
-                credentials.lastSyncAt = clock()
+                val syncedAt = clock()
+                credentials.lastSyncAt = syncedAt
                 applyAccountSettings(response.settings)
+                if (previousLastSync == 0L || syncedAt - previousLastSync >= SYNC_RESTORED_GAP_MS) {
+                    events.emit(
+                        RemoteEvent(
+                            kind = RemoteEvent.Kind.SYNC_SUCCEEDED,
+                            key = "sync-restored",
+                            title = "Remote sync complete",
+                            message = "The device synchronized with your account.",
+                        ),
+                    )
+                }
                 return SyncOutcome.Success(response.commands.size)
             } catch (e: RemoteException) {
                 if (!retryPolicy.shouldRetry(e.error) || attempt + 1 >= retryPolicy.maxAttempts) {

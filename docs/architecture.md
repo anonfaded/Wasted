@@ -20,7 +20,8 @@ The app remains fully functional offline. Remote sync is an optional layer.
 - Every user creates **their own Supabase project** and hosts **their own dashboard copy**. There
   is no shared backend or central dashboard URL.
 - The app's setup wizard collects the project URL + publishable key, provides the database SQL and
-  Auth checklist, and generates a configured single-file dashboard saved via Android SAF.
+  Auth checklist, and generates a configured dashboard package (ZIP) plus an optional single-file
+  export, saved via Android SAF.
 - Supabase Cloud is the managed backend. Docker is only for local development/replay.
 - The public APK ships unconfigured, makes no network requests, and stays fail-closed until the
   user configures, enables, and enrolls.
@@ -33,7 +34,7 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
      │ bundled dashboard template   │ owner signs in from a browser
      └─ setup wizard ── SAF export ─┘
             │
-            └─ user hosts one HTML file (Netlify project etc.)
+            └─ user hosts the package (Netlify project etc.)
 ```
 
 | Component | Responsibility |
@@ -47,7 +48,7 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
 | `RemoteRecoveryWorker` | WorkManager safety net (one-time retry + 15-minute periodic) |
 | `ForegroundService` | One service; reconstructs Lock/USB/P2P/remote subsystems; 60 s heartbeat |
 | `ResetExecutor` | Only destructive boundary; re-reads Debug Mode |
-| Dashboard (`web/`) | Static single-file UI: auth, device cards, settings, actions, enrollment |
+| Dashboard (`web/`) | Static multi-file PWA UI: auth, device cards, settings, actions, enrollment; single-file export is a fallback |
 
 ## Identities
 
@@ -110,8 +111,8 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
 
 Optional (default ON), gated by the stored preference. Meaningful events only: settings applied,
 Reset Timer applied, Force Reset initiated/blocked/rejected, Debug Mode changed, command failures,
-manual-sync success, sync failure. Heartbeat successes never notify; stable notification IDs replace
-instead of stacking.
+first sync, and sync restored after a reconnect. Ordinary 60-second heartbeats stay silent; stable
+notification IDs replace instead of stacking.
 
 ## Configuration boundary
 

@@ -6,7 +6,8 @@ Use this for a new installation. For upgrades, see [updates.md](./updates.md).
 
 - The Wasted app (v3.0.0+) installed.
 - A free Supabase account.
-- A place to host one HTML file over HTTPS (Netlify is the simplest).
+- A place to host the static dashboard package over HTTPS (Netlify is the simplest; a single-file
+  export exists but loses PWA/offline support).
 
 ## Accounts vs devices
 

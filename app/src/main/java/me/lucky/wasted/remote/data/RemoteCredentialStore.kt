@@ -102,6 +102,7 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
                 .remove(KEY_DEVICE_ID)
                 .remove(KEY_ACCOUNT_ID)
                 .remove(KEY_ENROLLED)
+                .remove(KEY_LAST_SYNC_AT)
                 .commit()
         }
     }

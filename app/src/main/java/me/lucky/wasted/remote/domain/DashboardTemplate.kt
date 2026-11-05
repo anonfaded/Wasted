@@ -1,6 +1,6 @@
 package me.lucky.wasted.remote.domain
 
-/** Injects connection values into the bundled single-file dashboard template. */
+/** Injects connection values into the bundled dashboard HTML shell. */
 object DashboardTemplate {
     private val PLACEHOLDER =
         Regex("__WASTED_(SUPABASE_URL|PUBLISHABLE_KEY|VERSION)__")

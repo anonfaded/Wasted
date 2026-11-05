@@ -14,10 +14,10 @@ remains a future option if per-user maintenance is unacceptable.
 ## ADR-02 — App-generated dashboard, no runtime connect screen
 
 **Context:** Users should not edit HTML or use a terminal.
-**Decision:** The app bundles a single-file dashboard template; the setup wizard injects the
-project URL + publishable key and exports the configured file via Android SAF. Users host it
-themselves.
-**Consequences:** No file editing, no shared URL, works offline. The file contains the public
+**Decision:** The app bundles a dashboard template (HTML shell plus PWA assets); the setup wizard
+injects the project URL + publishable key and exports the configured package via Android SAF. Users
+host it themselves. A single-file export remains available as a fallback.
+**Consequences:** No file editing, no shared URL, works offline. The package contains the public
 publishable key (not a secret). Changing keys requires regenerating/re-uploading. A runtime
 connection form was considered and rejected by the client.
 
@@ -90,8 +90,9 @@ Resets. No remote path can bypass the reset boundary.
 
 **Context:** Spec lists sync success as a notification; heartbeats occur every 60 s.
 **Decision:** Notify on settings applied, Reset Timer, Force Reset outcomes, Debug Mode changes,
-command failures, manual-sync success, and sync failure. Heartbeat successes are silent.
-**Consequences:** No notification spam; “sync success” is covered by user-requested syncs.
+command failures, first sync, and sync restored after a reconnect (five-minute gap). Ordinary
+heartbeat successes are silent.
+**Consequences:** The spec’s sync-success notification is covered without a notice every minute.
 
 ## ADR-11 — UI stack and compatibility
 
@@ -102,7 +103,8 @@ legacy APIs unless needed.
 
 ## ADR-12 — Hosting recommendation: signed-in Netlify project
 
-**Context:** Users must host one HTML file easily, and later updates must keep the same URL.
+**Context:** Users must host a static dashboard package easily, and later updates must keep the
+same URL.
 **Decision:** Recommend one signed-in Netlify project: **Add new project → Deploy manually**, upload
 the ZIP, and update the same project through **Deploys**. Document Cloudflare Pages, GitHub Pages,
 Vercel, and generic static hosts.
@@ -148,9 +150,10 @@ constraint.
 
 **Context:** The spec lists “device successfully synchronized”, but heartbeats run every 60 seconds.
 **Decision:** Notify on settings applied, Reset Timer, Force Reset outcomes, Debug Mode changes,
-command failures, manual-sync success, and sync failure. Heartbeat successes are silent.
-**Consequences:** “Sync success” is covered by user-requested syncs and failure recovery; no
-notification spam. This is a deliberate deviation recorded for the client.
+command failures, first sync, and sync restored after a five-minute gap. Ordinary heartbeat
+successes are silent.
+**Consequences:** “Sync success” is covered when it is meaningful (first connect or recovery)
+without a notification every minute.
 
 ## ADR-18 — Devices use anonymous identities plus enrollment tokens
 

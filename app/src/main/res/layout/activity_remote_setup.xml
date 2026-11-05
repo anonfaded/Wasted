@@ -101,7 +101,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:text="Create the Supabase database, Authentication settings, and dashboard file. Choose this even if you only need to generate and download the dashboard HTML file."
+                            android:text="Create the Supabase database, Authentication settings, and dashboard package. Choose this even if you only need to generate and download the dashboard HTML file."
                             android:textAppearance="?attr/textAppearanceBodySmall" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -212,7 +212,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="These details stay on this device and are written into the dashboard file later. Tap Continue when both fields are filled in."
+                    android:text="These details stay on this device and are written into the dashboard output later. Tap Continue when both fields are filled in."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.button.MaterialButton
@@ -221,7 +221,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Skip to dashboard file" />
+                    android:text="Skip to dashboard export" />
 
                 <TextView
                     android:layout_width="match_parent"

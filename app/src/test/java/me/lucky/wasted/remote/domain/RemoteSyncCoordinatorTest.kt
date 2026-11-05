@@ -76,6 +76,7 @@ class RemoteSyncCoordinatorTest {
     private val credentials = RemoteCredentialStore(InMemorySharedPreferences()).apply {
         enrolled = true
         deviceId = "device-1"
+        lastSyncAt = now
     }
     private val api = FakeRemoteApi()
     private val settings = RecordingSettingsApplier()
@@ -178,6 +179,16 @@ class RemoteSyncCoordinatorTest {
 
         assertEquals(2, dao.commands.size)
         assertEquals(2, coordinator().pendingCommands().size)
+    }
+
+    @Test
+    fun `sync success is notified after a reconnect gap`() = runBlocking {
+        credentials.lastSyncAt = now - 6 * 60_000L
+        api.response = response(emptyList(), revision = 0L)
+
+        coordinator().syncNow()
+
+        assertEquals(listOf(RemoteEvent.Kind.SYNC_SUCCEEDED), emitted.map { it.kind })
     }
 
     @Test

@@ -102,7 +102,7 @@ class SupabaseRemoteRepository(
             if (!it.isSuccessful) {
                 throw RemoteException(RemoteError.Server(it.code))
             }
-            val body = it.body?.string().orEmpty()
+            val body = it.body.string()
             val external = json.parseToJsonElement(body).jsonObject["external"]?.jsonObject
             val anonymous = external?.get("anonymous_users")?.jsonPrimitive?.booleanOrNull
             anonymous == true
