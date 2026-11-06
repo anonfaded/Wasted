@@ -236,6 +236,7 @@ function renderAuthState() {
     state.lastDeviceCount = null;
     state.data = { devices: [], statusByDevice: new Map(), latestCommand: new Map(), settings: null };
     $("#account-panel").hidden = true;
+    $("#account-email").textContent = "—";
     $("#account-message").textContent = "";
   }
   if (!signedIn) closeHeaderMenu();
@@ -266,6 +267,7 @@ async function refreshDashboard() {
       $("#account-line").textContent = state.handle
         ? `Account: ${state.handle}`
         : `Signed in as ${state.session.user.email ?? "owner"}`;
+      $("#account-email").textContent = state.session.user.email ?? "Not available";
       $("#account-panel").hidden = !state.handle;
       if (state.handle && document.activeElement !== $("#account-handle")) {
         $("#account-handle").value = state.handle;
@@ -600,13 +602,13 @@ function renderDevices() {
         ),
         lastContactEl,
         fieldTerm(
-          "Timer",
-          "The remaining delay before the Lock trigger fires. It starts after the phone locks or the screen turns off, and is inactive while the phone is unlocked.",
+          "Lock countdown",
+          "The live remaining delay before the Lock trigger fires. It starts after the phone locks or the screen turns off, is cancelled when unlocked, and stays inactive while the Lock trigger is OFF on the phone.",
         ),
         el("dd", {}, [timerSpan]),
         fieldTerm(
-          "Lock timer",
-          "Device is the value reported by the device; Account setting is the value saved in Controls. To change it, use Controls → Save settings; the device applies it at its next sync.",
+          "Lock delay",
+          "The configured delay after screen-off/lock, reported by the device. It only runs when the Lock trigger is ON in the phone's Settings. Account setting is saved in Controls; enable the trigger itself under Settings → Lock trigger on the phone.",
         ),
         el("dd", { text: desiredVsActual(settings?.lock_timer_minutes, status?.actual_lock_timer_minutes, formatMinutes) }),
         fieldTerm(
@@ -648,6 +650,10 @@ function renderDevices() {
         ),
         el("dd", { text: describeCommand(command) }),
       ]),
+      el("p", {
+        className: "card-note",
+        text: "Lock delay only runs when the Lock trigger is ON in the app's Settings → Lock trigger. The countdown is inactive while the phone is unlocked.",
+      }),
     ]);
 
     container.append(card);
@@ -1018,7 +1024,7 @@ function wireDashboard() {
   });
   $("#settings-info").addEventListener("click", () => {
     toast(
-      "Lock timer and USB trigger are one account-wide settings version. Saving increments the version; each device applies the newest version at its next sync.",
+      "Lock delay and USB trigger are independent settings. They share one account settings version so one Save applies both atomically; that is why the version number is shown. Lock delay only runs when the Lock trigger is ON on the phone; this page cannot enable that trigger.",
       "info",
     );
   });
@@ -1098,11 +1104,12 @@ function wireDashboard() {
     const lockMinutes = Number($("#lock-minutes").value);
     const usbEnabled = $("#usb-trigger").checked;
     const confirmed = await confirmAction({
-      title: "Save settings?",
+      title: "Save trigger settings?",
       message:
-        `Lock timer: ${lockMinutes} minute(s). USB trigger: ` +
-        `${usbEnabled ? "enabled" : "disabled"}. This creates a new revision and every enrolled ` +
-        "device applies it at its next sync.",
+        `Lock delay: ${formatMinutes(lockMinutes)} (${lockMinutes} minutes). It only runs when ` +
+        "the Lock trigger is ON on the phone. USB trigger: " +
+        `${usbEnabled ? "enabled" : "disabled"}. This creates a new settings version and every ` +
+        "enrolled device applies it at its next sync.",
       confirmLabel: "Save and sync",
       danger: false,
     });
@@ -1150,8 +1157,9 @@ function wireDashboard() {
     const confirmed = await confirmAction({
       title: "Reset Timer",
       message:
-        `${preview}\n\nRestart the lock timer on ${count} device(s). Devices that are ` +
-        "unlocked stay inactive. The cards update from the device after it syncs.",
+        `${preview}\n\nRestart the lock countdown on ${count} device(s). Devices that are ` +
+        "unlocked or have the Lock trigger OFF stay inactive. The cards update from the device " +
+        "after it syncs.",
     });
     if (confirmed) await sendAction(RESET_TIMER);
   });

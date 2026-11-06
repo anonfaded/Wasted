@@ -140,7 +140,7 @@
                 android:layout_height="wrap_content"
                 android:layoutDirection="rtl"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:text="@string/trigger_lock" />
+                android:text="@string/trigger_lock_switch" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -159,7 +159,7 @@
                 android:layout_height="wrap_content"
                 android:layoutDirection="rtl"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:text="@string/trigger_usb" />
+                android:text="@string/trigger_usb_switch" />
 
             <TextView
                 android:layout_width="match_parent"

@@ -158,8 +158,8 @@ The publishable key is public by design and safe to expose. Never embed a secret
 ### Behavior and limits
 
 * Device cards show reported state; Realtime only triggers a refetch and never executes payloads directly. A device counts as "recently connected" for 150 seconds; timers are extrapolated locally.
-* Lock Timer / USB Trigger changes are revision-protected and apply to every enrolled device.
-* Reset Timer restarts the lock timer. Force Reset sends a factory reset (typed confirmation in the dashboard) and only executes while Debug Mode is OFF.
+* Lock delay / USB Trigger changes are revision-protected and apply to every enrolled device. The Lock trigger itself is a phone-local Settings → Lock trigger switch: the dashboard can change the delay but cannot enable or disable that trigger. A local phone change is reported as the device value and does not rewrite the account setting.
+* Reset Timer restarts the active lock countdown; it does nothing while the phone is unlocked or the Lock trigger is OFF. Force Reset sends a factory reset (typed confirmation in the dashboard) and only executes while Debug Mode is OFF.
 * Debug Mode is ON by default and blocks destructive remote commands. The dashboard asks for confirmation in both directions; the device applies remote toggles without a local dialog. Turning it OFF expires after 10 minutes if the device stays offline, and supersedes any pending Force Reset.
 * Local notifications (on by default, `remote_events` channel) cover settings applied, Reset Timer, Force Reset, blocked or failed commands, the first sync, and sync restored after a reconnect. Repeated notices replace each other instead of stacking, and ordinary 60-second heartbeats stay silent.
 * Delivery is not push: an online device syncs over Realtime, otherwise at the next 60-second heartbeat or WorkManager recovery run. Nothing is queued forever: Reset Timer 24 h, Force Reset and Debug Mode OFF 10 min, Debug Mode ON 24 h.

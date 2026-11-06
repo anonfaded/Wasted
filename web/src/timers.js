@@ -1,14 +1,19 @@
 export const FRESHNESS_WINDOW_MS = 150_000;
 
-/** Formats remaining seconds as (Nd) HH:MM:SS. */
+/** Formats remaining seconds as readable units while keeping the live seconds visible. */
 export function formatRemaining(totalSeconds) {
   const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  if (s === 0) return "0s";
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);
   const minutes = Math.floor((s % 3600) / 60);
   const seconds = s % 60;
-  const hms = [hours, minutes, seconds].map((v) => String(v).padStart(2, "0")).join(":");
-  return days > 0 ? `${days}d ${hms}` : hms;
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (days > 0 || hours > 0) parts.push(`${hours}h`);
+  if (days > 0 || hours > 0 || minutes > 0) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(" ");
 }
 
 /** Extrapolates a running timer locally from the last server sample. */

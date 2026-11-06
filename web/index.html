@@ -317,9 +317,10 @@
           account exists.
         </p>
         <p class="muted">
-          <strong>Changing your account:</strong> use the Account section to change the display
-          name. Password reset or account recovery is handled by the Supabase project owner from
-          the Supabase dashboard, because this setup deliberately does not depend on email delivery.
+          <strong>Changing your account:</strong> use the Account section to see the signed-in email
+          and change the display name. Password reset or account recovery is handled by the Supabase
+          project owner from the Supabase dashboard, because this setup deliberately does not depend
+          on email delivery.
         </p>
         <p class="muted">
           <strong>Account name:</strong> saved to your Supabase account. Sign in on another
@@ -453,23 +454,25 @@
             <div class="section-head">
               <div>
                 <p class="eyebrow">Account-wide</p>
-                <h3 id="settings-title">Account settings</h3>
+                <h3 id="settings-title">Trigger settings</h3>
                 <p class="section-desc">
-                  These are account-wide settings applied to every enrolled device. Lock timer and
-                  USB trigger are saved together as one settings version; devices apply the newest
-                  version at their next sync. Changing a setting on the phone affects only that
-                  phone; the device card shows its reported value separately from this account value.
+                  Account-wide. Lock delay and USB trigger are independent settings saved together
+                  in one settings version. Lock delay only runs when the Lock trigger is ON on the
+                  phone (Settings → Lock trigger); this page does not enable the trigger. A local
+                  phone change is shown as the device value and does not rewrite the account value.
                 </p>
               </div>
             </div>
             <form id="settings-form" novalidate>
               <div class="setting-row">
                 <div class="setting-copy">
-                  <label for="lock-minutes">Lock timer (minutes)</label>
+                  <label for="lock-minutes">Lock delay (minutes)</label>
                   <p id="lock-hint" class="hint">
                     How long the phone waits after it locks or its screen turns off before firing
-                    the Lock trigger. If Wipe data is enabled on the phone, the reset starts after
-                    this delay. Examples: 10080 = 7 days, 1440 = 1 day, 60 = 1 hour.
+                    the Lock trigger. This delay only runs when the Lock trigger is ON on that phone
+                    (app Settings → Lock trigger); this page does not enable the trigger. If Wipe data
+                    is enabled, the reset starts after this delay. Examples: 10080 = 7 days,
+                    1440 = 1 day, 60 = 1 hour.
                   </p>
                   <p id="lock-human" class="hint"></p>
                 </div>
@@ -494,7 +497,7 @@
                 <button type="submit" class="primary"
                         title="Save these values and sync them to every enrolled device">
                   <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>
-                  <span class="button-label">Save settings</span>
+                  <span class="button-label">Save trigger settings</span>
                 </button>
                 <span id="settings-revision" class="muted"></span>
                 <button id="settings-info" type="button" class="info-button"
@@ -519,13 +522,15 @@
             <div class="command-grid">
               <div class="command-card">
                 <button id="reset-timer" type="button"
-                        title="Restart the lock timer on all active devices">
+                        title="Restart the lock countdown on all active devices">
                   <svg class="icon" aria-hidden="true"><use href="#icon-reset"/></svg>
                   <span class="button-label">Reset Timer</span>
                 </button>
                 <p class="hint">
-                  Restarts the lock timer. Devices that are unlocked stay inactive. Safe to repeat.
-                  The card updates from the device's next status report, not a simulated value.
+                  Restarts the lock countdown on devices where the Lock trigger is enabled and the
+                  countdown is active. Unlocked devices and devices with Lock trigger OFF stay
+                  inactive. The card updates from the device's next status report, not a simulated
+                  value.
                 </p>
               </div>
               <div class="command-card danger-zone">
@@ -556,6 +561,10 @@
                 </p>
               </div>
             </div>
+            <dl class="account-facts">
+              <dt>Signed-in email</dt>
+              <dd id="account-email">—</dd>
+            </dl>
             <form id="account-form" novalidate>
               <div class="field">
                 <label for="account-handle">Account name</label>
@@ -628,18 +637,34 @@
                   stay queued until it reconnects, subject to their expiry (Reset Timer 24 hours;
                   Force Reset and Debug Mode OFF 10 minutes; Debug Mode ON 24 hours).
                 </dd>
-                <dt>Timer</dt>
+                <dt>Lock countdown</dt>
                 <dd>
-                  The lock timer. While running, the remaining time between heartbeats is estimated
-                  locally from the last reported sample.
+                  The live countdown before the Lock trigger fires. It starts after the phone locks or
+                  its screen turns off, stops when the phone is unlocked, and stays inactive when the
+                  Lock trigger is OFF. The value is extrapolated every second from the last real
+                  device report, so it is labelled estimated while running.
                 </dd>
-                <dt>Lock timer</dt>
+                <dt>Lock delay</dt>
                 <dd>
-                  “actual” is what the device reports; “desired” is the account value and revision it
-                  applies at the next sync.
+                  The configured wait after screen-off/lock before the Lock trigger fires. This is
+                  account-wide, but it has no effect unless the Lock trigger is ON on the phone
+                  (app Settings → Lock trigger). The dashboard does not enable that switch. “Device”
+                  is the phone's reported delay; “Account setting” is the value saved here and sent
+                  at the next sync.
                 </dd>
                 <dt>USB trigger</dt>
-                <dd>The same actual-versus-desired comparison for the USB data-connection trigger.</dd>
+                <dd>
+                  When ON, a USB data connection while the phone is locked can fire the trigger.
+                  “Device” is the phone's reported value; “Account setting” is the value saved here.
+                  Changing the switch on the phone affects only that phone and does not rewrite the
+                  account value; the card shows the mismatch until both values agree.
+                </dd>
+                <dt>Settings version</dt>
+                <dd>
+                  An internal revision number. Saving the account-wide trigger settings increments
+                  it; devices apply only the newest version. It is not a device setting and does not
+                  need to match anything by hand.
+                </dd>
                 <dt>Debug Mode</dt>
                 <dd>
                   ON blocks destructive remote commands (Force Reset). Reset Timer and settings sync
@@ -672,6 +697,29 @@
               <p class="muted">
                 Firefox desktop does not install manifest-based web apps natively. Firefox Android
                 adds a browser shortcut instead of a standalone app.
+              </p>
+            </div>
+          </details>
+
+          <details class="help" id="help-testing">
+            <summary>How to test safely</summary>
+            <div class="help-body">
+              <ol>
+                <li>In the app, open Remote Management and confirm it is enabled and enrolled.</li>
+                <li>In the app Settings, turn <strong>Lock trigger</strong> ON if you are testing the
+                  lock delay. Turn <strong>Debug Mode</strong> ON before testing any reset path.</li>
+                <li>Change Lock delay or USB trigger here, press
+                  <strong>Save trigger settings</strong>, and wait for the device card to report the
+                  new value. The app should update without reopening it.</li>
+                <li>Press <strong>Reset Timer</strong> and confirm the Lock countdown restarts only
+                  while the phone is locked and the Lock trigger is ON.</li>
+                <li>Test <strong>Force Reset</strong> only with Debug Mode ON. It must be blocked and
+                  reported; do not test a real wipe on a device you need.</li>
+              </ol>
+              <p class="muted">
+                A local change in the app is reported back as the device value, but it does not
+                rewrite the account setting. Use this page when you want the change applied to every
+                enrolled device.
               </p>
             </div>
           </details>

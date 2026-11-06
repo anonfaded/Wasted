@@ -11,7 +11,7 @@ The device sends (all `p_` prefixed):
 | --- | --- |
 | `p_device_id` | Device row id |
 | `p_applied_settings_revision` | Last account settings revision applied |
-| `p_actual_lock_timer_minutes` | Current local Lock Timer |
+| `p_actual_lock_timer_minutes` | Current local Lock delay |
 | `p_actual_usb_trigger_enabled` | Current local USB trigger |
 | `p_timer_remaining_seconds` / `p_timer_running` | Timer state |
 | `p_debug_mode` | Current Debug Mode |
@@ -120,7 +120,10 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 - `account_settings.revision` increments on every save.
 - Devices send `applied_settings_revision`; `RemoteSyncCoordinator` applies only newer revisions
   through `LocalSettingsApplier`, then records the revision locally.
-- Lock Timer and USB Trigger are the only synced settings; all other preferences stay device-local.
+- Lock Timer (the delay) and USB Trigger are the only synced settings; all other preferences,
+  including the phone-local Lock trigger switch, stay device-local.
+- The dashboard can report the delay and USB value but does not enable the Lock trigger. A period
+  without an active countdown can mean the phone is unlocked or the Lock trigger is OFF.
 
 ## Errors and retries
 

@@ -11,11 +11,11 @@ import {
   formatMinutes,
 } from "../src/timers.js";
 
-test("formatRemaining renders HH:MM:SS and day prefixes", () => {
-  assert.equal(formatRemaining(0), "00:00:00");
-  assert.equal(formatRemaining(3661), "01:01:01");
-  assert.equal(formatRemaining(90000), "1d 01:00:00");
-  assert.equal(formatRemaining(-5), "00:00:00");
+test("formatRemaining renders readable live units", () => {
+  assert.equal(formatRemaining(0), "0s");
+  assert.equal(formatRemaining(3661), "1h 1m 1s");
+  assert.equal(formatRemaining(90000), "1d 1h 0m 0s");
+  assert.equal(formatRemaining(-5), "0s");
 });
 
 test("extrapolatedRemaining subtracts elapsed time and clamps at zero", () => {
