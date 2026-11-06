@@ -43,6 +43,7 @@ Reconcile also upserts `device_status`, lazily expires overdue commands, and ret
 | --- | --- | --- | --- |
 | `reset_timer` | All active devices | 24 h | `applied`, `rejected`, `failed`, `expired` |
 | `force_reset` | All active devices | 10 min | `reset_initiated`, `debug_blocked`, `rejected`, `failed`, `expired` |
+| `lock_now` | All active devices | 5 min | `applied`, `failed`, `expired` |
 | `debug_mode_on` | One device | 24 h | `applied`, `rejected`, `failed`, `expired` |
 | `debug_mode_off` | One device | 10 min | `applied`, `rejected`, `failed`, `expired` |
 

@@ -43,8 +43,8 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
   apply at the next sync.
 - Realtime events are only invalidations; app and dashboard always refetch durable state.
 - Settings are revision-protected; devices apply only newer revisions.
-- Command expiry: `reset_timer` 24 h; `force_reset` 10 min; `debug_mode_on` 24 h;
-  `debug_mode_off` 10 min.
+- Command expiry: `reset_timer` 24 h; `force_reset` 10 min; `lock_now` 5 min;
+  `debug_mode_on` 24 h; `debug_mode_off` 10 min.
 
 ## Safety and security
 

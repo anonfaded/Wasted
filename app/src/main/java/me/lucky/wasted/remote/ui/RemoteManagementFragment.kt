@@ -100,7 +100,8 @@ class RemoteManagementFragment : Fragment() {
         remoteEventsJob = viewLifecycleOwner.lifecycleScope.launch {
             RemoteEventBus.events.collect { event ->
                 if (event.kind == RemoteEvent.Kind.DEBUG_MODE_CHANGED ||
-                    event.kind == RemoteEvent.Kind.SETTINGS_CHANGED
+                    event.kind == RemoteEvent.Kind.SETTINGS_CHANGED ||
+                    event.kind == RemoteEvent.Kind.LOCK_APPLIED
                 ) {
                     refreshState()
                 }

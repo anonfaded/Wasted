@@ -186,6 +186,25 @@
                 android:text="@string/trigger_application_description"
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/lockNow"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/lock_now" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/lock_now_help"
+                android:textAppearance="?attr/textAppearanceBodySmall" />
+
         </LinearLayout>
     </ScrollView>
 </FrameLayout>

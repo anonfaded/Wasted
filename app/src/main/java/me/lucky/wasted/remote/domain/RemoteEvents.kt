@@ -15,6 +15,7 @@ data class RemoteEvent(
         SETTINGS_CHANGED,
         SYNC_SUCCEEDED,
         RESET_TIMER_APPLIED,
+        LOCK_APPLIED,
         FORCE_RESET_INITIATED,
         DEBUG_BLOCKED,
         DEBUG_MODE_CHANGED,

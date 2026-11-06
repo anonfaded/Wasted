@@ -60,19 +60,15 @@ export function formatDateTime(timestamp) {
 
 export function formatMinutes(minutes) {
   const value = Math.max(0, Math.floor(Number(minutes) || 0));
-  if (value < 60) return `${value} min`;
-  if (value < 1440 && value % 60 === 0) {
-    const hours = value / 60;
-    return `${hours} hour${hours === 1 ? "" : "s"}`;
-  }
-  if (value < 1440) {
-    return `${Math.floor(value / 60)} hr ${value % 60} min`;
-  }
   const days = Math.floor(value / 1440);
-  const remainingHours = Math.floor((value % 1440) / 60);
-  return `${days} day${days === 1 ? "" : "s"}${
-    remainingHours ? ` ${remainingHours} hr` : ""
-  }`;
+  const hours = Math.floor((value % 1440) / 60);
+  const mins = value % 60;
+  return [
+    `${days} day${days === 1 ? "" : "s"}`,
+    `${hours} hour${hours === 1 ? "" : "s"}`,
+    `${mins} minute${mins === 1 ? "" : "s"}`,
+    "0 seconds",
+  ].join(" ");
 }
 
 /** Relative + exact last-contact label; never hides staleness. */

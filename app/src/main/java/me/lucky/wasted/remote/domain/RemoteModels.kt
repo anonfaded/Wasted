@@ -160,6 +160,7 @@ data class RemoteSettingsDto(
 enum class RemoteCommandType {
     @SerialName("reset_timer") RESET_TIMER,
     @SerialName("force_reset") FORCE_RESET,
+    @SerialName("lock_now") LOCK_NOW,
     @SerialName("debug_mode_on") DEBUG_MODE_ON,
     @SerialName("debug_mode_off") DEBUG_MODE_OFF,
 }

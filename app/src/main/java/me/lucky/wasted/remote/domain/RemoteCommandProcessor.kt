@@ -23,6 +23,7 @@ class RemoteCommandProcessor(
     private val debugMode: () -> Boolean,
     private val setDebugMode: (Boolean) -> Unit,
     private val reset: () -> ResetResult,
+    private val lock: () -> Boolean = { true },
     private val events: RemoteEventSink = RemoteEventSink {},
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -40,6 +41,7 @@ class RemoteCommandProcessor(
 
         private const val TYPE_RESET_TIMER = "reset_timer"
         private const val TYPE_FORCE_RESET = "force_reset"
+        private const val TYPE_LOCK = "lock_now"
         private const val TYPE_DEBUG_ON = "debug_mode_on"
         private const val TYPE_DEBUG_OFF = "debug_mode_off"
     }
@@ -77,6 +79,32 @@ class RemoteCommandProcessor(
                         ),
                     )
                     Log.w(TAG, "Interrupted Force Reset ${row.commandId} failed safely")
+                }
+                TYPE_LOCK -> {
+                    val locked = runCatching { lock() }.getOrDefault(false)
+                    sendTransition(
+                        deviceId,
+                        row.commandId,
+                        STATE_EXECUTING,
+                        if (locked) STATE_APPLIED else STATE_FAILED,
+                        if (locked) "locked" else "lock_failed",
+                    )
+                    dao.updateCommandState(
+                        row.commandId,
+                        if (locked) STATE_APPLIED else STATE_FAILED,
+                        row.executingAt,
+                        clock(),
+                    )
+                    if (locked) {
+                        events.emit(
+                            RemoteEvent(
+                                kind = RemoteEvent.Kind.LOCK_APPLIED,
+                                key = row.commandId,
+                                title = "Device locked",
+                                message = "The screen was locked after the interrupted command.",
+                            ),
+                        )
+                    }
                 }
                 TYPE_DEBUG_ON, TYPE_DEBUG_OFF -> recoverInterruptedDebugMode(deviceId, row)
                 else -> {
@@ -167,6 +195,7 @@ class RemoteCommandProcessor(
         return when (current.type) {
             TYPE_RESET_TIMER -> executeResetTimer(deviceId, current)
             TYPE_FORCE_RESET -> executeForceReset(deviceId, current)
+            TYPE_LOCK -> executeLock(deviceId, current)
             TYPE_DEBUG_ON -> executeSetDebugMode(deviceId, current, enabled = true)
             TYPE_DEBUG_OFF -> executeSetDebugMode(deviceId, current, enabled = false)
             else -> {
@@ -174,6 +203,53 @@ class RemoteCommandProcessor(
                 false
             }
         }
+    }
+
+    private suspend fun executeLock(deviceId: String, row: RemoteCommandJournalEntity): Boolean {
+        when (sendTransition(deviceId, row.commandId, STATE_RECEIVED, STATE_EXECUTING)) {
+            SendResult.OK -> Unit
+            SendResult.RETRYABLE -> return false
+            SendResult.FATAL -> {
+                dao.updateCommandState(row.commandId, STATE_FAILED, row.receivedAt, clock())
+                return false
+            }
+        }
+        dao.updateCommandState(row.commandId, STATE_EXECUTING, clock(), null)
+
+        val locked = runCatching { lock() }.getOrDefault(false)
+        val resultCode = if (locked) "locked" else "lock_failed"
+        val terminal = if (locked) STATE_APPLIED else STATE_FAILED
+        when (sendTransition(deviceId, row.commandId, STATE_EXECUTING, terminal, resultCode)) {
+            SendResult.OK -> dao.updateCommandState(row.commandId, terminal, row.executingAt, clock())
+            SendResult.RETRYABLE -> return false
+            SendResult.FATAL -> {
+                dao.updateCommandState(row.commandId, STATE_FAILED, row.executingAt, clock())
+                return false
+            }
+        }
+
+        if (locked) {
+            events.emit(
+                RemoteEvent(
+                    kind = RemoteEvent.Kind.LOCK_APPLIED,
+                    key = row.commandId,
+                    title = "Device locked",
+                    message = "The screen was locked.",
+                ),
+            )
+            Log.i(TAG, "Lock ${row.commandId} applied")
+        } else {
+            events.emit(
+                RemoteEvent(
+                    kind = RemoteEvent.Kind.COMMAND_FAILED,
+                    key = row.commandId,
+                    title = "Lock failed",
+                    message = "The device could not lock the screen. Check Device Admin.",
+                ),
+            )
+            Log.w(TAG, "Lock ${row.commandId} failed")
+        }
+        return true
     }
 
     private suspend fun executeResetTimer(deviceId: String, row: RemoteCommandJournalEntity): Boolean {

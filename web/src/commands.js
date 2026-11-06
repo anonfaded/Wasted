@@ -1,5 +1,6 @@
 export const RESET_TIMER = "reset_timer";
 export const FORCE_RESET = "force_reset";
+export const LOCK_NOW = "lock_now";
 export const DEBUG_MODE_ON = "debug_mode_on";
 export const DEBUG_MODE_OFF = "debug_mode_off";
 

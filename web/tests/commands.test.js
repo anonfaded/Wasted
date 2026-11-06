@@ -6,6 +6,7 @@ import {
   setDeviceDebugMode,
   RESET_TIMER,
   FORCE_RESET,
+  LOCK_NOW,
   DEBUG_MODE_ON,
   DEBUG_MODE_OFF,
 } from "../src/commands.js";
@@ -22,6 +23,7 @@ test("idempotency keys are UUID v4 strings", () => {
 test("action types match the server allowlist", () => {
   assert.equal(RESET_TIMER, "reset_timer");
   assert.equal(FORCE_RESET, "force_reset");
+  assert.equal(LOCK_NOW, "lock_now");
   assert.equal(DEBUG_MODE_ON, "debug_mode_on");
   assert.equal(DEBUG_MODE_OFF, "debug_mode_off");
 });

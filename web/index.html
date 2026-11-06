@@ -76,6 +76,9 @@
     <path d="M8 3v6h8V3"/>
     <path d="M8 21v-7h8v7"/>
   </symbol>
+  <symbol id="icon-lock" viewBox="0 0 24 24">
+    <path d="M7 10V7a5 5 0 0 1 10 0v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1Zm2 0h6V7a3 3 0 0 0-6 0v3Z"/>
+  </symbol>
   <symbol id="icon-reset" viewBox="0 0 24 24">
     <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
     <path d="M3 3v5h5"/>
@@ -459,7 +462,8 @@
                   Account-wide. Lock trigger arms the lock workflow; Lock delay sets how long it
                   waits after screen-off/lock; USB trigger is separate. All three are saved together
                   in one settings version. A local phone change is shown as the device value and does
-                  not rewrite the account value.
+                  not rewrite the account value. Wipe data remains phone-local and is never changed
+                  by this page.
                 </p>
               </div>
             </div>
@@ -534,6 +538,17 @@
             </div>
             <p class="muted" id="action-scope"></p>
             <div class="command-grid">
+              <div class="command-card">
+                <button id="lock-devices" type="button" class="primary"
+                        title="Lock the screen on all active devices; requires two confirmations">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg>
+                  <span class="button-label">Lock All Devices</span>
+                </button>
+                <p class="hint">
+                  Locks the screen on every active device. It does not wipe data or change any
+                  settings. Confirm twice before sending.
+                </p>
+              </div>
               <div class="command-card">
                 <button id="reset-timer" type="button"
                         title="Restart the lock countdown on all active devices">
@@ -669,7 +684,8 @@
                 <dd>
                   The wait after screen-off/lock before the Lock trigger fires. It runs only while
                   the Lock trigger is ON. “Device” is the phone's reported delay; “Account setting”
-                  is the value saved here and sent at the next sync.
+                  is the value saved here and sent at the next sync. Wipe data is a phone-local
+                  setting and is not changed by the dashboard.
                 </dd>
                 <dt>USB trigger</dt>
                 <dd>
@@ -754,6 +770,10 @@
               <p>
                 Force Reset is destructive and cannot be undone. It is blocked when Debug Mode is ON
                 and requires typing <strong>RESET</strong> in the confirmation dialog.
+              </p>
+              <p>
+                <strong>Lock All Devices</strong> only locks the screen; it never wipes or changes
+                settings. It asks twice, and an offline device ignores it after 5 minutes.
               </p>
               <p>
                 Revoking a device stops remote commands but does not wipe it. Reset enrollment in the

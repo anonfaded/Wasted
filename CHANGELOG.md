@@ -4,6 +4,7 @@
 
 ### New Features
 - Self-hosted Remote Management with your own Supabase project and dashboard.
+- Lock All Devices from the dashboard and Lock now in Settings, each with two confirmations.
 - Biometric app unlock setting, so the launch prompt can be turned off.
 
 ### Enhancements

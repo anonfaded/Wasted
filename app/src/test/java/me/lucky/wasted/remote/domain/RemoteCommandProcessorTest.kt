@@ -51,6 +51,7 @@ class RemoteCommandProcessorTest {
     private var supported = true
     private var restartResult = true
     private var restartCalls = 0
+    private var lockCalls = 0
     private val resetCalls = mutableListOf<ResetResult>()
     private val debugWrites = mutableListOf<Boolean>()
     private var debugWriteFails = false
@@ -85,6 +86,7 @@ class RemoteCommandProcessorTest {
         reset = {
             ResetResult.Initiated("Device reset initiated").also { resetCalls.add(it) }
         },
+        lock = { lockCalls++; true },
         events = RemoteEventSink { emitted.add(it) },
         clock = { now },
     )
@@ -108,6 +110,24 @@ class RemoteCommandProcessorTest {
         assertEquals("applied", dao.commands.getValue("c1").state)
         assertEquals(1, restartCalls)
         assertEquals(listOf(RemoteEvent.Kind.RESET_TIMER_APPLIED), emitted.map { it.kind })
+    }
+
+    @Test
+    fun `lock now locks once and applies without touching the reset path`() = runBlocking {
+        seed("c1", type = "lock_now")
+
+        val outcome = processor().processPending()
+
+        assertEquals(1, outcome.processed)
+        assertEquals(
+            listOf("queued->received", "received->executing", "executing->applied"),
+            sent(),
+        )
+        assertEquals("locked", api.transitions.last().resultCode)
+        assertEquals("applied", dao.commands.getValue("c1").state)
+        assertEquals(1, lockCalls)
+        assertTrue(resetCalls.isEmpty())
+        assertEquals(listOf(RemoteEvent.Kind.LOCK_APPLIED), emitted.map { it.kind })
     }
 
     @Test

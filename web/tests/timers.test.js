@@ -83,10 +83,10 @@ test("relative time uses readable units", () => {
   assert.match(formatDateTime(now), /2026/);
 });
 
-test("lock durations are humanized", () => {
-  assert.equal(formatMinutes(10080), "7 days");
-  assert.equal(formatMinutes(1440), "1 day");
-  assert.equal(formatMinutes(60), "1 hour");
-  assert.equal(formatMinutes(90), "1 hr 30 min");
-  assert.equal(formatMinutes(1), "1 min");
+test("lock durations include days, hours, minutes, and seconds", () => {
+  assert.equal(formatMinutes(10080), "7 days 0 hours 0 minutes 0 seconds");
+  assert.equal(formatMinutes(1440), "1 day 0 hours 0 minutes 0 seconds");
+  assert.equal(formatMinutes(60), "0 days 1 hour 0 minutes 0 seconds");
+  assert.equal(formatMinutes(90), "0 days 1 hour 30 minutes 0 seconds");
+  assert.equal(formatMinutes(1), "0 days 0 hours 1 minute 0 seconds");
 });

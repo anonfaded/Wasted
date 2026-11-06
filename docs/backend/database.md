@@ -64,7 +64,7 @@ from all roles.
 | `rename_device(p_device_id, p_name)` | Rename an owned active device |
 | `revoke_device(p_device_id)` | Revokes device; queued/received commands become `rejected`/`device_revoked`; `executing` commands become `failed`/`device_revoked_during_execution` (outcome unknown); terminal rows are preserved |
 | `update_account_settings(p_expected_revision, p_lock_timer_minutes, p_usb_trigger_enabled)` | Revision-protected settings update |
-| `create_account_action(p_action_type, p_idempotency_key)` | Account-wide action (`reset_timer`/`force_reset`), fans out to active devices |
+| `create_account_action(p_action_type, p_idempotency_key)` | Account-wide action (`reset_timer`/`force_reset`/`lock_now`), fans out to active devices |
 | `set_device_debug_mode(p_device_id, p_debug_mode, p_idempotency_key)` | Per-device debug command, one command, owner-only |
 | `expire_account_commands()` | Owner-triggered expiry of overdue queued/received commands |
 | `list_latest_device_commands()` | Read-only, RLS-scoped latest command per device; bounded dashboard fetch |

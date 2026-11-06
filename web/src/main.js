@@ -8,7 +8,7 @@ import {
 import { fetchDashboardData, renameDevice, revokeDevice } from "./devices.js";
 import { createEnrollmentToken, tokenExpiryLabel } from "./enrollment.js";
 import { saveAccountSettings } from "./settings.js";
-import { createAction, setDeviceDebugMode, newIdempotencyKey, RESET_TIMER, FORCE_RESET } from "./commands.js";
+import { createAction, setDeviceDebugMode, newIdempotencyKey, RESET_TIMER, FORCE_RESET, LOCK_NOW } from "./commands.js";
 import {
   extrapolatedRemaining,
   isRecentlyConnected,
@@ -447,6 +447,7 @@ function setDashboardOnline(online, reason = state.connectionReason ?? "offline"
 
   const selectors = [
     "#create-token",
+    "#lock-devices",
     "#reset-timer",
     "#force-reset",
     "#settings-form button[type=submit]",
@@ -716,6 +717,7 @@ function formatEnabled(value) {
 const COMMAND_LABELS = {
   reset_timer: "Reset Timer",
   force_reset: "Force Reset",
+  lock_now: "Lock Devices",
   debug_mode_on: "Debug Mode ON",
   debug_mode_off: "Debug Mode OFF",
 };
@@ -1145,6 +1147,32 @@ function wireDashboard() {
     }
   });
 
+  $("#lock-devices").addEventListener("click", async () => {
+    const count = state.data.devices.length;
+    if (!count) {
+      toast("No active devices to lock.");
+      return;
+    }
+    const first = await confirmAction({
+      title: "Lock all devices?",
+      message:
+        `This locks the screen on ${count} active device(s) at their next sync. It does not wipe ` +
+        "data or change settings. You will be asked once more.",
+      confirmLabel: "Continue",
+      danger: false,
+    });
+    if (!first) return;
+    const second = await confirmAction({
+      title: "Confirm lock",
+      message:
+        `Send the lock command to ${count} device(s) now? The devices stay locked until someone ` +
+        "unlocks them locally.",
+      confirmLabel: "Lock now",
+      danger: false,
+    });
+    if (second) await sendAction(LOCK_NOW);
+  });
+
   $("#reset-timer").addEventListener("click", async () => {
     const count = state.data.devices.length;
     if (!count) {
@@ -1251,7 +1279,11 @@ function updateTokenExpiry(expiresAt) {
 
 async function sendAction(actionType) {
   if (!requireOnline("#commands-message")) return;
-  const button = actionType === FORCE_RESET ? $("#force-reset") : $("#reset-timer");
+  const button = actionType === FORCE_RESET
+    ? $("#force-reset")
+    : actionType === LOCK_NOW
+      ? $("#lock-devices")
+      : $("#reset-timer");
   clearMessage("#commands-message");
   setBusy(button, true);
   try {

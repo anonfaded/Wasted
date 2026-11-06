@@ -3,7 +3,7 @@
   "releases": [
     {
       "appVersion": "3.0.0",
-      "schemaVersion": 7,
+      "schemaVersion": 8,
       "migrations": [
         "20261018125854_remote_schema.sql",
         "20261018133312_remote_rpcs.sql",
@@ -27,7 +27,9 @@
         "20261105183606_remote_enrollment_device_delete.sql",
         "20261105183656_remote_schema_marker_6.sql",
         "20261105230000_remote_lock_trigger.sql",
-        "20261105230001_remote_schema_marker_7.sql"
+        "20261105230001_remote_schema_marker_7.sql",
+        "20261105233000_remote_lock_command.sql",
+        "20261105233001_remote_schema_marker_8.sql"
       ]
     }
   ]

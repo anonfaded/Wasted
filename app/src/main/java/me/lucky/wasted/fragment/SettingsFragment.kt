@@ -10,8 +10,12 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+
 import me.lucky.wasted.Preferences
+import me.lucky.wasted.R
 import me.lucky.wasted.Trigger
+import me.lucky.wasted.admin.DeviceAdminManager
 import me.lucky.wasted.databinding.FragmentSettingsBinding
 import me.lucky.wasted.settings.LocalSettingsApplier
 
@@ -21,6 +25,7 @@ class SettingsFragment : Fragment() {
     private lateinit var prefs: Preferences
     private lateinit var prefsdb: Preferences
     private val applier by lazy { LocalSettingsApplier.create(ctx) }
+    private val admin by lazy { DeviceAdminManager(ctx) }
     private var applyingRemote = false
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -76,7 +81,42 @@ class SettingsFragment : Fragment() {
         applyingRemote = false
     }
 
+    private fun confirmLockNow() {
+        if (!admin.isActive()) {
+            MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.lock_now_confirm_title)
+                .setMessage(R.string.lock_now_admin_required)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+            return
+        }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.lock_now_confirm_title)
+            .setMessage(R.string.lock_now_confirm_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton("Continue") { _, _ -> confirmLockNowAgain() }
+            .show()
+    }
+
+    private fun confirmLockNowAgain() {
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.lock_now_confirm_again_title)
+            .setMessage(R.string.lock_now_confirm_again_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.lock_now) { _, _ ->
+                runCatching { admin.lockNow() }.onFailure {
+                    MaterialAlertDialogBuilder(ctx)
+                        .setTitle(R.string.lock_now_confirm_title)
+                        .setMessage(R.string.lock_now_admin_required)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            }
+            .show()
+    }
+
     private fun setup() = binding.apply {
+        lockNow.setOnClickListener { confirmLockNow() }
         biometricUnlock.setOnCheckedChangeListener { _, isChecked ->
             prefs.isBiometricUnlockEnabled = isChecked
         }

@@ -195,7 +195,7 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:7'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:8'
     union all
     select 'single-owner hook present', count(*), 1
       from pg_proc

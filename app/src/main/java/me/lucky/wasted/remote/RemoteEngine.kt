@@ -90,6 +90,13 @@ class RemoteEngine private constructor(
                 debugMode = { Preferences.new(ctx).isDebugMode },
                 setDebugMode = { enabled -> Preferences.new(ctx).isDebugMode = enabled },
                 reset = { ResetExecutor.create(ctx).execute() },
+                lock = {
+                    val admin = DeviceAdminManager(ctx)
+                    admin.isActive() && runCatching {
+                        admin.lockNow()
+                        true
+                    }.getOrDefault(false)
+                },
                 events = events,
             )
 
