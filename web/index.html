@@ -456,23 +456,36 @@
                 <p class="eyebrow">Account-wide</p>
                 <h3 id="settings-title">Trigger settings</h3>
                 <p class="section-desc">
-                  Account-wide. Lock delay and USB trigger are independent settings saved together
-                  in one settings version. Lock delay only runs when the Lock trigger is ON on the
-                  phone (Settings → Lock trigger); this page does not enable the trigger. A local
-                  phone change is shown as the device value and does not rewrite the account value.
+                  Account-wide. Lock trigger arms the lock workflow; Lock delay sets how long it
+                  waits after screen-off/lock; USB trigger is separate. All three are saved together
+                  in one settings version. A local phone change is shown as the device value and does
+                  not rewrite the account value.
                 </p>
               </div>
             </div>
             <form id="settings-form" novalidate>
               <div class="setting-row">
                 <div class="setting-copy">
+                  <span id="lock-trigger-title" class="setting-title">Lock trigger</span>
+                  <p id="lock-trigger-hint" class="hint">
+                    Arms the lock workflow on every enrolled device. When the countdown finishes,
+                    Wasted locks the phone; if Wipe data is on, the reset starts (Debug Mode blocks
+                    the wipe).
+                  </p>
+                </div>
+                <label class="switch" aria-label="Lock trigger enabled">
+                  <input id="lock-trigger" name="lockTrigger" type="checkbox"
+                         aria-labelledby="lock-trigger-title" aria-describedby="lock-trigger-hint">
+                  <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                </label>
+              </div>
+              <div class="setting-row">
+                <div class="setting-copy">
                   <label for="lock-minutes">Lock delay (minutes)</label>
                   <p id="lock-hint" class="hint">
                     How long the phone waits after it locks or its screen turns off before firing
-                    the Lock trigger. This delay only runs when the Lock trigger is ON on that phone
-                    (app Settings → Lock trigger); this page does not enable the trigger. If Wipe data
-                    is enabled, the reset starts after this delay. Examples: 10080 = 7 days,
-                    1440 = 1 day, 60 = 1 hour.
+                    the Lock trigger. It runs only when the Lock trigger is ON. Examples:
+                    10080 = 7 days, 1440 = 1 day, 60 = 1 hour.
                   </p>
                   <p id="lock-human" class="hint"></p>
                 </div>
@@ -484,7 +497,8 @@
                 <div class="setting-copy">
                   <span id="usb-title" class="setting-title">USB trigger enabled</span>
                   <p id="usb-hint" class="hint">
-                    When enabled, connecting USB data while the device is locked can fire the trigger.
+                    When enabled, connecting USB data while the device is locked can fire the
+                    USB trigger. This is independent of the Lock trigger and delay.
                   </p>
                 </div>
                 <label class="switch" aria-label="USB trigger enabled">
@@ -644,13 +658,18 @@
                   Lock trigger is OFF. The value is extrapolated every second from the last real
                   device report, so it is labelled estimated while running.
                 </dd>
+                <dt>Lock trigger</dt>
+                <dd>
+                  The switch that arms the lock workflow. The dashboard can turn it on or off for
+                  every enrolled device; it has its own reported value and account value. When the
+                  countdown finishes, Wasted locks the phone and, if Wipe data is on, starts the reset
+                  (Debug Mode still blocks the wipe).
+                </dd>
                 <dt>Lock delay</dt>
                 <dd>
-                  The configured wait after screen-off/lock before the Lock trigger fires. This is
-                  account-wide, but it has no effect unless the Lock trigger is ON on the phone
-                  (app Settings → Lock trigger). The dashboard does not enable that switch. “Device”
-                  is the phone's reported delay; “Account setting” is the value saved here and sent
-                  at the next sync.
+                  The wait after screen-off/lock before the Lock trigger fires. It runs only while
+                  the Lock trigger is ON. “Device” is the phone's reported delay; “Account setting”
+                  is the value saved here and sent at the next sync.
                 </dd>
                 <dt>USB trigger</dt>
                 <dd>
@@ -706,7 +725,7 @@
             <div class="help-body">
               <ol>
                 <li>In the app, open Remote Management and confirm it is enabled and enrolled.</li>
-                <li>In the app Settings, turn <strong>Lock trigger</strong> ON if you are testing the
+                <li>Turn <strong>Lock trigger</strong> ON in the dashboard if you are testing the
                   lock delay. Turn <strong>Debug Mode</strong> ON before testing any reset path.</li>
                 <li>Change Lock delay or USB trigger here, press
                   <strong>Save trigger settings</strong>, and wait for the device card to report the
@@ -720,6 +739,11 @@
                 A local change in the app is reported back as the device value, but it does not
                 rewrite the account setting. Use this page when you want the change applied to every
                 enrolled device.
+              </p>
+              <p class="muted">
+                When the countdown completes, Wasted fires the Lock trigger: it locks the phone. If
+                Wipe data is ON, it then starts the reset; Debug Mode blocks that wipe. After the
+                delay has elapsed the countdown stops until the phone is locked again.
               </p>
             </div>
           </details>

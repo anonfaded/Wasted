@@ -535,6 +535,7 @@ class RemoteManagementFragment : Fragment() {
                             deviceName = deviceName,
                             lockTimerMinutes = prefs.triggerLockCount,
                             usbTriggerEnabled = prefs.triggers.and(Trigger.USB.value) != 0,
+                            lockTriggerEnabled = prefs.triggers.and(Trigger.LOCK.value) != 0,
                         ),
                     )
                     credentials.deviceId = device.id

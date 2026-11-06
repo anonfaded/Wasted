@@ -57,11 +57,11 @@ expected_rpcs(signature) as (
            ('public.create_device_enrollment()'),
            ('public.rename_device(uuid,text)'),
            ('public.revoke_device(uuid)'),
-           ('public.update_account_settings(bigint,integer,boolean)'),
+           ('public.update_account_settings(bigint,integer,boolean,boolean)'),
            ('public.create_account_action(text,uuid)'),
            ('public.expire_account_commands()'),
-           ('public.claim_device_enrollment(text,uuid,text,integer,boolean)'),
-           ('public.device_reconcile(uuid,bigint,integer,boolean,bigint,boolean,boolean,boolean,boolean,text,smallint,text,text)'),
+           ('public.claim_device_enrollment(text,uuid,text,integer,boolean,boolean)'),
+           ('public.device_reconcile(uuid,bigint,integer,boolean,bigint,boolean,boolean,boolean,boolean,text,smallint,text,text,boolean)'),
            ('public.device_transition_command(uuid,uuid,text,text,text,text)'),
            ('public.set_device_debug_mode(uuid,boolean,uuid)')
 ),
@@ -195,7 +195,7 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:6'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:7'
     union all
     select 'single-owner hook present', count(*), 1
       from pg_proc

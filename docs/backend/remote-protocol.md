@@ -11,6 +11,7 @@ The device sends (all `p_` prefixed):
 | --- | --- |
 | `p_device_id` | Device row id |
 | `p_applied_settings_revision` | Last account settings revision applied |
+| `p_actual_lock_trigger_enabled` | Current local Lock trigger |
 | `p_actual_lock_timer_minutes` | Current local Lock delay |
 | `p_actual_usb_trigger_enabled` | Current local USB trigger |
 | `p_timer_remaining_seconds` / `p_timer_running` | Timer state |
@@ -26,7 +27,7 @@ Response:
 {
   "server_time": "…",
   "device": { "id": "…", "account_id": "…", "name": "…", "installation_id": "…", "enrolled_at": "…" },
-  "settings": { "revision": 2, "lock_timer_minutes": 1440, "usb_trigger_enabled": true, "initialized": true },
+  "settings": { "revision": 2, "lock_trigger_enabled": true, "lock_timer_minutes": 1440, "usb_trigger_enabled": true, "initialized": true },
   "commands": [
     { "id": "…", "action_id": "…", "command_type": "reset_timer", "state": "queued", "created_at": "…", "expires_at": "…" }
   ]
@@ -65,7 +66,7 @@ Per-type terminal allowlist is enforced server-side. Each transition appends exa
 
 1. `queued → received` (server compare-and-set).
 2. `received → executing`.
-3. Restart the lock timer if active (idempotent).
+3. Restart the lock countdown if active (idempotent).
 4. `executing → applied` with `restarted` or `inactive`.
 5. Interrupted `executing` rows are re-run safely and completed as `applied`.
 
@@ -120,10 +121,10 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 - `account_settings.revision` increments on every save.
 - Devices send `applied_settings_revision`; `RemoteSyncCoordinator` applies only newer revisions
   through `LocalSettingsApplier`, then records the revision locally.
-- Lock Timer (the delay) and USB Trigger are the only synced settings; all other preferences,
-  including the phone-local Lock trigger switch, stay device-local.
-- The dashboard can report the delay and USB value but does not enable the Lock trigger. A period
-  without an active countdown can mean the phone is unlocked or the Lock trigger is OFF.
+- Lock trigger, Lock Timer (the delay), and USB Trigger are the synced settings; all other
+  preferences stay device-local.
+- The Lock trigger arms the countdown and the delay sets its wait. A period without an active
+  countdown can mean the phone is unlocked or the Lock trigger is OFF.
 
 ## Errors and retries
 

@@ -152,6 +152,7 @@ data class RemoteSettingsDto(
     val revision: Long,
     @SerialName("lock_timer_minutes") val lockTimerMinutes: Int,
     @SerialName("usb_trigger_enabled") val usbTriggerEnabled: Boolean,
+    @SerialName("lock_trigger_enabled") val lockTriggerEnabled: Boolean = false,
     val initialized: Boolean,
 )
 
@@ -201,6 +202,7 @@ data class ClaimEnrollmentParams(
     @SerialName("p_device_name") val deviceName: String,
     @SerialName("p_local_lock_timer_minutes") val lockTimerMinutes: Int,
     @SerialName("p_local_usb_trigger_enabled") val usbTriggerEnabled: Boolean,
+    @SerialName("p_local_lock_trigger_enabled") val lockTriggerEnabled: Boolean = false,
 )
 
 @Serializable
@@ -209,6 +211,7 @@ data class ReconcileParams(
     @SerialName("p_applied_settings_revision") val appliedSettingsRevision: Long,
     @SerialName("p_actual_lock_timer_minutes") val actualLockTimerMinutes: Int,
     @SerialName("p_actual_usb_trigger_enabled") val actualUsbTriggerEnabled: Boolean,
+    @SerialName("p_actual_lock_trigger_enabled") val actualLockTriggerEnabled: Boolean? = null,
     @SerialName("p_timer_remaining_seconds") val timerRemainingSeconds: Long,
     @SerialName("p_timer_running") val timerRunning: Boolean,
     @SerialName("p_debug_mode") val debugMode: Boolean,

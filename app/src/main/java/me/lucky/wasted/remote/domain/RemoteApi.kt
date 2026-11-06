@@ -13,6 +13,7 @@ data class LocalRemoteStatus(
     val appliedSettingsRevision: Long,
     val lockTimerMinutes: Int,
     val usbTriggerEnabled: Boolean,
+    val lockTriggerEnabled: Boolean,
     val timerRemainingSeconds: Long,
     val timerRunning: Boolean,
     val debugMode: Boolean,

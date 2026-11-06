@@ -24,6 +24,7 @@ class LocalRemoteStatusProvider(
             appliedSettingsRevision = credentials.appliedSettingsRevision,
             lockTimerMinutes = prefs.triggerLockCount,
             usbTriggerEnabled = prefs.triggers.and(Trigger.USB.value) != 0,
+            lockTriggerEnabled = prefs.triggers.and(Trigger.LOCK.value) != 0,
             timerRemainingSeconds = timer.remainingSeconds,
             timerRunning = timer.running,
             debugMode = prefs.isDebugMode,

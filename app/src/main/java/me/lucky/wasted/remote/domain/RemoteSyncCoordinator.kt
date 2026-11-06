@@ -135,13 +135,16 @@ class RemoteSyncCoordinator(
         runCatching {
             settingsApplier.applyLockTimerMinutes(settings.lockTimerMinutes)
             settingsApplier.applyUsbTrigger(settings.usbTriggerEnabled)
+            settingsApplier.applyLockTrigger(settings.lockTriggerEnabled)
             credentials.appliedSettingsRevision = settings.revision
             events.emit(
                 RemoteEvent(
                     kind = RemoteEvent.Kind.SETTINGS_CHANGED,
                     key = "settings-${settings.revision}",
                     title = "Remote settings applied",
-                    message = "Lock timer ${settings.lockTimerMinutes} min; USB trigger " +
+                    message = "Lock trigger " +
+                        (if (settings.lockTriggerEnabled) "on" else "off") +
+                        "; lock delay ${settings.lockTimerMinutes} min; USB trigger " +
                         (if (settings.usbTriggerEnabled) "on." else "off."),
                 ),
             )
@@ -158,6 +161,7 @@ class RemoteSyncCoordinator(
             appliedSettingsRevision = status.appliedSettingsRevision,
             actualLockTimerMinutes = status.lockTimerMinutes,
             actualUsbTriggerEnabled = status.usbTriggerEnabled,
+            actualLockTriggerEnabled = status.lockTriggerEnabled,
             timerRemainingSeconds = status.timerRemainingSeconds,
             timerRunning = status.timerRunning,
             debugMode = status.debugMode,

@@ -255,7 +255,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Remote settings control the Lock delay and USB trigger account-wide. The Lock trigger is a separate phone setting under Settings → Lock trigger; enable it there for the delay to run. Local changes are reported as this device's values but do not rewrite the account setting."
+                android:text="Remote settings control the Lock trigger, Lock delay, and USB trigger account-wide. Local changes are reported as this device's values but do not rewrite the account setting. The Lock delay only runs while the Lock trigger is ON."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <com.google.android.material.materialswitch.MaterialSwitch

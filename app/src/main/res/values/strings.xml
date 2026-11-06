@@ -12,7 +12,7 @@
     <string name="trigger_lock_time_hint">time</string>
     <string name="trigger_lock_time_error">7d / 48h / 120m</string>
     <string name="trigger_lock_time_helper_text">How long Wasted waits after the screen turns off or the phone locks before firing the Lock trigger. Use d for days, h for hours, m for minutes (for example 7d, 48h, 120m).</string>
-    <string name="trigger_lock_remote_note">This delay only runs when the Lock trigger is ON in Settings. Remote Management changes this delay for all enrolled devices; it does not enable or disable the Lock trigger. The countdown starts after screen-off/lock and stops when you unlock.</string>
+    <string name="trigger_lock_remote_note">Remote Management can turn the Lock trigger on or off and change this delay for all enrolled devices. The countdown starts after screen-off/lock and stops when you unlock. When it completes, Wasted locks the phone; if Wipe data is ON, the reset starts, unless Debug Mode blocks it.</string>
     <string name="trigger_tile_delay_description">Safe delay before it will fire. Gives you some time to cancel fire if you will tap a tile accidentally.</string>
     <string name="notification_channel_default_name">Default</string>
     <string name="notification_channel_remote_name">Remote events</string>
@@ -42,7 +42,7 @@
     <string name="trigger_shortcut_description">Enable icon shortcut. It is a button you will see when you make a long tap on the Wasted icon.</string>
     <string name="trigger_broadcast_description">Enable broadcast receiver. It is useful to communicate with another Android apps. For example you can fire Wasted from Tasker using this.</string>
     <string name="trigger_notification_description">Enable device notification listener. It will scan all notifications it has access to for the secret code. When found it will fire.</string>
-    <string name="trigger_lock_description">Lock trigger. Enable the lock job scheduler. It schedules a job when you turn off the screen and cancels it when you unlock the phone. If the phone stays locked for the Lock delay (set under Lock delay in the menu), the job fires. Remote Management can change that delay, but it cannot turn this Lock trigger on or off.</string>
+    <string name="trigger_lock_description">Lock trigger. Enable the lock job scheduler. It schedules a job when you turn off the screen and cancels it when you unlock the phone. If the phone stays locked for the Lock delay (set under Lock delay in the menu), the job fires. Remote Management can turn this Lock trigger on or off and change that delay account-wide.</string>
     <string name="trigger_usb_description">USB trigger. When enabled, a USB data connection while the phone is locked fires the trigger. It does not fire on a charger, only on a USB device or accessory. Remote Management can change this account-wide; changing it in this phone\'s Settings changes only this phone.</string>
     <string name="trigger_application_description">Enable fake application. It will add fake messenger applications. Launching them will fire Wasted.</string>
     <string name="signal">Signal</string>

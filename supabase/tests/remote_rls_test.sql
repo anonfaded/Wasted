@@ -177,11 +177,11 @@ begin
         'public.create_device_enrollment()',
         'public.rename_device(uuid,text)',
         'public.revoke_device(uuid)',
-        'public.update_account_settings(bigint,integer,boolean)',
+        'public.update_account_settings(bigint,integer,boolean,boolean)',
         'public.create_account_action(text,uuid)',
         'public.expire_account_commands()',
-        'public.claim_device_enrollment(text,uuid,text,integer,boolean)',
-        'public.device_reconcile(uuid,bigint,integer,boolean,bigint,boolean,boolean,boolean,boolean,text,smallint,text,text)',
+        'public.claim_device_enrollment(text,uuid,text,integer,boolean,boolean)',
+        'public.device_reconcile(uuid,bigint,integer,boolean,bigint,boolean,boolean,boolean,boolean,text,smallint,text,text,boolean)',
         'public.device_transition_command(uuid,uuid,text,text,text,text)',
         'public.set_device_debug_mode(uuid,boolean,uuid)'
     ] loop

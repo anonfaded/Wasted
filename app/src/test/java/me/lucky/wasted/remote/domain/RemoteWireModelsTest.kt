@@ -64,6 +64,7 @@ class RemoteWireModelsTest {
             deviceName = "Name",
             lockTimerMinutes = 1440,
             usbTriggerEnabled = true,
+            lockTriggerEnabled = true,
         )
         val encoded = json.encodeToString(ClaimEnrollmentParams.serializer(), params)
 
@@ -71,6 +72,7 @@ class RemoteWireModelsTest {
         assertTrue(encoded.contains("\"p_installation_id\":\"inst\""))
         assertTrue(encoded.contains("\"p_local_lock_timer_minutes\":1440"))
         assertTrue(encoded.contains("\"p_local_usb_trigger_enabled\":true"))
+        assertTrue(encoded.contains("\"p_local_lock_trigger_enabled\":true"))
     }
 
     @Test

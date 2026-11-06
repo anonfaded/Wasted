@@ -7,7 +7,7 @@ Canonical system architecture for Wasted (Modded) and its Remote Management back
 Wasted (Modded) is an Android app (minSdk 24) with Device Admin, local triggers, P2P, and optional
 **Remote Management**. Remote Management adds:
 
-- remote Lock delay / USB Trigger configuration (the Lock trigger switch stays phone-local),
+- remote Lock trigger / Lock delay / USB Trigger configuration,
 - Reset Timer and Force Reset commands,
 - device registration, timer/status reporting, and Debug Mode status,
 - local notifications (on by default, optional),

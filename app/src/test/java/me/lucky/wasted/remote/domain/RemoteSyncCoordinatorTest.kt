@@ -18,6 +18,7 @@ class RemoteSyncCoordinatorTest {
     private class RecordingSettingsApplier : RemoteSettingsApplierPort {
         var lockTimerMinutes: Int? = null
         var usbTriggerEnabled: Boolean? = null
+        var lockTriggerEnabled: Boolean? = null
         var calls = 0
 
         override fun applyLockTimerMinutes(minutes: Int) {
@@ -27,6 +28,11 @@ class RemoteSyncCoordinatorTest {
 
         override fun applyUsbTrigger(enabled: Boolean) {
             usbTriggerEnabled = enabled
+            calls++
+        }
+
+        override fun applyLockTrigger(enabled: Boolean) {
+            lockTriggerEnabled = enabled
             calls++
         }
     }
@@ -92,6 +98,7 @@ class RemoteSyncCoordinatorTest {
                 appliedSettingsRevision = 0L,
                 lockTimerMinutes = 1440,
                 usbTriggerEnabled = true,
+                lockTriggerEnabled = true,
                 timerRemainingSeconds = 0L,
                 timerRunning = false,
                 debugMode = true,
@@ -122,6 +129,7 @@ class RemoteSyncCoordinatorTest {
         revision: Long = 1L,
         lock: Int = 1440,
         usb: Boolean = true,
+        lockTrigger: Boolean = true,
     ) = RemoteReconcileResponse(
         serverTime = "t",
         device = RemoteDeviceDto(
@@ -135,6 +143,7 @@ class RemoteSyncCoordinatorTest {
             revision = revision,
             lockTimerMinutes = lock,
             usbTriggerEnabled = usb,
+            lockTriggerEnabled = lockTrigger,
             initialized = true,
         ),
         commands = commands,
@@ -173,6 +182,7 @@ class RemoteSyncCoordinatorTest {
         assertEquals(2, dao.commands.size)
         assertEquals(1440, settings.lockTimerMinutes)
         assertEquals(true, settings.usbTriggerEnabled)
+        assertEquals(true, settings.lockTriggerEnabled)
         assertEquals(1L, credentials.appliedSettingsRevision)
 
         coordinator().syncNow()
@@ -193,11 +203,12 @@ class RemoteSyncCoordinatorTest {
 
     @Test
     fun `account settings apply once per new revision`() = runBlocking {
-        api.response = response(emptyList(), revision = 3L, lock = 720, usb = false)
+        api.response = response(emptyList(), revision = 3L, lock = 720, usb = false, lockTrigger = false)
 
         coordinator().syncNow()
         assertEquals(720, settings.lockTimerMinutes)
         assertEquals(false, settings.usbTriggerEnabled)
+        assertEquals(false, settings.lockTriggerEnabled)
         assertEquals(3L, credentials.appliedSettingsRevision)
         assertEquals(listOf(RemoteEvent.Kind.SETTINGS_CHANGED), emitted.map { it.kind })
         assertEquals("settings-3", emitted.single().key)

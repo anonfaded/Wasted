@@ -607,8 +607,13 @@ function renderDevices() {
         ),
         el("dd", {}, [timerSpan]),
         fieldTerm(
+          "Lock trigger",
+          "Device is the trigger state reported by the phone; Account setting is the value saved in Controls. The trigger arms the countdown. Either the dashboard or the phone can change it; local changes do not rewrite the account value.",
+        ),
+        el("dd", { text: desiredVsActual(settings?.lock_trigger_enabled, status?.actual_lock_trigger_enabled, formatEnabled) }),
+        fieldTerm(
           "Lock delay",
-          "The configured delay after screen-off/lock, reported by the device. It only runs when the Lock trigger is ON in the phone's Settings. Account setting is saved in Controls; enable the trigger itself under Settings → Lock trigger on the phone.",
+          "The configured delay after screen-off/lock, reported by the device. It runs only while the Lock trigger is ON. Account setting is saved in Controls.",
         ),
         el("dd", { text: desiredVsActual(settings?.lock_timer_minutes, status?.actual_lock_timer_minutes, formatMinutes) }),
         fieldTerm(
@@ -690,6 +695,7 @@ function summaryCard(label, value, detail) {
 
 function timerText(status, now) {
   if (!status) return "unknown";
+  if (status.actual_lock_trigger_enabled === false) return "inactive — Lock trigger is OFF";
   if (!status.timer_running) return "inactive — no active lock countdown";
   return `running · ${formatRemaining(extrapolatedRemaining(status, now))} left (est.)`;
 }
@@ -762,6 +768,7 @@ function renderSettings() {
         : "Supabase unreachable — retrying";
     return;
   }
+  $("#lock-trigger").checked = Boolean(settings.lock_trigger_enabled);
   $("#lock-minutes").value = String(settings.lock_timer_minutes);
   $("#usb-trigger").checked = Boolean(settings.usb_trigger_enabled);
   $("#lock-human").textContent =
@@ -1024,7 +1031,7 @@ function wireDashboard() {
   });
   $("#settings-info").addEventListener("click", () => {
     toast(
-      "Lock delay and USB trigger are independent settings. They share one account settings version so one Save applies both atomically; that is why the version number is shown. Lock delay only runs when the Lock trigger is ON on the phone; this page cannot enable that trigger.",
+      "Lock trigger, lock delay and USB trigger are independent settings in one account settings version, so one Save applies all three atomically. The Lock trigger arms the countdown; the delay is how long it waits after screen-off/lock. A local phone change is reported separately and does not rewrite the account values.",
       "info",
     );
   });
@@ -1101,15 +1108,16 @@ function wireDashboard() {
     }
     const form = event.target;
     if (!form.reportValidity()) return;
+    const lockTrigger = $("#lock-trigger").checked;
     const lockMinutes = Number($("#lock-minutes").value);
     const usbEnabled = $("#usb-trigger").checked;
     const confirmed = await confirmAction({
       title: "Save trigger settings?",
       message:
-        `Lock delay: ${formatMinutes(lockMinutes)} (${lockMinutes} minutes). It only runs when ` +
-        "the Lock trigger is ON on the phone. USB trigger: " +
-        `${usbEnabled ? "enabled" : "disabled"}. This creates a new settings version and every ` +
-        "enrolled device applies it at its next sync.",
+        `Lock trigger: ${lockTrigger ? "ON" : "OFF"}. ` +
+        `Lock delay: ${formatMinutes(lockMinutes)} (${lockMinutes} minutes). ` +
+        `USB trigger: ${usbEnabled ? "enabled" : "disabled"}. ` +
+        "This creates a new settings version and every enrolled device applies it at its next sync.",
       confirmLabel: "Save and sync",
       danger: false,
     });
@@ -1123,6 +1131,7 @@ function wireDashboard() {
         settings.revision,
         lockMinutes,
         usbEnabled,
+        lockTrigger,
       );
       state.data.settings = updated;
       toast("Settings saved — every device will apply them.", "success");

@@ -68,6 +68,9 @@ class RemoteEngine private constructor(
 
                     override fun applyUsbTrigger(enabled: Boolean) =
                         applier.setTrigger(Trigger.USB, enabled)
+
+                    override fun applyLockTrigger(enabled: Boolean) =
+                        applier.setTrigger(Trigger.LOCK, enabled)
                 },
                 isRemoteAvailable = { repository.isAvailable },
                 events = events,

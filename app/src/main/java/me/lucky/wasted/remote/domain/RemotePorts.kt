@@ -4,6 +4,7 @@ package me.lucky.wasted.remote.domain
 interface RemoteSettingsApplierPort {
     fun applyLockTimerMinutes(minutes: Int)
     fun applyUsbTrigger(enabled: Boolean)
+    fun applyLockTrigger(enabled: Boolean)
 }
 
 interface RemoteTimerPort {

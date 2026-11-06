@@ -1,9 +1,16 @@
 /** Revision-protected account settings update. */
-export async function saveAccountSettings(client, expectedRevision, lockTimerMinutes, usbTriggerEnabled) {
+export async function saveAccountSettings(
+  client,
+  expectedRevision,
+  lockTimerMinutes,
+  usbTriggerEnabled,
+  lockTriggerEnabled,
+) {
   const { data, error } = await client.rpc("update_account_settings", {
     p_expected_revision: expectedRevision,
     p_lock_timer_minutes: lockTimerMinutes,
     p_usb_trigger_enabled: usbTriggerEnabled,
+    p_lock_trigger_enabled: lockTriggerEnabled,
   });
 
   if (error) {
