@@ -774,12 +774,12 @@ function renderCommandScope(devices) {
   const scope = $("#action-scope");
   if (scope) {
     scope.textContent = state.targetScope === "all"
-      ? `Applies to all ${devices.length} active device(s).`
+      ? `Applies to all ${devices.length} enrolled device(s); inactive devices receive it on reconnect.`
       : selected.length
         ? `Applies to ${selected.length} selected device(s): ${selected
             .map((device) => device.name || "Unnamed device")
             .join(", ")}.`
-        : "Select one or more devices on the cards below, or choose All active devices.";
+        : "Select one or more devices on the cards below, or choose All enrolled devices.";
   }
   const summary = $("#target-summary");
   if (summary) summary.textContent = `${selected.length} selected`;

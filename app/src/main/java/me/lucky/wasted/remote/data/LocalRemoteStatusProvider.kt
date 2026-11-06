@@ -36,12 +36,8 @@ class LocalRemoteStatusProvider(
             remoteEnabled = credentials.enrolled,
             batteryPercent = batterySnapshot.levelPercent,
             batteryCharging = batterySnapshot.charging,
-            appVersion = appVersion(),
+            appVersion = RemoteAppInfo.version(ctx),
             androidSdk = Build.VERSION.SDK_INT,
         )
     }
-
-    private fun appVersion(): String = runCatching {
-        ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "unknown"
-    }.getOrDefault("unknown")
 }

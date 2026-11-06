@@ -31,6 +31,7 @@ import me.lucky.wasted.remote.RemoteEngine
 import me.lucky.wasted.remote.data.RemoteConfigStore
 import me.lucky.wasted.remote.data.RemoteCredentialStore
 import me.lucky.wasted.remote.data.RemoteDatabase
+import me.lucky.wasted.remote.data.RemoteBootPolicy
 import me.lucky.wasted.remote.data.RemoteRuntime
 import me.lucky.wasted.remote.domain.ClaimEnrollmentParams
 import me.lucky.wasted.remote.domain.RemoteConfig
@@ -468,6 +469,7 @@ class RemoteManagementFragment : Fragment() {
             }
             // First enablement locally forces Debug Mode ON before enrollment.
             prefs.isDebugMode = true
+                RemoteBootPolicy.new(requireContext()).debugMode = true
         }
         // Keep the device's encrypted auth session while sync is disabled. Reset enrollment is
         // the explicit action that removes the device identity.
@@ -479,6 +481,7 @@ class RemoteManagementFragment : Fragment() {
     private fun setDebugMode(enabled: Boolean) {
         if (enabled) {
             prefs.isDebugMode = true
+                RemoteBootPolicy.new(requireContext()).debugMode = true
             refreshState()
             return
         }
@@ -491,6 +494,7 @@ class RemoteManagementFragment : Fragment() {
             )
             .setPositiveButton("Turn OFF") { _, _ ->
                 prefs.isDebugMode = false
+                RemoteBootPolicy.new(requireContext()).debugMode = false
                 refreshState()
             }
             .setNegativeButton(android.R.string.cancel) { _, _ ->

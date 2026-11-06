@@ -7,6 +7,7 @@ import me.lucky.wasted.Preferences
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.Utils
 import me.lucky.wasted.p2p.models.DeviceSettingsSnapshot
+import me.lucky.wasted.remote.data.RemoteBootPolicy
 import me.lucky.wasted.trigger.lock.TimerCoordinator
 
 /**
@@ -18,6 +19,7 @@ class LocalSettingsApplier(
     private val prefs: Preferences,
     private val utils: Utils,
     private val timer: TimerCoordinator,
+    private val bootPolicy: RemoteBootPolicy,
 ) {
     companion object {
         private const val MAX_LOCK_TIMER_MINUTES = 525_600
@@ -26,6 +28,7 @@ class LocalSettingsApplier(
             prefs = Preferences.new(ctx),
             utils = Utils(ctx),
             timer = TimerCoordinator.create(ctx),
+            bootPolicy = RemoteBootPolicy.new(ctx),
         )
     }
 
@@ -54,11 +57,17 @@ class LocalSettingsApplier(
             Trigger.LOCK, Trigger.USB -> utils.updateForegroundRequiredEnabled()
             Trigger.APPLICATION -> utils.updateApplicationEnabled()
         }
-        if (trigger == Trigger.LOCK && !enabled) timer.cancel()
+        if (trigger == Trigger.LOCK) {
+            bootPolicy.lockTriggerEnabled = enabled
+            if (!enabled) timer.cancel()
+        }
+        if (trigger == Trigger.USB) bootPolicy.usbTriggerEnabled = enabled
     }
 
     fun setLockTimerMinutes(minutes: Int) {
-        prefs.triggerLockCount = minutes.coerceIn(1, MAX_LOCK_TIMER_MINUTES)
+        val safeMinutes = minutes.coerceIn(1, MAX_LOCK_TIMER_MINUTES)
+        prefs.triggerLockCount = safeMinutes
+        bootPolicy.lockTimerMinutes = safeMinutes
     }
 
     fun setTileDelay(ms: Long) {
@@ -113,6 +122,7 @@ class LocalSettingsApplier(
         utils.setEnabled(settings.appEnabled)
         utils.updateForegroundRequiredEnabled()
         utils.updateApplicationEnabled()
+        bootPolicy.syncFrom(prefs)
         if (!settings.appEnabled) timer.cancel()
     }
 }

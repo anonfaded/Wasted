@@ -22,6 +22,16 @@ class FakeRemoteCommandDao : RemoteCommandDao {
     override suspend fun commandsInStates(states: List<String>): List<RemoteCommandJournalEntity> =
         commands.values.filter { it.state in states }
 
+    override suspend fun expireMissingPending(activeCommandIds: List<String>, now: Long): Int {
+        var changed = 0
+        for ((id, command) in commands.entries.toList()) {
+            if (command.state !in listOf("queued", "received") || id in activeCommandIds) continue
+            commands[id] = command.copy(state = "expired", terminalAt = now)
+            changed++
+        }
+        return changed
+    }
+
     override suspend fun updateCommandState(
         commandId: String,
         state: String,

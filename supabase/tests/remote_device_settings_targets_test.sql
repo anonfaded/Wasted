@@ -128,6 +128,47 @@ select pg_temp.expect_error(
     'selected targets must not be empty'
 );
 
+-- Different command families coexist; only a newer command in the same family supersedes.
+create temp table pg_temp.t_reset as
+select public.create_account_action(
+    'reset_timer',
+    'ed000000-0000-4000-8000-000000000003',
+    'selected',
+    array['ea000000-0000-4000-8000-000000000001']::uuid[]
+) as result;
+
+do $$
+begin
+    perform pg_temp.assert_true(
+        (select state = 'queued'
+           from public.device_commands
+          where action_id = (select (result->>'action_id')::uuid from pg_temp.t_action)),
+        'a reset must not supersede an independent lock command');
+end;
+$$;
+
+select public.create_account_action(
+    'lock_now',
+    'ed000000-0000-4000-8000-000000000004',
+    'selected',
+    array['ea000000-0000-4000-8000-000000000001']::uuid[]
+);
+
+do $$
+begin
+    perform pg_temp.assert_true(
+        (select state = 'expired' and result_code = 'superseded_by_new_action'
+           from public.device_commands
+          where action_id = (select (result->>'action_id')::uuid from pg_temp.t_action)),
+        'the older command in the same family must be superseded');
+    perform pg_temp.assert_true(
+        (select state = 'queued'
+           from public.device_commands
+          where action_id = (select (result->>'action_id')::uuid from pg_temp.t_reset)),
+        'the newer reset command must remain pending');
+end;
+$$;
+
 -- Device A reports battery 0; unknown is a separate null state.
 select set_config('request.jwt.claims',
     '{"sub":"0e1e1e1e-0000-4000-8000-00000000000a","role":"authenticated","is_anonymous":true}', true);

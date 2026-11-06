@@ -187,6 +187,9 @@ class SupabaseRemoteRepository(
             ) {
                 install(Auth) {
                     sessionManager = EncryptedSessionManager(credentialStore)
+                    // The default SettingsCodeVerifierCache creates credential-backed Android
+                    // Settings, which throws in Direct Boot. Anonymous auth does not use PKCE.
+                    codeVerifierCache = io.github.jan.supabase.auth.MemoryCodeVerifierCache()
                     autoLoadFromStorage = true
                 }
                 install(Postgrest)

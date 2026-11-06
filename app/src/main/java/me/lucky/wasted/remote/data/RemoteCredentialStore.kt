@@ -28,7 +28,10 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
         private const val PASSPHRASE_BYTES = 32
 
         fun new(ctx: Context): RemoteCredentialStore = RemoteCredentialStore(
-            TinkEncryptedSharedPreferences.create(ctx.applicationContext, FILE_NAME),
+            TinkEncryptedSharedPreferences.create(
+                DirectBootStorage.context(ctx),
+                FILE_NAME,
+            ),
         )
     }
 

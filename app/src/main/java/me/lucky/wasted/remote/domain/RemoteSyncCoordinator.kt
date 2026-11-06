@@ -2,6 +2,7 @@ package me.lucky.wasted.remote.domain
 
 import java.util.UUID
 
+import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -199,6 +200,12 @@ class RemoteSyncCoordinator(
                 }
                 val syncedAt = clock()
                 credentials.lastSyncAt = syncedAt
+                // The server is the durable source of pending commands. Anything already
+                // superseded/expired there must not remain executable in the local journal.
+                dao.expireMissingPending(
+                    response.commands.map { it.id }.ifEmpty { listOf("") },
+                    syncedAt,
+                )
                 applyAccountSettings(response.settings)
                 if (previousLastSync == 0L || syncedAt - previousLastSync >= SYNC_RESTORED_GAP_MS) {
                     events.emit(
@@ -212,6 +219,7 @@ class RemoteSyncCoordinator(
                 }
                 return SyncOutcome.Success(response.commands.size)
             } catch (e: RemoteException) {
+                Log.w("RemoteSync", "reconcile failed: ${e.message} / ${e.cause?.message}")
                 if (!retryPolicy.shouldRetry(e.error) || attempt + 1 >= retryPolicy.maxAttempts) {
                     return SyncOutcome.Failed(
                         e.error.sanitizedReason,

@@ -51,8 +51,11 @@ abstract class RemoteDatabase : RoomDatabase() {
         @Volatile
         private var instance: RemoteDatabase? = null
 
+        private fun directBootContext(ctx: Context): Context =
+            DirectBootStorage.context(ctx)
+
         fun getInstance(ctx: Context): RemoteDatabase = instance ?: synchronized(this) {
-            instance ?: build(ctx.applicationContext).also { instance = it }
+            instance ?: build(directBootContext(ctx)).also { instance = it }
         }
 
         /** Reset Remote Enrollment: drops the encrypted journal/outbox database entirely. */
@@ -61,7 +64,7 @@ abstract class RemoteDatabase : RoomDatabase() {
                 instance?.close()
                 instance = null
             }
-            ctx.applicationContext.deleteDatabase(DB_NAME)
+            directBootContext(ctx).deleteDatabase(DB_NAME)
         }
 
         private fun build(ctx: Context): RemoteDatabase {

@@ -4,6 +4,10 @@
 
 begin;
 
+-- Legacy lifecycle suites exercise individual commands; the latest-command behavior is
+-- covered end-to-end by remote_device_settings_targets_test.sql.
+alter table public.device_commands disable trigger device_commands_supersede_pending;
+
 create function pg_temp.assert_true(p_condition boolean, p_message text)
 returns void
 language plpgsql

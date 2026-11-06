@@ -1,11 +1,15 @@
 package me.lucky.wasted.trigger.shared
 
+import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 
 import me.lucky.wasted.MainActivity
 import me.lucky.wasted.R
@@ -33,6 +37,12 @@ class NotificationManager(private val ctx: Context) {
     fun notifyRemoteEvent(id: Int, title: String, message: String) {
         // Idempotent: covers posts that happen before the app's first channel setup.
         createNotificationChannels()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         val intent = PendingIntent.getActivity(
             ctx,
             0,

@@ -3,6 +3,10 @@
 
 begin;
 
+-- Legacy lifecycle suites exercise individual commands; the latest-command behavior is
+-- covered end-to-end by remote_device_settings_targets_test.sql.
+alter table public.device_commands disable trigger device_commands_supersede_pending;
+
 insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_anonymous)
 values ('00000000-0000-0000-0000-000000000000',
         '0f0f0f0f-0000-4000-8000-0000000000f1', 'authenticated', 'authenticated',

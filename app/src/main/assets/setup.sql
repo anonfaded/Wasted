@@ -3,7 +3,7 @@
 -- Run it once. Do not run it again on an existing project and do not mix it with
 -- "supabase db push" on the same project.
 --
--- App release: 3.0.0 (schema 9)
+-- App release: 3.0.0 (schema 11)
 --
 -- This file configures the DATABASE (tables, RLS, RPCs, grants, Realtime, cron).
 -- In Authentication settings (Dashboard -> Authentication):
@@ -3775,5 +3775,82 @@ grant execute on function public.set_device_debug_mode(uuid, boolean, uuid)
 
 -- ===== 20261106120200_remote_schema_marker_9.sql =====
 comment on schema public is 'wasted-remote-schema:9';
+
+-- ===== 20261106120400_remote_supersede_pending_commands.sql =====
+-- Latest command wins per device. A newly queued command expires older queued/received
+-- commands for that device before they can execute. Executing commands are never rewritten.
+-- The server trigger is the single enforcement point for account-wide, selected, and debug actions.
+
+create or replace function private.supersede_pending_device_commands()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    with superseded as (
+        update public.device_commands c
+           set state = 'expired',
+               finished_at = now(),
+               result_code = 'superseded_by_new_action'
+         where c.device_id = new.device_id
+           and c.state in ('queued', 'received')
+           and c.id <> new.id
+        returning c.id, c.device_id, c.account_id, c.result_code
+    )
+    insert into public.command_events (command_id, device_id, account_id, event_type, result_code)
+    select id, device_id, account_id, 'expired', result_code from superseded;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists device_commands_supersede_pending on public.device_commands;
+create trigger device_commands_supersede_pending
+    before insert on public.device_commands
+    for each row execute function private.supersede_pending_device_commands();
+
+-- ===== 20261106120500_remote_schema_marker_10.sql =====
+comment on schema public is 'wasted-remote-schema:10';
+
+-- ===== 20261106120600_remote_supersede_command_families.sql =====
+-- Narrow latest-command semantics to one command family per device.
+-- Reset Timer, Lock now, and Force Reset are independent families. Debug ON/OFF
+-- share one family because they mutate the same Debug Mode setting.
+-- Only queued/received commands are superseded; an executing command cannot be recalled.
+
+create or replace function private.supersede_pending_device_commands()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    with superseded as (
+        update public.device_commands c
+           set state = 'expired',
+               finished_at = now(),
+               result_code = 'superseded_by_new_action'
+         where c.device_id = new.device_id
+           and c.state in ('queued', 'received')
+           and c.id <> new.id
+           and (
+               c.command_type = new.command_type
+               or (
+                   c.command_type in ('debug_mode_on', 'debug_mode_off')
+                   and new.command_type in ('debug_mode_on', 'debug_mode_off')
+               )
+           )
+        returning c.id, c.device_id, c.account_id, c.result_code
+    )
+    insert into public.command_events (command_id, device_id, account_id, event_type, result_code)
+    select id, device_id, account_id, 'expired', result_code from superseded;
+
+    return new;
+end;
+$$;
+
+-- ===== 20261106120700_remote_schema_marker_11.sql =====
+comment on schema public is 'wasted-remote-schema:11';
 
 notify pgrst, 'reload schema';

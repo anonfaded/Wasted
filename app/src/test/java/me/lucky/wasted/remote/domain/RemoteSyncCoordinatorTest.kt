@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 
+import me.lucky.wasted.remote.data.RemoteCommandJournalEntity
 import me.lucky.wasted.remote.data.RemoteCredentialStore
 import me.lucky.wasted.remote.testing.FakeRemoteCommandDao
 import me.lucky.wasted.testing.InMemorySharedPreferences
@@ -195,6 +196,25 @@ class RemoteSyncCoordinatorTest {
 
         assertEquals(2, dao.commands.size)
         assertEquals(2, coordinator().pendingCommands().size)
+    }
+
+    @Test
+    fun `stale local commands absent from the server are expired before execution`() = runBlocking {
+        dao.insertCommand(
+            RemoteCommandJournalEntity(
+                commandId = "stale",
+                type = "force_reset",
+                state = "queued",
+                receivedAt = 1L,
+                executingAt = null,
+                terminalAt = null,
+            ),
+        )
+        api.response = response(emptyList())
+
+        coordinator().syncNow()
+
+        assertEquals("expired", dao.commands.getValue("stale").state)
     }
 
     @Test

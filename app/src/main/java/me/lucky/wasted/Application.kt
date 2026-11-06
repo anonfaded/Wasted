@@ -17,13 +17,24 @@ class Application : Application() {
             private set
     }
 
+    private var unlockedInitialized = false
+
     override fun onCreate() {
         super.onCreate()
         DynamicColors.applyToActivitiesIfAvailable(this)
         shizuku = ShizukuManager(this)
-        shizuku.init() // registers Shizuku listeners; binds shell if already running
-        if (getSystemService(UserManager::class.java).isUserUnlocked) {
-            Preferences.new(this).initializeDebugModeIfMissing()
-        }
+        initializeAfterUnlock()
+    }
+
+    fun initializeAfterUnlock() {
+        if (!getSystemService(UserManager::class.java).isUserUnlocked) return
+        if (unlockedInitialized) return
+        unlockedInitialized = true
+        shizuku.init()
+        val preferences = Preferences.new(this)
+        preferences.initializeDebugModeIfMissing()
+        val policy = me.lucky.wasted.remote.data.RemoteBootPolicy.new(this)
+        policy.applyTo(preferences)
+        policy.syncFrom(preferences)
     }
 }

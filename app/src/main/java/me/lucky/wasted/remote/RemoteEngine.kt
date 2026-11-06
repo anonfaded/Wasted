@@ -6,10 +6,12 @@ import me.lucky.wasted.Preferences
 import me.lucky.wasted.Trigger
 import me.lucky.wasted.admin.DeviceAdminManager
 import me.lucky.wasted.admin.ResetExecutor
+import me.lucky.wasted.remote.data.DirectBootRemoteStatusProvider
 import me.lucky.wasted.remote.data.LocalRemoteStatusProvider
 import me.lucky.wasted.remote.data.RemoteConfigStore
 import me.lucky.wasted.remote.data.RemoteCredentialStore
 import me.lucky.wasted.remote.data.RemoteDatabase
+import me.lucky.wasted.remote.data.RemoteBootPolicy
 import me.lucky.wasted.remote.data.RemoteRuntime
 import me.lucky.wasted.remote.data.SupabaseRemoteRepository
 import me.lucky.wasted.remote.domain.RemoteCommandProcessor
@@ -35,14 +37,19 @@ class RemoteEngine private constructor(
     private val processor: RemoteCommandProcessor,
 ) {
     companion object {
-        fun create(ctx: Context): RemoteEngine? {
+        fun create(ctx: Context, directBoot: Boolean = false): RemoteEngine? {
             val configStore = RemoteConfigStore.new(ctx)
             if (!configStore.canStartRemoteWork()) return null
 
             val repository = RemoteRuntime.repository(ctx)
             val credentials = repository.credentials
-            val dao = RemoteDatabase.getInstance(ctx).remoteCommandDao()
-            val applier = LocalSettingsApplier.create(ctx)
+            val dao = if (directBoot) {
+                me.lucky.wasted.remote.data.DirectBootCommandDao()
+            } else {
+                RemoteDatabase.getInstance(ctx).remoteCommandDao()
+            }
+            val applier = if (directBoot) null else LocalSettingsApplier.create(ctx)
+            val bootPolicy = RemoteBootPolicy.new(ctx)
 
             // Notifications are user-optional; command processing never depends on them.
             val events = RemoteEventSink { event ->
@@ -58,20 +65,48 @@ class RemoteEngine private constructor(
                 }
             }
 
+            val statusProvider = if (directBoot) {
+                DirectBootRemoteStatusProvider(ctx, credentials, bootPolicy)
+            } else {
+                LocalRemoteStatusProvider(ctx)
+            }
+
             val coordinator = RemoteSyncCoordinator(
                 api = repository,
                 dao = dao,
                 credentials = credentials,
-                statusProvider = LocalRemoteStatusProvider(ctx),
-                settingsApplier = object : RemoteSettingsApplierPort {
-                    override fun applyLockTimerMinutes(minutes: Int) =
-                        applier.setLockTimerMinutes(minutes)
+                statusProvider = statusProvider,
+                settingsApplier = if (directBoot) {
+                    object : RemoteSettingsApplierPort {
+                        override fun applyLockTimerMinutes(minutes: Int) {
+                            bootPolicy.lockTimerMinutes = minutes
+                            bootPolicy.markSettingsApplied()
+                        }
 
-                    override fun applyUsbTrigger(enabled: Boolean) =
-                        applier.setTrigger(Trigger.USB, enabled)
+                        override fun applyUsbTrigger(enabled: Boolean) {
+                            bootPolicy.usbTriggerEnabled = enabled
+                            bootPolicy.markSettingsApplied()
+                        }
 
-                    override fun applyLockTrigger(enabled: Boolean) =
-                        applier.setTrigger(Trigger.LOCK, enabled)
+                        override fun applyLockTrigger(enabled: Boolean) {
+                            bootPolicy.lockTriggerEnabled = enabled
+                            bootPolicy.markSettingsApplied()
+                        }
+                    }
+                } else {
+                    object : RemoteSettingsApplierPort {
+                        override fun applyLockTimerMinutes(minutes: Int) {
+                            applier?.setLockTimerMinutes(minutes)
+                        }
+
+                        override fun applyUsbTrigger(enabled: Boolean) {
+                            applier?.setTrigger(Trigger.USB, enabled)
+                        }
+
+                        override fun applyLockTrigger(enabled: Boolean) {
+                            applier?.setTrigger(Trigger.LOCK, enabled)
+                        }
+                    }
                 },
                 isRemoteAvailable = { repository.isAvailable },
                 events = events,
@@ -83,14 +118,28 @@ class RemoteEngine private constructor(
                 credentials = credentials,
                 timer = object : RemoteTimerPort {
                     override fun restartIfActive(): Boolean =
-                        TimerCoordinator.create(ctx).restartIfActive()
+                        !directBoot && TimerCoordinator.create(ctx).restartIfActive()
                 },
                 resetSupported = {
                     DeviceAdminManager(ctx).getResetSupport().isSupported
                 },
-                debugMode = { Preferences.new(ctx).isDebugMode },
-                setDebugMode = { enabled -> Preferences.new(ctx).isDebugMode = enabled },
-                reset = { ResetExecutor.create(ctx).execute() },
+                debugMode = {
+                    if (directBoot) bootPolicy.debugMode else Preferences.new(ctx).isDebugMode
+                },
+                setDebugMode = { enabled ->
+                    bootPolicy.debugMode = enabled
+                    if (!directBoot) Preferences.new(ctx).isDebugMode = enabled
+                },
+                reset = {
+                    if (directBoot) {
+                        ResetExecutor(
+                            isDebugModeOn = { bootPolicy.debugMode },
+                            port = me.lucky.wasted.admin.DeviceAdminResetPort(ctx),
+                        ).execute()
+                    } else {
+                        ResetExecutor.create(ctx).execute()
+                    }
+                },
                 lock = {
                     val admin = DeviceAdminManager(ctx)
                     admin.isActive() && runCatching {

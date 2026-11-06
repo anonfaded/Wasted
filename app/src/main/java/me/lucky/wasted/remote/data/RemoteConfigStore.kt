@@ -23,7 +23,10 @@ class RemoteConfigStore(private val prefs: SharedPreferences) {
         private const val KEY_DRAFT_PUBLISHABLE_KEY = "draft_publishable_key"
 
         fun new(ctx: Context): RemoteConfigStore = RemoteConfigStore(
-            TinkEncryptedSharedPreferences.create(ctx.applicationContext, FILE_NAME),
+            TinkEncryptedSharedPreferences.create(
+                DirectBootStorage.context(ctx),
+                FILE_NAME,
+            ),
         )
     }
 

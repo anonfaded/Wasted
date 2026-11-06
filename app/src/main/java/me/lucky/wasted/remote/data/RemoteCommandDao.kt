@@ -18,6 +18,12 @@ interface RemoteCommandDao {
     suspend fun commandsInStates(states: List<String>): List<RemoteCommandJournalEntity>
 
     @Query(
+        "UPDATE remote_command_journal SET state = 'expired', terminal_at = :now " +
+            "WHERE state IN ('queued', 'received') AND command_id NOT IN (:activeCommandIds)",
+    )
+    suspend fun expireMissingPending(activeCommandIds: List<String>, now: Long): Int
+
+    @Query(
         "UPDATE remote_command_journal SET state = :state, executing_at = :executingAt, " +
             "terminal_at = :terminalAt WHERE command_id = :commandId",
     )

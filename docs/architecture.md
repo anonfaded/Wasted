@@ -59,6 +59,10 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
   rotates refresh tokens; separate clients sharing one stored session can race and invalidate each
   other. The Realtime client never subscribes without a valid session, and the heartbeat continues
   if Realtime is unavailable.
+- **Boot/reboot:** `BOOT_COMPLETED` schedules the network-constrained WorkManager recovery path
+  instead of starting a foreground service directly (blocked on Android 15+). `USER_UNLOCKED`
+  starts the normal foreground service. Credential-encrypted storage, including the remote session
+  and settings, remains unavailable until that first unlock by Android design.
 - **Device:** separate anonymous Supabase Auth user per installation. It has no access to owner
   data until an authenticated owner creates a one-time enrollment token and the device claims it;
   the claim RPC binds the device row to the owner account.
@@ -100,9 +104,11 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
 3. Remote Force Reset never executes while Debug Mode is ON (`debug_blocked`).
 4. Force Reset executes at most once; interrupted `executing` rows fail, never replay.
 5. Remote Debug Mode OFF supersedes pending Force Resets for that device.
-6. RLS is forced; direct writes are denied; SECURITY DEFINER RPCs are the only write surface.
-7. Publishable keys are public; secret/service-role keys never ship or appear in Git.
-8. Default/unconfigured installs perform zero remote work.
+6. Repeating a command keeps only its newest queued copy per device; different command families
+   remain independent, and an executing command is never recalled.
+7. RLS is forced; direct writes are denied; SECURITY DEFINER RPCs are the only write surface.
+8. Publishable keys are public; secret/service-role keys never ship or appear in Git.
+9. Default/unconfigured installs perform zero remote work.
 
 ## Offline behavior
 

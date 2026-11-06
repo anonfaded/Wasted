@@ -50,8 +50,8 @@ Reconcile also upserts `device_status`, lazily expires overdue commands, and ret
 
 Owner commands require an explicit `p_target_scope`:
 
-- `all`: snapshot all active account devices at creation; newer devices do not receive the action.
-- `selected`: require a non-empty set of distinct, owned, active device IDs. Validation is
+- `all`: snapshot all enrolled (non-revoked) account devices at creation; newer devices do not receive the action.
+- `selected`: require a non-empty set of distinct, owned, enrolled (non-revoked) device IDs. Validation is
   all-or-nothing and no other device receives a command.
 
 An `account_action_targets` row is written for every target before `device_commands`. The command
@@ -64,9 +64,9 @@ Devices still receive only their own commands and can never target another devic
 
 | Type | Target | TTL | Terminal outcomes |
 | --- | --- | --- | --- |
-| `reset_timer` | Selected targets or all active devices | 24 h | `applied`, `rejected`, `failed`, `expired` |
-| `force_reset` | Selected targets or all active devices | 10 min | `reset_initiated`, `debug_blocked`, `rejected`, `failed`, `expired` |
-| `lock_now` | Selected targets or all active devices | 5 min | `applied`, `failed`, `expired` |
+| `reset_timer` | Selected targets or all enrolled devices | 24 h | `applied`, `rejected`, `failed`, `expired` |
+| `force_reset` | Selected targets or all enrolled devices | 10 min | `reset_initiated`, `debug_blocked`, `rejected`, `failed`, `expired` |
+| `lock_now` | Selected targets or all enrolled devices | 5 min | `applied`, `failed`, `expired` |
 | `debug_mode_on` | One selected device | 24 h | `applied`, `rejected`, `failed`, `expired` |
 | `debug_mode_off` | One selected device | 10 min | `applied`, `rejected`, `failed`, `expired` |
 
@@ -124,6 +124,10 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 - Keys are bound to the action type/scope: reusing a key for a different type (or for a per-device
   debug action) raises `idempotency key reused for a different action`.
 - `set_device_debug_mode` additionally requires the same device/type on replay.
+- A new command expires older `queued`/`received` commands **in the same family** for the same
+  device: Reset Timer with Reset Timer, Lock with Lock, Force Reset with Force Reset, and Debug
+  ON/OFF with each other. Different families remain independently pending. An `executing`
+  command is never recalled.
 - Queuing `debug_mode_off` first expires that device's pending `force_reset` commands with
   `superseded_by_debug_off`, so a latent wipe cannot fire after the guard is removed.
 - Command/action consistency is enforced by trigger: type, account, expiry, and (when present)

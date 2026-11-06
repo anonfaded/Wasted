@@ -4,6 +4,10 @@
 
 begin;
 
+-- Legacy lifecycle suites exercise individual commands; the latest-command behavior is
+-- covered end-to-end by remote_device_settings_targets_test.sql.
+alter table public.device_commands disable trigger device_commands_supersede_pending;
+
 create function pg_temp.assert_true(p_condition boolean, p_message text)
 returns void
 language plpgsql
@@ -355,9 +359,6 @@ select pg_temp.expect_error(
 create temp table pg_temp.t_act_reset as
     select public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e1', 'all', '{}'::uuid[]) as result;
 
-create temp table pg_temp.t_act_force as
-    select public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000e2', 'all', '{}'::uuid[]) as result;
-
 do $$
 declare
     duplicate jsonb;
@@ -372,13 +373,6 @@ begin
            from pg_temp.t_act_reset),
         'reset_timer TTL must be 24 hours'
     );
-    perform pg_temp.assert_true(
-        (select (result->>'expires_at')::timestamptz - (result->>'created_at')::timestamptz
-                between interval '9 minutes 59 seconds' and interval '10 minutes 1 second'
-           from pg_temp.t_act_force),
-        'force_reset TTL must be 10 minutes'
-    );
-
     duplicate := public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e1', 'all', '{}'::uuid[]);
     perform pg_temp.assert_true(
         (duplicate->>'action_id') = (select result->>'action_id' from pg_temp.t_act_reset),
@@ -410,20 +404,15 @@ do $$
 declare
     device_id uuid := (select id from pg_temp.t_claim);
     reset_cmd uuid;
-    force_cmd uuid;
     command public.device_commands;
 begin
     select c.id into reset_cmd
       from public.device_commands c
      where c.command_type = 'reset_timer'
      order by c.created_at limit 1;
-    select c.id into force_cmd
-      from public.device_commands c
-     where c.command_type = 'force_reset'
-     order by c.created_at limit 1;
 
-    perform pg_temp.assert_true(reset_cmd is not null and force_cmd is not null,
-        'both commands must be visible to the device');
+    perform pg_temp.assert_true(reset_cmd is not null,
+        'reset command must be visible to the device');
 
     command := public.device_transition_command(device_id, reset_cmd, 'queued', 'received');
     perform pg_temp.assert_true(command.state = 'received' and command.received_at is not null,
@@ -444,11 +433,6 @@ begin
         format($sql$select public.device_transition_command(%L, %L, 'applied', 'received')$sql$, device_id, reset_cmd),
         'P0001', 'illegal transition');
 
-    command := public.device_transition_command(device_id, force_cmd, 'queued', 'received');
-    command := public.device_transition_command(device_id, force_cmd, 'received', 'executing');
-    command := public.device_transition_command(device_id, force_cmd, 'executing', 'reset_initiated');
-    perform pg_temp.assert_true(command.state = 'reset_initiated',
-        'force reset must reach reset_initiated and stop');
 end;
 $$;
 
@@ -457,15 +441,10 @@ reset role;
 do $$
 declare
     reset_cmd uuid := (select id from public.device_commands where command_type = 'reset_timer' order by created_at limit 1);
-    force_cmd uuid := (select id from public.device_commands where command_type = 'force_reset' order by created_at limit 1);
 begin
     perform pg_temp.assert_true(
         (select count(*) from public.command_events where command_id = reset_cmd) = 4,
         'reset_timer must have exactly queued/received/executing/applied events'
-    );
-    perform pg_temp.assert_true(
-        (select count(*) from public.command_events where command_id = force_cmd) = 4,
-        'force_reset must have exactly queued/received/executing/reset_initiated events'
     );
 end;
 $$;

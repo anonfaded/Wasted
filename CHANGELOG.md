@@ -3,7 +3,7 @@
 ## Wasted v3.0.0 - October 22, 2026
 
 ### New Features
-- Self-hosted Remote Management with a private dashboard, per-device settings overrides, battery and charging display, and all-or-selected command targets (Lock, Reset Timer, Force Reset).
+- Self-hosted Remote Management with a private dashboard, per-device settings overrides, battery and charging display, all-or-selected command targets, and latest-command replacement per device.
 - Biometric app unlock setting, so the launch prompt can be turned off.
 
 ### Enhancements

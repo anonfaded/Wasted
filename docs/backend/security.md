@@ -31,6 +31,23 @@
 - Email ownership is not verified by design. Password/account recovery is performed by the project
   owner through the Supabase dashboard, not through email.
 
+## Direct Boot and a rebooted/stolen device
+
+The remote identity, Supabase session, and app settings currently live in
+credential-encrypted storage. Android makes that storage unavailable until the user performs the
+first unlock after a reboot. The boot receiver and periodic worker still run, but the remote service
+deliberately waits for `UserManager.isUserUnlocked`; this is why a phone rebooted to the lockscreen
+does not sync or accept commands until it is unlocked.
+
+Android's [Direct Boot documentation](https://developer.android.com/privacy-and-security/direct-boot)
+defines the only supported way to change this: use device-encrypted storage
+(`createDeviceProtectedStorageContext()`) and mark the components direct-boot aware. That would let
+the app open its remote session and execute safe work before first unlock, but it also means the
+remote identity/policy material is available after verified boot without the user's credential.
+It is a security tradeoff, not a small toggle. We intentionally keep credential-encrypted storage
+as the default. Do not move the remote session to device-encrypted storage without an explicit
+product/security decision and a separate threat-model review.
+
 ## Key boundaries
 
 | Key | Where it lives | Rules |

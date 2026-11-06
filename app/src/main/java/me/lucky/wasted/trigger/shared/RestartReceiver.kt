@@ -6,8 +6,9 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 
 import me.lucky.wasted.Preferences
+import me.lucky.wasted.remote.data.RemoteBootPolicy
 import me.lucky.wasted.remote.data.RemoteConfigStore
-import me.lucky.wasted.remote.work.RemoteRecoveryWorker
+import me.lucky.wasted.remote.data.RemoteRuntime
 
 class RestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -16,22 +17,46 @@ class RestartReceiver : BroadcastReceiver() {
             intent?.action != Intent.ACTION_USER_UNLOCKED &&
             intent?.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val ctx = context ?: return
-        val prefs = Preferences.new(ctx)
         val remoteConfigStore = RemoteConfigStore.new(ctx)
         val remoteActive = remoteConfigStore.remoteEnabled && remoteConfigStore.isConfigured
+        android.util.Log.i(
+            "RestartReceiver",
+            "action=${intent.action} remoteActive=$remoteActive running=${ForegroundService.isRunning}",
+        )
 
-        // Android 15+ blocks starting a foreground service directly from BOOT_COMPLETED.
-        // WorkManager is the supported boot path; it also waits for a validated network.
         if (intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED ||
             intent.action == Intent.ACTION_BOOT_COMPLETED
         ) {
-            if (remoteActive) {
-                RemoteRecoveryWorker.schedulePeriodic(ctx)
-                RemoteRecoveryWorker.scheduleOnce(ctx)
+            if (remoteActive && !ForegroundService.isRunning) {
+                // LOCKED_BOOT_COMPLETED and BOOT_COMPLETED can both arrive after the first
+                // direct-boot start; never start a second remote client for the same boot.
+                // BOOT_COMPLETED is an FGS-start exemption, and connectedDevice/specialUse are
+                // not the Android 15 boot-restricted types. The JobScheduler path remains the
+                // fallback if an OEM rejects the launch.
+                runCatching {
+                    ContextCompat.startForegroundService(
+                        ctx.applicationContext,
+                        Intent(ctx.applicationContext, ForegroundService::class.java)
+                            .setAction(ForegroundService.ACTION_RESTART_REMOTE),
+                    )
+                }
+                me.lucky.wasted.remote.work.RemoteBootJobService.schedule(ctx)
             }
-            // Never attempt a boot-time foreground-service start; USER_UNLOCKED or the worker
-            // is the supported hand-off on Android 15+.
             return
+        }
+
+        // The running direct-boot service owns the live handoff. Letting both receivers
+        // restart the remote subsystem would create back-to-back clients for one unlock.
+        if (intent.action == Intent.ACTION_USER_UNLOCKED && ForegroundService.isRunning) return
+
+        val prefs = Preferences.new(ctx)
+
+        if (intent.action == Intent.ACTION_USER_UNLOCKED) {
+            // Apply direct-boot policy changes to credential storage before the normal engine
+            // starts, then discard the direct-boot client so it reloads the normal session.
+            (ctx.applicationContext as? me.lucky.wasted.Application)?.initializeAfterUnlock()
+            RemoteBootPolicy.new(ctx).applyTo(Preferences.new(ctx))
+            RemoteRuntime.reset()
         }
 
         val needsForeground = ForegroundRequirement.isRequired(
@@ -48,7 +73,13 @@ class RestartReceiver : BroadcastReceiver() {
             ContextCompat.startForegroundService(
                 ctx.applicationContext,
                 Intent(ctx.applicationContext, ForegroundService::class.java)
-                    .setAction(ForegroundService.ACTION_RECONFIGURE),
+                    .setAction(
+                        if (intent.action == Intent.ACTION_USER_UNLOCKED) {
+                            ForegroundService.ACTION_RESTART_REMOTE
+                        } else {
+                            ForegroundService.ACTION_RECONFIGURE
+                        },
+                    ),
             )
         }
     }

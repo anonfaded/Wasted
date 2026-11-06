@@ -113,7 +113,7 @@ Backend setup is **once per Supabase project/account**, not per device.
   enable Remote Management, then create a new enrollment token in the dashboard and claim it.
 - Create one token per device; tokens are independent and each expires in 10 minutes.
 - Settings have global defaults plus optional per-device overrides; a device override wins until
-  cleared. Debug Mode is per device. Commands require choosing all active devices or a specific
+  cleared. Debug Mode is per device. Commands require choosing all enrolled devices or a specific
   selection; there is no implicit fan-out.
 
 ## How enrollment tokens work

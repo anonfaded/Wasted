@@ -533,14 +533,15 @@
                 <p class="eyebrow">Remote commands</p>
                 <h3 id="commands-title">Targeted actions</h3>
                 <p class="section-desc">
-                  Choose all active devices or select specific devices on the cards. Every command is
-                  confirmed with the exact target list and applies at the next sync.
+                  Choose all enrolled devices or select specific devices on the cards. Every command is
+                  confirmed with the exact target list and applies at the next sync. Repeating the
+                  same action keeps only the newest queued copy; different actions stay independent.
                 </p>
               </div>
             </div>
             <fieldset class="target-picker">
               <legend>Command targets</legend>
-              <label><input id="target-all" type="radio" name="command-target" value="all"> All active devices</label>
+              <label><input id="target-all" type="radio" name="command-target" value="all"> All enrolled devices</label>
               <label><input id="target-selected" type="radio" name="command-target" value="selected" checked> Selected devices</label>
               <span id="target-summary" class="muted">0 selected</span>
             </fieldset>
@@ -736,9 +737,11 @@
                 </dd>
                 <dt>Command targets</dt>
                 <dd>
-                  Choose All active devices or select devices on the cards. The command confirmation
-                  lists the exact count and names. Selected targets must be active and owned; a
-                  revoked or empty selection is rejected before any command is queued.
+                  Choose All enrolled devices or select devices on the cards. The command confirmation
+                  lists the exact count and names. Selected targets must be enrolled and owned; a
+                  revoked or empty selection is rejected before any command is queued. A newer copy
+                  of the same action replaces older queued copies for that device; other actions
+                  remain queued independently.
                 </dd>
                 <dt>Debug Mode</dt>
                 <dd>
@@ -796,7 +799,7 @@
                 A local change in the app is reported back as the device value, but it does not
                 rewrite the global or device target. Use the device's Settings button for one device;
                 use Global settings for every device that inherits the field. Select one or more
-                devices on the cards before sending a command, or choose All active devices.
+                devices on the cards before sending a command, or choose All enrolled devices.
               </p>
               <p class="muted">
                 When the countdown completes, Wasted fires the Lock trigger: it locks the phone. If

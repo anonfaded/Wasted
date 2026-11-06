@@ -75,12 +75,13 @@ class RemoteRecoveryWorker(
         val configStore = RemoteConfigStore.new(applicationContext)
         val credentials = RemoteCredentialStore.new(applicationContext)
         if (!configStore.canStartRemoteWork() || !credentials.enrolled) return Result.success()
-        if (!applicationContext.getSystemService(UserManager::class.java).isUserUnlocked) {
-            return Result.success()
-        }
 
         return try {
-            val engine = RemoteEngine.create(applicationContext) ?: return Result.success()
+            val directBoot = !applicationContext
+                .getSystemService(UserManager::class.java)
+                .isUserUnlocked
+            val engine = RemoteEngine.create(applicationContext, directBoot = directBoot)
+                ?: return Result.success()
             val outcome = engine.runSync()
             engine.close()
             when {
