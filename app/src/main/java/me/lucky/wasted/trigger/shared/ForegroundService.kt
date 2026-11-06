@@ -190,22 +190,29 @@ class ForegroundService : Service() {
                 }
             }
 
-            scope.launch {
-                runCatching {
+            // Realtime is an optimization; retry it whenever the app is online or the service
+            // starts. The HTTP heartbeat below is the reliable path if Realtime is unavailable.
+            val ensureRealtime: suspend () -> Unit = {
+                if (!realtime.isStarted && engine.credentials.enrolled) {
                     val deviceId = engine.credentials.deviceId
-                    if (engine.credentials.enrolled && deviceId != null) {
-                        realtime.start(scope, deviceId, engine.credentials.accountId) {
-                            scope.launch { runSync() }
-                        }
+                    if (deviceId != null) {
+                        runCatching {
+                            realtime.start(scope, deviceId, engine.credentials.accountId) {
+                                scope.launch { runSync() }
+                            }
+                        }.onFailure { Log.w(TAG, "Realtime start failed") }
                     }
-                }.onFailure { Log.w(TAG, "Realtime start failed") }
+                }
             }
+
+            scope.launch { ensureRealtime() }
 
             // Heartbeat: reconcile every 60s while enabled, enrolled, unlocked, and connected.
             scope.launch {
                 while (isActive) {
                     val unlocked = getSystemService(UserManager::class.java).isUserUnlocked
                     if (unlocked && hasNetwork()) {
+                        ensureRealtime()
                         runSync()
                     }
                     delay(REMOTE_HEARTBEAT_MS)
@@ -213,8 +220,27 @@ class ForegroundService : Service() {
             }
 
             val callback = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    scope.launch { runSync() }
+                private fun syncWhenOnline() {
+                    scope.launch {
+                        ensureRealtime()
+                        runSync()
+                    }
+                }
+
+                override fun onAvailable(network: Network) = syncWhenOnline()
+
+                override fun onCapabilitiesChanged(
+                    network: Network,
+                    networkCapabilities: android.net.NetworkCapabilities,
+                ) {
+                    // A network can become validated after onAvailable (captive portal, Wi-Fi
+                    // hand-off). Treat validation as the real "internet is back" signal.
+                    if (networkCapabilities.hasCapability(
+                            android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED,
+                        )
+                    ) {
+                        syncWhenOnline()
+                    }
                 }
             }
             runCatching {

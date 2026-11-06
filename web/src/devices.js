@@ -1,24 +1,35 @@
 /** Data access + pure helpers for the device grid. */
 
 export async function fetchDashboardData(client) {
-  const [devicesResult, statusResult, commandsResult, settingsResult] = await Promise.all([
-    client.from("devices")
-      .select("id, account_id, name, installation_id, enrolled_at, revoked_at")
-      .order("created_at", { ascending: true }),
-    client.from("device_status").select("*"),
-    client.rpc("list_latest_device_commands"),
-    client.from("account_settings").select("*").maybeSingle(),
-  ]);
+  const [devicesResult, statusResult, commandsResult, settingsResult, effectiveResult] =
+    await Promise.all([
+      client.from("devices")
+        .select("id, account_id, name, installation_id, enrolled_at, revoked_at")
+        .order("created_at", { ascending: true }),
+      client.from("device_status").select("*"),
+      client.rpc("list_latest_device_commands"),
+      client.from("account_settings").select("*").maybeSingle(),
+      client.rpc("list_device_effective_settings"),
+    ]);
 
-  for (const result of [devicesResult, statusResult, commandsResult]) {
+  for (const result of [devicesResult, statusResult, commandsResult, settingsResult, effectiveResult]) {
     if (result.error) throw new Error(result.error.message);
   }
 
   const devices = activeDevices(devicesResult.data ?? []);
   const statusByDevice = new Map((statusResult.data ?? []).map((s) => [s.device_id, s]));
   const latestCommand = latestCommandByDevice(commandsResult.data ?? []);
+  const effectiveSettingsByDevice = new Map(
+    (effectiveResult.data ?? []).map((settings) => [settings.device_id, settings]),
+  );
 
-  return { devices, statusByDevice, latestCommand, settings: settingsResult.data ?? null };
+  return {
+    devices,
+    statusByDevice,
+    latestCommand,
+    effectiveSettingsByDevice,
+    settings: settingsResult.data ?? null,
+  };
 }
 
 /** Non-revoked devices only; revoked history is preserved server-side but not actionable. */

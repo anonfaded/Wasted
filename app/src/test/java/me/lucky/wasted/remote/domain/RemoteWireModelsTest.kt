@@ -18,7 +18,7 @@ class RemoteWireModelsTest {
             {
               "server_time": "2026-10-18T16:00:00Z",
               "device": {"id": "d1", "account_id": "a1", "name": "Phone", "installation_id": "i1", "enrolled_at": "2026-10-18T15:00:00Z"},
-              "settings": {"revision": 2, "lock_timer_minutes": 1440, "usb_trigger_enabled": true, "initialized": true},
+              "settings": {"global_revision": 2, "device_revision": 1, "lock_timer_minutes": 1440, "usb_trigger_enabled": true, "lock_trigger_enabled": true, "initialized": true},
               "commands": [
                 {"id": "c1", "action_id": "x1", "command_type": "reset_timer", "state": "queued", "created_at": "2026-10-18T15:59:00Z", "expires_at": "2026-10-19T15:59:00Z"},
                 {"id": "c2", "action_id": "x2", "command_type": "force_reset", "state": "debug_blocked", "created_at": "2026-10-18T15:58:00Z", "expires_at": "2026-10-18T16:08:00Z"}
@@ -30,9 +30,11 @@ class RemoteWireModelsTest {
 
         assertEquals("d1", response.device.id)
         assertEquals("a1", response.device.accountId)
-        assertEquals(2L, response.settings.revision)
+        assertEquals(2L, response.settings.globalRevision)
+        assertEquals(1L, response.settings.deviceRevision)
         assertEquals(1440, response.settings.lockTimerMinutes)
         assertTrue(response.settings.usbTriggerEnabled)
+        assertTrue(response.settings.lockTriggerEnabled)
         assertEquals(2, response.commands.size)
         assertEquals(RemoteCommandType.RESET_TIMER, response.commands[0].commandType)
         assertEquals(RemoteCommandState.QUEUED, response.commands[0].state)
@@ -45,7 +47,7 @@ class RemoteWireModelsTest {
         val raw = """
             {"server_time": "t",
              "device": {"id": "d1", "account_id": "a1", "installation_id": "i1", "name": "N", "enrolled_at": "e", "created_at": "c", "updated_at": "u"},
-             "settings": {"revision": 0, "lock_timer_minutes": 1, "usb_trigger_enabled": false, "initialized": false},
+             "settings": {"global_revision": 0, "device_revision": 0, "lock_timer_minutes": 1, "usb_trigger_enabled": false, "lock_trigger_enabled": false, "initialized": false},
              "commands": [],
              "future_field": true}
         """.trimIndent()
@@ -73,6 +75,35 @@ class RemoteWireModelsTest {
         assertTrue(encoded.contains("\"p_local_lock_timer_minutes\":1440"))
         assertTrue(encoded.contains("\"p_local_usb_trigger_enabled\":true"))
         assertTrue(encoded.contains("\"p_local_lock_trigger_enabled\":true"))
+    }
+
+    @Test
+    fun `reconcile params serialize battery and both applied revisions`() {
+        val params = ReconcileParams(
+            deviceId = "d1",
+            appliedGlobalSettingsRevision = 7,
+            appliedDeviceSettingsRevision = 3,
+            actualLockTimerMinutes = 1440,
+            actualUsbTriggerEnabled = true,
+            actualLockTriggerEnabled = false,
+            timerRemainingSeconds = 60,
+            timerRunning = true,
+            debugMode = true,
+            resetSupported = true,
+            remoteEnabled = true,
+            batteryPercent = 0,
+            batteryCharging = false,
+            appVersion = "3.0.0",
+            androidSdk = 35,
+            lastErrorCode = null,
+            lastErrorMessage = null,
+        )
+        val encoded = json.encodeToString(ReconcileParams.serializer(), params)
+
+        assertTrue(encoded.contains("\"p_applied_global_settings_revision\":7"))
+        assertTrue(encoded.contains("\"p_applied_device_settings_revision\":3"))
+        assertTrue(encoded.contains("\"p_battery_percent\":0"))
+        assertTrue(encoded.contains("\"p_battery_charging\":false"))
     }
 
     @Test
@@ -109,7 +140,7 @@ class RemoteWireModelsTest {
             {
               "server_time": "2026-10-20T12:00:00Z",
               "device": {"id": "d1", "account_id": "a1", "name": "Phone", "installation_id": "i1", "enrolled_at": "2026-10-20T11:00:00Z"},
-              "settings": {"revision": 1, "lock_timer_minutes": 1440, "usb_trigger_enabled": false, "initialized": true},
+              "settings": {"global_revision": 1, "device_revision": 0, "lock_timer_minutes": 1440, "usb_trigger_enabled": false, "lock_trigger_enabled": true, "initialized": true},
               "commands": [
                 {"id": "c1", "action_id": "x1", "command_type": "debug_mode_off", "state": "queued", "created_at": "2026-10-20T11:59:00Z", "expires_at": "2026-10-20T12:09:00Z"}
               ]

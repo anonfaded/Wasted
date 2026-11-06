@@ -255,7 +255,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Remote settings control the Lock trigger, Lock delay, and USB trigger account-wide. Local changes are reported as this device's values but do not rewrite the account setting. The Lock delay only runs while the Lock trigger is ON. Wipe data remains a local phone setting and is not changed by Remote Management."
+                android:text="Global settings control the Lock trigger, Lock delay, and USB trigger for every device that inherits them; a device override applies only to that device. Local changes are reported as this device's values but do not rewrite the account or device target. The Lock delay only runs while the Lock trigger is ON. Wipe data remains a local phone setting and is not changed by Remote Management."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <com.google.android.material.materialswitch.MaterialSwitch

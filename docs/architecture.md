@@ -42,9 +42,10 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
 | `RemoteSetupActivity` | Guided offline setup; validates URL/key, copies SQL, renders/exports dashboard |
 | `RemoteManagementFragment` | Config, enable/disable, Debug Mode toggle, enrollment, sync, reset enrollment |
 | `RemoteEngine` | Composition root shared by foreground service and recovery worker |
+| `RemoteRuntime` | One process-wide Supabase client/session owner; prevents refresh-token rotation races |
 | `RemoteSyncCoordinator` | Single-flight reconcile, settings revisions, journal, outbox retry |
 | `RemoteCommandProcessor` | Executes commands with ordering, idempotency, Debug Mode checks |
-| `RemoteRealtimeClient` | Realtime invalidations (signals only; never executes payloads) |
+| `RemoteRealtimeClient` | Realtime invalidations (signals only; never executes payloads); skipped when the session is missing/expired, with the 60 s heartbeat remaining active |
 | `RemoteRecoveryWorker` | WorkManager safety net (one-time retry + 15-minute periodic) |
 | `ForegroundService` | One service; reconstructs Lock/USB/P2P/remote subsystems; 60 s heartbeat |
 | `ResetExecutor` | Only destructive boundary; re-reads Debug Mode |
@@ -54,6 +55,10 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
 
 - **Owner:** normal email/password Supabase Auth user. Create Account is explicit; a failed
   sign-in never creates an account.
+- **Session:** the encrypted Auth session is owned by one process-wide Supabase client. Supabase
+  rotates refresh tokens; separate clients sharing one stored session can race and invalidate each
+  other. The Realtime client never subscribes without a valid session, and the heartbeat continues
+  if Realtime is unavailable.
 - **Device:** separate anonymous Supabase Auth user per installation. It has no access to owner
   data until an authenticated owner creates a one-time enrollment token and the device claims it;
   the claim RPC binds the device row to the owner account.

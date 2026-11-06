@@ -16,6 +16,8 @@ import io.github.jan.supabase.realtime.Realtime
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -52,8 +54,12 @@ class SupabaseRemoteRepository(
         private val json = Json { encodeDefaults = true }
     }
 
+    val credentials: RemoteCredentialStore
+        get() = credentialStore
+
     @Volatile
     private var client: SupabaseClient? = null
+    private val authMutex = Mutex()
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
@@ -66,13 +72,34 @@ class SupabaseRemoteRepository(
         get() = configStore.canStartRemoteWork()
 
     override suspend fun ensureAnonymousSession() = guarded {
-        val supabase = requireClient()
-        // autoLoadFromStorage is asynchronous; without this wait a fresh client can race the
-        // stored session and create a new anonymous identity for an already-enrolled device.
-        supabase.auth.awaitInitialization()
-        if (supabase.auth.currentSessionOrNull() == null) {
-            supabase.auth.signInAnonymously()
-            Log.i(TAG, "Anonymous device session established")
+        authMutex.withLock {
+            val supabase = requireClient()
+            // autoLoadFromStorage is asynchronous; without this wait a fresh client can race the
+            // stored session and create a new anonymous identity for an already-enrolled device.
+            supabase.auth.awaitInitialization()
+            val session = supabase.auth.currentSessionOrNull()
+            if (session == null) {
+                if (credentialStore.enrolled) {
+                    // Never mint a new anonymous identity for an already-bound device: the new
+                    // user is not the identity referenced by public.devices and RLS rejects it.
+                    throw RemoteException(RemoteError.Authentication)
+                }
+                supabase.auth.signInAnonymously()
+                Log.i(TAG, "Anonymous device session established")
+                return@withLock
+            }
+
+            if (session.expiresAt <= kotlin.time.Clock.System.now()) {
+                val refreshed = runCatching { supabase.auth.refreshCurrentSession() }
+                if (refreshed.isFailure) {
+                    if (credentialStore.enrolled) {
+                        throw RemoteException(RemoteError.Authentication)
+                    }
+                    // A brand-new enrollment with an unusable anonymous session starts cleanly.
+                    supabase.auth.signOut()
+                    supabase.auth.signInAnonymously()
+                }
+            }
         }
     }
 

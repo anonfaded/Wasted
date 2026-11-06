@@ -128,19 +128,23 @@ class RemoteSyncCoordinator(
         return sent
     }
 
-    /** Applies only newer account settings revisions; failures leave the revision pending. */
+    /** Applies the server-resolved effective settings when either revision is newer. */
     private fun applyAccountSettings(settings: RemoteSettingsDto) {
         if (!settings.initialized) return
-        if (settings.revision <= credentials.appliedSettingsRevision) return
+        if (settings.globalRevision <= credentials.appliedGlobalSettingsRevision &&
+            settings.deviceRevision <= credentials.appliedDeviceSettingsRevision
+        ) return
+
         runCatching {
             settingsApplier.applyLockTimerMinutes(settings.lockTimerMinutes)
             settingsApplier.applyUsbTrigger(settings.usbTriggerEnabled)
             settingsApplier.applyLockTrigger(settings.lockTriggerEnabled)
-            credentials.appliedSettingsRevision = settings.revision
+            credentials.appliedGlobalSettingsRevision = settings.globalRevision
+            credentials.appliedDeviceSettingsRevision = settings.deviceRevision
             events.emit(
                 RemoteEvent(
                     kind = RemoteEvent.Kind.SETTINGS_CHANGED,
-                    key = "settings-${settings.revision}",
+                    key = "settings-${settings.globalRevision}-${settings.deviceRevision}",
                     title = "Remote settings applied",
                     message = "Lock trigger " +
                         (if (settings.lockTriggerEnabled) "on" else "off") +
@@ -158,7 +162,8 @@ class RemoteSyncCoordinator(
         val status = statusProvider.snapshot()
         val params = ReconcileParams(
             deviceId = deviceId,
-            appliedSettingsRevision = status.appliedSettingsRevision,
+            appliedGlobalSettingsRevision = status.appliedGlobalSettingsRevision,
+            appliedDeviceSettingsRevision = status.appliedDeviceSettingsRevision,
             actualLockTimerMinutes = status.lockTimerMinutes,
             actualUsbTriggerEnabled = status.usbTriggerEnabled,
             actualLockTriggerEnabled = status.lockTriggerEnabled,
@@ -167,8 +172,12 @@ class RemoteSyncCoordinator(
             debugMode = status.debugMode,
             resetSupported = status.resetSupported,
             remoteEnabled = status.remoteEnabled,
+            batteryPercent = status.batteryPercent,
+            batteryCharging = status.batteryCharging,
             appVersion = status.appVersion,
             androidSdk = status.androidSdk,
+            lastErrorCode = null,
+            lastErrorMessage = null,
         )
 
         var attempt = 0

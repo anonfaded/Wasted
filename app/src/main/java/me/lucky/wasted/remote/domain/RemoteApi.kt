@@ -10,7 +10,8 @@ interface RemoteApi {
 
 /** Local device state reported to `device_reconcile`. */
 data class LocalRemoteStatus(
-    val appliedSettingsRevision: Long,
+    val appliedGlobalSettingsRevision: Long,
+    val appliedDeviceSettingsRevision: Long,
     val lockTimerMinutes: Int,
     val usbTriggerEnabled: Boolean,
     val lockTriggerEnabled: Boolean,
@@ -19,6 +20,8 @@ data class LocalRemoteStatus(
     val debugMode: Boolean,
     val resetSupported: Boolean,
     val remoteEnabled: Boolean,
+    val batteryPercent: Int?,
+    val batteryCharging: Boolean?,
     val appVersion: String,
     val androidSdk: Int,
 )

@@ -14,7 +14,9 @@
 | `update failed: relation exists` | Ran `setup.sql` on an existing project | Do not re-run setup; apply the release update bundle instead |
 | Update bundle applied twice | Duplicate DDL | Restore backup and apply once; never re-run updates |
 | Schema mismatch after update | Wrong/out-of-order bundle | Apply the cumulative bundle matching the installed version, then `verify.sql` |
-| Device card shows “offline / stale” | No contact in 150 s | Bring the device online/unlocked; check heartbeat/network |
+| Device card shows “Inactive” | No contact in 150 s | Bring the device online/unlocked; check heartbeat/network |
+| Device goes stale after hours and the app is a black screen | Older builds created multiple Supabase clients sharing one rotating refresh token; a losing refresh expires the session, then the Realtime resubscribe crashed the process | Update the app. It now uses one process-wide Supabase client, SDK 3.9.0, and skips Realtime when the session is missing/expired while the heartbeat continues. Do not reset enrollment unless the Auth identity was actually deleted/revoked. |
+| “authentication failed” after a long period offline | The device's anonymous Auth identity was deleted/revoked server-side, or the refresh token was invalidated | This cannot be repaired locally without the old refresh token. Create a new enrollment token and re-enroll the device; the old device record can be revoked. A healthy bound device is excluded from anonymous cleanup. |
 | Device never appears | Not enrolled or wrong project | Create a fresh token, claim it, check the same URL/key in app |
 | Force Reset blocked | Debug Mode ON | Expected behavior; the owner can turn Debug Mode OFF remotely from the dashboard (with confirmation) or locally on the device |
 | Command shows `device_revoked_during_execution` | Device was revoked while executing | Outcome is unknown by design; check the device locally. Do not retry destructively |

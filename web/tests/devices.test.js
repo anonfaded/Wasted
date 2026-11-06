@@ -33,10 +33,25 @@ test("empty inputs are handled", () => {
   assert.equal(latestCommandByDevice([]).size, 0);
 });
 
-test("dashboard data uses the bounded latest-command RPC", async () => {
+test("dashboard data uses the bounded latest-command and effective-settings RPCs", async () => {
   let commandTableRead = false;
+  const rpcCalls = [];
   const client = {
     rpc: async (name) => {
+      rpcCalls.push(name);
+      if (name === "list_device_effective_settings") {
+        return {
+          data: [{
+            device_id: "device-1",
+            global_revision: 4,
+            device_revision: 2,
+            lock_trigger_enabled: true,
+            lock_timer_minutes: 60,
+            usb_trigger_enabled: false,
+          }],
+          error: null,
+        };
+      }
       assert.equal(name, "list_latest_device_commands");
       return {
         data: [
@@ -77,8 +92,10 @@ test("dashboard data uses the bounded latest-command RPC", async () => {
   const data = await fetchDashboardData(client);
 
   assert.equal(commandTableRead, false);
+  assert.deepEqual(rpcCalls, ["list_latest_device_commands", "list_device_effective_settings"]);
   assert.equal(data.latestCommand.get("device-1").id, "cmd-2");
   assert.equal(data.devices.length, 1);
+  assert.equal(data.effectiveSettingsByDevice.get("device-1").device_revision, 2);
 });
 
 test("rename sends a trimmed name through the RPC", async () => {

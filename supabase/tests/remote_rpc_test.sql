@@ -48,7 +48,14 @@ insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_a
     ('00000000-0000-0000-0000-000000000000', '0c0c0c0c-0000-4000-8000-0000000000c1', 'authenticated', 'authenticated', now(), now(), true),
     ('00000000-0000-0000-0000-000000000000', '0c0c0c0c-0000-4000-8000-0000000000c2', 'authenticated', 'authenticated', now(), now(), true);
 
--- ─── Owner: initialize ───────────────────────────────────────────────────────
+-- ─── Owner fixtures and handle updates ──────────────────────────────────────
+
+-- The linked project already has its single owner. Use an isolated owner fixture
+-- inside this rolled-back transaction instead of trying to bootstrap a second
+-- owner; the new settings/action behavior is what this suite covers.
+insert into public.accounts (id, handle)
+values ('0a0a0a0a-0000-4000-8000-0000000000a1', 'RpcOwnerA');
+insert into public.account_settings (account_id) values ('0a0a0a0a-0000-4000-8000-0000000000a1');
 
 set local role authenticated;
 select set_config('request.jwt.claims',
@@ -58,13 +65,6 @@ do $$
 declare
     account public.accounts;
 begin
-    account := public.initialize_owner_account('RpcOwnerA');
-    perform pg_temp.assert_true(account.handle = 'RpcOwnerA', 'handle must be stored');
-    perform pg_temp.assert_true(account.id = '0a0a0a0a-0000-4000-8000-0000000000a1', 'account id must equal auth uid');
-
-    account := public.initialize_owner_account('AnotherName');
-    perform pg_temp.assert_true(account.handle = 'RpcOwnerA', 'init must be idempotent for the same user');
-
     account := public.update_owner_handle('RpcOwnerB');
     perform pg_temp.assert_true(account.handle = 'RpcOwnerB', 'owner handle update must persist');
 
@@ -167,7 +167,8 @@ create temp table pg_temp.t_claim as
         '1a000000-0000-4000-8000-0000000000f1',
         'Claimed Device',
         1440,
-        true
+        true,
+        false
     ) d;
 
 do $$
@@ -189,7 +190,8 @@ begin
         '1a000000-0000-4000-8000-0000000000f1',
         'Claimed Device',
         1440,
-        true
+        true,
+        false
     );
     perform pg_temp.assert_true(
         replay.id = (select id from pg_temp.t_claim),
@@ -200,7 +202,7 @@ $$;
 
 -- wrong token shape is rejected before any lookup
 select pg_temp.expect_error(
-    $$select public.claim_device_enrollment('NOTHEX', '1a000000-0000-4000-8000-0000000000f2', 'X', 60, false)$$,
+    $$select public.claim_device_enrollment('NOTHEX', '1a000000-0000-4000-8000-0000000000f2', 'X', 60, false, false)$$,
     'P0001', '64 lowercase hex'
 );
 
@@ -234,7 +236,7 @@ select set_config('request.jwt.claims',
 select pg_temp.expect_error(
     $$select public.claim_device_enrollment(
         (select enrollment_token from pg_temp.t_enroll_second),
-        '1a000000-0000-4000-8000-0000000000f9', 'X', 60, false)$$,
+        '1a000000-0000-4000-8000-0000000000f9', 'X', 60, false, false)$$,
     'P0001', 'anonymous device identity'
 );
 
@@ -243,7 +245,7 @@ select set_config('request.jwt.claims',
 select pg_temp.expect_error(
     $$select public.claim_device_enrollment(
         (select enrollment_token from pg_temp.t_enroll_second),
-        '1a000000-0000-4000-8000-0000000000f3', 'X', 60, false)$$,
+        '1a000000-0000-4000-8000-0000000000f3', 'X', 60, false, false)$$,
     'P0001', 'already used'
 );
 
@@ -259,7 +261,7 @@ set local role authenticated;
 select set_config('request.jwt.claims',
     '{"sub":"0c0c0c0c-0000-4000-8000-0000000000c2","role":"authenticated","is_anonymous":true}', true);
 select pg_temp.expect_error(
-    $$select public.claim_device_enrollment(repeat('e', 64), '1a000000-0000-4000-8000-0000000000f4', 'X', 60, false)$$,
+    $$select public.claim_device_enrollment(repeat('e', 64), '1a000000-0000-4000-8000-0000000000f4', 'X', 60, false, false)$$,
     'P0001', 'expired'
 );
 
@@ -271,7 +273,8 @@ select set_config('request.jwt.claims',
 create temp table pg_temp.t_reconcile as
     select public.device_reconcile(
         (select id from pg_temp.t_claim),
-        1, 1440, true, 0, false, true, true, true, '2.0.0', 34::smallint
+        1, 0, 1440, true, false, 0, false, true, true, true,
+        null::smallint, null::boolean, '2.0.0', 34::smallint, null, null
     ) as result;
 
 do $$
@@ -281,7 +284,7 @@ begin
         'reconcile must return server time'
     );
     perform pg_temp.assert_true(
-        (select (result->'settings'->>'revision')::bigint = 1 from pg_temp.t_reconcile),
+        (select (result->'settings'->>'global_revision')::bigint = 1 from pg_temp.t_reconcile),
         'reconcile must return desired settings revision'
     );
     perform pg_temp.assert_true(
@@ -299,7 +302,8 @@ do $$
 begin
     perform public.device_reconcile(
         (select id from pg_temp.t_claim),
-        1, 1440, true, 120, true, true, true, true, '2.0.0', 34::smallint
+        1, 0, 1440, true, false, 120, true, true, true, true,
+        73::smallint, false, '2.0.0', 34::smallint, null, null
     );
 end;
 $$;
@@ -327,7 +331,7 @@ select set_config('request.jwt.claims',
     '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
 
 select pg_temp.expect_error(
-    $$select public.update_account_settings(99, 2000, true)$$,
+    $$select public.update_account_settings(99, 2000, true, false)$$,
     'P0001', 'revision conflict'
 );
 
@@ -335,24 +339,24 @@ do $$
 declare
     settings public.account_settings;
 begin
-    settings := public.update_account_settings(1, 2000, true);
+    settings := public.update_account_settings(1, 2000, true, false);
     perform pg_temp.assert_true(settings.revision = 2, 'revision must increment exactly once');
     perform pg_temp.assert_true(settings.lock_timer_minutes = 2000, 'lock timer must update');
 end;
 $$;
 
 select pg_temp.expect_error(
-    $$select public.update_account_settings(1, 3000, false)$$,
+    $$select public.update_account_settings(1, 3000, false, false)$$,
     'P0001', 'revision conflict'
 );
 
 -- ─── Owner: actions and idempotency ──────────────────────────────────────────
 
 create temp table pg_temp.t_act_reset as
-    select public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e1') as result;
+    select public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e1', 'all', '{}'::uuid[]) as result;
 
 create temp table pg_temp.t_act_force as
-    select public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000e2') as result;
+    select public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000e2', 'all', '{}'::uuid[]) as result;
 
 do $$
 declare
@@ -375,7 +379,7 @@ begin
         'force_reset TTL must be 10 minutes'
     );
 
-    duplicate := public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e1');
+    duplicate := public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e1', 'all', '{}'::uuid[]);
     perform pg_temp.assert_true(
         (duplicate->>'action_id') = (select result->>'action_id' from pg_temp.t_act_reset),
         'duplicate key must return the original action'
@@ -386,14 +390,14 @@ begin
     );
 
     perform pg_temp.expect_error(
-        $sql$select public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000e1')$sql$,
+        $sql$select public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000e1', 'all', '{}'::uuid[])$sql$,
         'P0001', 'idempotency key reused'
     );
 end;
 $$;
 
 select pg_temp.expect_error(
-    $$select public.create_account_action('unsupported_type', 'dd000000-0000-4000-8000-0000000000ef')$$,
+    $$select public.create_account_action('unsupported_type', 'dd000000-0000-4000-8000-0000000000ef', 'all', '{}'::uuid[])$$,
     'P0001', 'unsupported action type'
 );
 
@@ -523,7 +527,7 @@ begin
 
     -- account-wide actions cannot create debug commands
     perform pg_temp.expect_error(
-        $sql$select public.create_account_action('debug_mode_on', 'dd000000-0000-4000-8000-0000000000f4')$sql$,
+        $sql$select public.create_account_action('debug_mode_on', 'dd000000-0000-4000-8000-0000000000f4', 'all', '{}'::uuid[])$sql$,
         'P0001', 'unsupported action type');
 end;
 $$;
@@ -553,7 +557,9 @@ begin
           where c.action_id = on_action and e.event_type = 'queued') = 1,
         'debug command must record exactly one queued event');
     perform pg_temp.assert_true(
-        (select a.device_id = target_device from public.account_actions a where a.id = on_action),
+        (select t.device_id = target_device
+           from public.account_action_targets t
+          where t.action_id = on_action),
         'debug action must record the targeted device');
     perform pg_temp.assert_true(
         not exists (
@@ -573,7 +579,7 @@ select set_config('request.jwt.claims',
 
 do $$
 begin
-    perform public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000f5');
+    perform public.create_account_action('force_reset', 'dd000000-0000-4000-8000-0000000000f5', 'all', '{}'::uuid[]);
 end;
 $$;
 
@@ -713,10 +719,14 @@ reset role;
 
 -- overdue fixtures are inserted directly: updating expires_at would violate the
 -- command/action consistency trigger, and now() is transaction-fixed
-insert into public.account_actions (id, account_id, action_type, idempotency_key, created_at, expires_at)
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, created_at, expires_at)
 values ('ba000000-0000-4000-8000-0000000000e3', '0a0a0a0a-0000-4000-8000-0000000000a1',
-        'reset_timer', 'dd000000-0000-4000-8000-0000000000e3',
+        'reset_timer', 'dd000000-0000-4000-8000-0000000000e3', 'selected',
         now() - interval '26 hours', now() - interval '2 hours');
+
+insert into public.account_action_targets (action_id, account_id, device_id)
+values ('ba000000-0000-4000-8000-0000000000e3', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        (select id from pg_temp.t_claim));
 
 insert into public.device_commands (id, action_id, device_id, account_id, command_type, created_at, expires_at)
 values ('ee000000-0000-4000-8000-0000000000e3', 'ba000000-0000-4000-8000-0000000000e3',
@@ -742,7 +752,9 @@ begin
         'P0001', 'expired');
 
     -- reconcile lazily expires the overdue command and stops returning it
-    perform public.device_reconcile(device_id, 2, 2000, true, 0, false, true, true, true, '2.0.0', 34::smallint);
+    perform public.device_reconcile(
+        device_id, 2, 0, 2000, true, false, 0, false, true, true, true,
+        null::smallint, null::boolean, '2.0.0', 34::smallint, null, null);
 end;
 $$;
 
@@ -768,10 +780,14 @@ begin
 end;
 $$;
 
-insert into public.account_actions (id, account_id, action_type, idempotency_key, created_at, expires_at)
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, created_at, expires_at)
 values ('ba000000-0000-4000-8000-0000000000e5', '0a0a0a0a-0000-4000-8000-0000000000a1',
-        'reset_timer', 'dd000000-0000-4000-8000-0000000000e5',
+        'reset_timer', 'dd000000-0000-4000-8000-0000000000e5', 'selected',
         now() - interval '26 hours', now() - interval '2 hours');
+
+insert into public.account_action_targets (action_id, account_id, device_id)
+values ('ba000000-0000-4000-8000-0000000000e5', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        (select id from pg_temp.t_claim));
 
 insert into public.device_commands (id, action_id, device_id, account_id, command_type, created_at, expires_at)
 values ('ee000000-0000-4000-8000-0000000000e5', 'ba000000-0000-4000-8000-0000000000e5',
@@ -809,9 +825,13 @@ $$;
 -- ─── Revocation and clean re-enrollment ──────────────────────────────────────
 
 -- executing command fixture: revocation must terminalize it with an unknown outcome
-insert into public.account_actions (id, account_id, action_type, idempotency_key, expires_at)
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, expires_at)
 values ('ba000000-0000-4000-8000-0000000000e6', '0a0a0a0a-0000-4000-8000-0000000000a1',
-        'reset_timer', 'dd000000-0000-4000-8000-0000000000e6', now() + interval '24 hours');
+        'reset_timer', 'dd000000-0000-4000-8000-0000000000e6', 'selected', now() + interval '24 hours');
+
+insert into public.account_action_targets (action_id, account_id, device_id)
+values ('ba000000-0000-4000-8000-0000000000e6', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        (select id from pg_temp.t_claim));
 
 insert into public.device_commands
     (id, action_id, device_id, account_id, command_type, state, expires_at, received_at, executing_at)
@@ -834,7 +854,7 @@ select set_config('request.jwt.claims',
 -- a fresh queued command must be rejected by revocation
 do $$
 begin
-    perform (select public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e4'));
+    perform (select public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000e4', 'all', '{}'::uuid[]));
 end;
 $$;
 
@@ -895,7 +915,7 @@ select set_config('request.jwt.claims',
     '{"sub":"0a1a1a1a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":true}', true);
 
 select pg_temp.expect_error(
-    format($sql$select public.device_reconcile(%L, 2, 2000, true, 0, false, true, true, true, '2.0.0', 34::smallint)$sql$,
+    format($sql$select public.device_reconcile(%L, 2, 0, 2000, true, false, 0, false, true, true, true, null::smallint, null::boolean, '2.0.0', 34::smallint, null, null)$sql$,
            (select id from pg_temp.t_claim)),
     'P0001', 'active device not found'
 );
@@ -934,7 +954,8 @@ begin
         '1d000000-0000-4000-8000-0000000000f9',
         'Replacement Device',
         2000,
-        true
+        true,
+        false
     );
     perform pg_temp.assert_true(new_device.revoked_at is null, 'replacement device must be active');
 end;
@@ -961,9 +982,14 @@ reset role;
 insert into public.devices (id, account_id, installation_id, name, revoked_at)
 values ('ef000000-0000-4000-8000-0000000000ef', '0a0a0a0a-0000-4000-8000-0000000000a1',
         '8f000000-0000-4000-8000-0000000000ef', 'Legacy Revoked', now());
-insert into public.account_actions (id, account_id, action_type, idempotency_key, expires_at)
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, expires_at)
 values ('ea000000-0000-4000-8000-0000000000ef', '0a0a0a0a-0000-4000-8000-0000000000a1',
-        'force_reset', 'ed000000-0000-4000-8000-0000000000ef', now() + interval '1 hour');
+        'force_reset', 'ed000000-0000-4000-8000-0000000000ef', 'selected', now() + interval '1 hour');
+
+insert into public.account_action_targets (action_id, account_id, device_id)
+values ('ea000000-0000-4000-8000-0000000000ef', '0a0a0a0a-0000-4000-8000-0000000000a1',
+        'ef000000-0000-4000-8000-0000000000ef');
+
 insert into public.device_commands
     (id, action_id, device_id, account_id, command_type, state, expires_at, executing_at)
 values ('ec000000-0000-4000-8000-0000000000ef', 'ea000000-0000-4000-8000-0000000000ef',

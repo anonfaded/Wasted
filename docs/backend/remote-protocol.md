@@ -10,7 +10,8 @@ The device sends (all `p_` prefixed):
 | Field | Meaning |
 | --- | --- |
 | `p_device_id` | Device row id |
-| `p_applied_settings_revision` | Last account settings revision applied |
+| `p_applied_global_settings_revision` | Last global settings revision applied |
+| `p_applied_device_settings_revision` | Last per-device override revision applied |
 | `p_actual_lock_trigger_enabled` | Current local Lock trigger |
 | `p_actual_lock_timer_minutes` | Current local Lock delay |
 | `p_actual_usb_trigger_enabled` | Current local USB trigger |
@@ -18,8 +19,9 @@ The device sends (all `p_` prefixed):
 | `p_debug_mode` | Current Debug Mode |
 | `p_reset_supported` | Device Admin/reset support |
 | `p_remote_enabled` | Remote Management enabled locally |
+| `p_battery_percent` / `p_battery_charging` | Reported battery; null means unknown, `0` is real |
 | `p_app_version` / `p_android_sdk` | Build info |
-| `p_last_error_code` / `p_last_error_message` | Sanitized last error (optional) |
+| `p_last_error_code` / `p_last_error_message` | Sanitized last error (nullable) |
 
 Response:
 
@@ -27,7 +29,14 @@ Response:
 {
   "server_time": "…",
   "device": { "id": "…", "account_id": "…", "name": "…", "installation_id": "…", "enrolled_at": "…" },
-  "settings": { "revision": 2, "lock_trigger_enabled": true, "lock_timer_minutes": 1440, "usb_trigger_enabled": true, "initialized": true },
+  "settings": {
+    "global_revision": 2,
+    "device_revision": 1,
+    "lock_trigger_enabled": true,
+    "lock_timer_minutes": 1440,
+    "usb_trigger_enabled": true,
+    "initialized": true
+  },
   "commands": [
     { "id": "…", "action_id": "…", "command_type": "reset_timer", "state": "queued", "created_at": "…", "expires_at": "…" }
   ]
@@ -37,15 +46,29 @@ Response:
 Reconcile also upserts `device_status`, lazily expires overdue commands, and returns only
 `queued`/`received` commands that have not expired, ordered by `created_at`.
 
+## Command targeting
+
+Owner commands require an explicit `p_target_scope`:
+
+- `all`: snapshot all active account devices at creation; newer devices do not receive the action.
+- `selected`: require a non-empty set of distinct, owned, active device IDs. Validation is
+  all-or-nothing and no other device receives a command.
+
+An `account_action_targets` row is written for every target before `device_commands`. The command
+trigger rejects any command without a matching target. Idempotency keys are bound to the action
+type, scope, and, for selected actions, the exact target set.
+
+Devices still receive only their own commands and can never target another device.
+
 ## Command types and TTLs
 
 | Type | Target | TTL | Terminal outcomes |
 | --- | --- | --- | --- |
-| `reset_timer` | All active devices | 24 h | `applied`, `rejected`, `failed`, `expired` |
-| `force_reset` | All active devices | 10 min | `reset_initiated`, `debug_blocked`, `rejected`, `failed`, `expired` |
-| `lock_now` | All active devices | 5 min | `applied`, `failed`, `expired` |
-| `debug_mode_on` | One device | 24 h | `applied`, `rejected`, `failed`, `expired` |
-| `debug_mode_off` | One device | 10 min | `applied`, `rejected`, `failed`, `expired` |
+| `reset_timer` | Selected targets or all active devices | 24 h | `applied`, `rejected`, `failed`, `expired` |
+| `force_reset` | Selected targets or all active devices | 10 min | `reset_initiated`, `debug_blocked`, `rejected`, `failed`, `expired` |
+| `lock_now` | Selected targets or all active devices | 5 min | `applied`, `failed`, `expired` |
+| `debug_mode_on` | One selected device | 24 h | `applied`, `rejected`, `failed`, `expired` |
+| `debug_mode_off` | One selected device | 10 min | `applied`, `rejected`, `failed`, `expired` |
 
 States: `queued → received → executing → applied` plus terminal `debug_blocked`, `rejected`,
 `failed`, `expired`, and the Force Reset terminal `reset_initiated`.
@@ -119,9 +142,13 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 
 ## Settings synchronization
 
-- `account_settings.revision` increments on every save.
-- Devices send `applied_settings_revision`; `RemoteSyncCoordinator` applies only newer revisions
-  through `LocalSettingsApplier`, then records the revision locally.
+- `account_settings.revision` is the global revision; `device_settings.revision` is the per-device
+  override revision.
+- `device_reconcile` returns the **server-resolved effective values** and both revisions. The
+  phone applies when either revision is newer and records both; it never merges client-side.
+- `device_settings` stores nullable overrides. `NULL` means inherit; a device override wins over the
+  global value until cleared. Global saves never clear overrides.
+- The dashboard uses `list_device_effective_settings()`; it never merges tables in JavaScript.
 - Lock trigger, Lock Timer (the delay), and USB Trigger are the synced settings; all other
   preferences stay device-local.
 - The Lock trigger arms the countdown and the delay sets its wait. A period without an active
@@ -142,7 +169,7 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 
 - Online: Realtime event invalidates and triggers a reconcile.
 - Offline: next 60 s heartbeat or recovery run; commands/settings apply subject to expiry.
-- Freshness in the dashboard: “recently connected” = last contact ≤ 150 s; otherwise exact last
+- Freshness in the dashboard: “Active” = last contact ≤ 150 s; otherwise “Inactive” with the exact last
   contact is shown and commands remain queued.
 - Timer display extrapolates locally from `timer_sampled_at` + `timer_remaining_seconds` while
   running.

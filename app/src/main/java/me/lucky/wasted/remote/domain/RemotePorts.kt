@@ -10,3 +10,12 @@ interface RemoteSettingsApplierPort {
 interface RemoteTimerPort {
     fun restartIfActive(): Boolean
 }
+
+data class BatterySnapshot(
+    val levelPercent: Int?,
+    val charging: Boolean?,
+)
+
+fun interface BatteryStatusProvider {
+    fun snapshot(): BatterySnapshot
+}

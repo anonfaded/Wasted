@@ -16,12 +16,19 @@ values ('f1000000-0000-4000-8000-000000000001',
         '0f0f0f0f-0000-4000-8000-0000000000f1', null,
         'f1000000-0000-4000-8000-000000000002', 'Maintenance device', now());
 
-insert into public.account_actions (id, account_id, action_type, idempotency_key, created_at, expires_at)
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, created_at, expires_at)
 values
     ('f1000000-0000-4000-8000-000000000011', '0f0f0f0f-0000-4000-8000-0000000000f1',
-     'reset_timer', 'f1000000-0000-4000-8000-000000000012', now() - interval '2 hours', now() + interval '22 hours'),
+     'reset_timer', 'f1000000-0000-4000-8000-000000000012', 'selected', now() - interval '2 hours', now() + interval '22 hours'),
     ('f1000000-0000-4000-8000-000000000013', '0f0f0f0f-0000-4000-8000-0000000000f1',
-     'reset_timer', 'f1000000-0000-4000-8000-000000000014', now() - interval '1 hour', now() + interval '23 hours');
+     'reset_timer', 'f1000000-0000-4000-8000-000000000014', 'selected', now() - interval '1 hour', now() + interval '23 hours');
+
+insert into public.account_action_targets (action_id, account_id, device_id)
+values
+    ('f1000000-0000-4000-8000-000000000011', '0f0f0f0f-0000-4000-8000-0000000000f1',
+     'f1000000-0000-4000-8000-000000000001'),
+    ('f1000000-0000-4000-8000-000000000013', '0f0f0f0f-0000-4000-8000-0000000000f1',
+     'f1000000-0000-4000-8000-000000000001');
 
 insert into public.device_commands (id, action_id, device_id, account_id, command_type, created_at, expires_at)
 values
@@ -56,9 +63,9 @@ end;
 $$;
 reset role;
 
-insert into public.account_actions (id, account_id, action_type, idempotency_key, created_at, expires_at)
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, created_at, expires_at)
 values ('f1000000-0000-4000-8000-000000000031', '0f0f0f0f-0000-4000-8000-0000000000f1',
-        'reset_timer', 'f1000000-0000-4000-8000-000000000032',
+        'reset_timer', 'f1000000-0000-4000-8000-000000000032', 'selected',
         now() - interval '200 days', now() - interval '199 days');
 
 insert into private.device_enrollments (account_id, token_hash, created_at, expires_at)

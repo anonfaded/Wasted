@@ -149,10 +149,11 @@ data class RemoteDeviceDto(
 
 @Serializable
 data class RemoteSettingsDto(
-    val revision: Long,
+    @SerialName("global_revision") val globalRevision: Long,
+    @SerialName("device_revision") val deviceRevision: Long,
     @SerialName("lock_timer_minutes") val lockTimerMinutes: Int,
     @SerialName("usb_trigger_enabled") val usbTriggerEnabled: Boolean,
-    @SerialName("lock_trigger_enabled") val lockTriggerEnabled: Boolean = false,
+    @SerialName("lock_trigger_enabled") val lockTriggerEnabled: Boolean,
     val initialized: Boolean,
 )
 
@@ -203,25 +204,28 @@ data class ClaimEnrollmentParams(
     @SerialName("p_device_name") val deviceName: String,
     @SerialName("p_local_lock_timer_minutes") val lockTimerMinutes: Int,
     @SerialName("p_local_usb_trigger_enabled") val usbTriggerEnabled: Boolean,
-    @SerialName("p_local_lock_trigger_enabled") val lockTriggerEnabled: Boolean = false,
+    @SerialName("p_local_lock_trigger_enabled") val lockTriggerEnabled: Boolean,
 )
 
 @Serializable
 data class ReconcileParams(
     @SerialName("p_device_id") val deviceId: String,
-    @SerialName("p_applied_settings_revision") val appliedSettingsRevision: Long,
+    @SerialName("p_applied_global_settings_revision") val appliedGlobalSettingsRevision: Long,
+    @SerialName("p_applied_device_settings_revision") val appliedDeviceSettingsRevision: Long,
     @SerialName("p_actual_lock_timer_minutes") val actualLockTimerMinutes: Int,
     @SerialName("p_actual_usb_trigger_enabled") val actualUsbTriggerEnabled: Boolean,
-    @SerialName("p_actual_lock_trigger_enabled") val actualLockTriggerEnabled: Boolean? = null,
+    @SerialName("p_actual_lock_trigger_enabled") val actualLockTriggerEnabled: Boolean,
     @SerialName("p_timer_remaining_seconds") val timerRemainingSeconds: Long,
     @SerialName("p_timer_running") val timerRunning: Boolean,
     @SerialName("p_debug_mode") val debugMode: Boolean,
     @SerialName("p_reset_supported") val resetSupported: Boolean,
     @SerialName("p_remote_enabled") val remoteEnabled: Boolean,
+    @SerialName("p_battery_percent") val batteryPercent: Int?,
+    @SerialName("p_battery_charging") val batteryCharging: Boolean?,
     @SerialName("p_app_version") val appVersion: String,
     @SerialName("p_android_sdk") val androidSdk: Int,
-    @SerialName("p_last_error_code") val lastErrorCode: String? = null,
-    @SerialName("p_last_error_message") val lastErrorMessage: String? = null,
+    @SerialName("p_last_error_code") val lastErrorCode: String?,
+    @SerialName("p_last_error_message") val lastErrorMessage: String?,
 )
 
 @Serializable

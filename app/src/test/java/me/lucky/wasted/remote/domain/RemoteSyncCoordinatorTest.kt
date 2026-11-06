@@ -95,7 +95,8 @@ class RemoteSyncCoordinatorTest {
         credentials = credentials,
         statusProvider = {
             LocalRemoteStatus(
-                appliedSettingsRevision = 0L,
+                appliedGlobalSettingsRevision = 0L,
+                appliedDeviceSettingsRevision = 0L,
                 lockTimerMinutes = 1440,
                 usbTriggerEnabled = true,
                 lockTriggerEnabled = true,
@@ -104,6 +105,8 @@ class RemoteSyncCoordinatorTest {
                 debugMode = true,
                 resetSupported = true,
                 remoteEnabled = true,
+                batteryPercent = 73,
+                batteryCharging = false,
                 appVersion = "2.0.0",
                 androidSdk = 34,
             )
@@ -126,7 +129,8 @@ class RemoteSyncCoordinatorTest {
 
     private fun response(
         commands: List<RemoteCommandDto>,
-        revision: Long = 1L,
+        globalRevision: Long = 1L,
+        deviceRevision: Long = 0L,
         lock: Int = 1440,
         usb: Boolean = true,
         lockTrigger: Boolean = true,
@@ -140,7 +144,8 @@ class RemoteSyncCoordinatorTest {
             enrolledAt = "t",
         ),
         settings = RemoteSettingsDto(
-            revision = revision,
+            globalRevision = globalRevision,
+            deviceRevision = deviceRevision,
             lockTimerMinutes = lock,
             usbTriggerEnabled = usb,
             lockTriggerEnabled = lockTrigger,
@@ -183,7 +188,8 @@ class RemoteSyncCoordinatorTest {
         assertEquals(1440, settings.lockTimerMinutes)
         assertEquals(true, settings.usbTriggerEnabled)
         assertEquals(true, settings.lockTriggerEnabled)
-        assertEquals(1L, credentials.appliedSettingsRevision)
+        assertEquals(1L, credentials.appliedGlobalSettingsRevision)
+        assertEquals(0L, credentials.appliedDeviceSettingsRevision)
 
         coordinator().syncNow()
 
@@ -194,7 +200,7 @@ class RemoteSyncCoordinatorTest {
     @Test
     fun `sync success is notified after a reconnect gap`() = runBlocking {
         credentials.lastSyncAt = now - 6 * 60_000L
-        api.response = response(emptyList(), revision = 0L)
+        api.response = response(emptyList(), globalRevision = 0L)
 
         coordinator().syncNow()
 
@@ -203,24 +209,54 @@ class RemoteSyncCoordinatorTest {
 
     @Test
     fun `account settings apply once per new revision`() = runBlocking {
-        api.response = response(emptyList(), revision = 3L, lock = 720, usb = false, lockTrigger = false)
+        api.response = response(
+            emptyList(),
+            globalRevision = 3L,
+            deviceRevision = 1L,
+            lock = 720,
+            usb = false,
+            lockTrigger = false,
+        )
 
         coordinator().syncNow()
         assertEquals(720, settings.lockTimerMinutes)
         assertEquals(false, settings.usbTriggerEnabled)
         assertEquals(false, settings.lockTriggerEnabled)
-        assertEquals(3L, credentials.appliedSettingsRevision)
+        assertEquals(3L, credentials.appliedGlobalSettingsRevision)
+        assertEquals(1L, credentials.appliedDeviceSettingsRevision)
         assertEquals(listOf(RemoteEvent.Kind.SETTINGS_CHANGED), emitted.map { it.kind })
-        assertEquals("settings-3", emitted.single().key)
+        assertEquals("settings-3-1", emitted.single().key)
 
         val callsAfterFirst = settings.calls
         coordinator().syncNow()
         assertEquals(callsAfterFirst, settings.calls)
 
-        api.response = response(emptyList(), revision = 2L, lock = 60, usb = true)
+        api.response = response(emptyList(), globalRevision = 2L, deviceRevision = 1L, lock = 60, usb = true)
         coordinator().syncNow()
         assertEquals(720, settings.lockTimerMinutes)
-        assertEquals(3L, credentials.appliedSettingsRevision)
+        assertEquals(3L, credentials.appliedGlobalSettingsRevision)
+        assertEquals(1L, credentials.appliedDeviceSettingsRevision)
+    }
+
+    @Test
+    fun `device settings revision applies without a global revision change`() = runBlocking {
+        api.response = response(emptyList(), globalRevision = 2L, deviceRevision = 0L)
+        coordinator().syncNow()
+
+        api.response = response(
+            emptyList(),
+            globalRevision = 2L,
+            deviceRevision = 4L,
+            lock = 60,
+            usb = false,
+            lockTrigger = false,
+        )
+        coordinator().syncNow()
+
+        assertEquals(60, settings.lockTimerMinutes)
+        assertEquals(2L, credentials.appliedGlobalSettingsRevision)
+        assertEquals(4L, credentials.appliedDeviceSettingsRevision)
+        assertEquals(2, emitted.count { it.kind == RemoteEvent.Kind.SETTINGS_CHANGED })
     }
 
     @Test

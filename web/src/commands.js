@@ -9,10 +9,12 @@ export function newIdempotencyKey() {
   return crypto.randomUUID();
 }
 
-export async function createAction(client, actionType, idempotencyKey) {
+export async function createAction(client, actionType, idempotencyKey, targetScope, deviceIds) {
   const { data, error } = await client.rpc("create_account_action", {
     p_action_type: actionType,
     p_idempotency_key: idempotencyKey,
+    p_target_scope: targetScope,
+    p_device_ids: deviceIds,
   });
   if (error) throw new Error(error.message);
   return data;

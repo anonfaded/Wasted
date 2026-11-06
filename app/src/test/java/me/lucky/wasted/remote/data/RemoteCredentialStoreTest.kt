@@ -67,6 +67,8 @@ class RemoteCredentialStoreTest {
         store.accountId = "account-1"
         store.session = "session"
         store.lastSyncAt = 123L
+        store.appliedGlobalSettingsRevision = 9L
+        store.appliedDeviceSettingsRevision = 4L
         val installationId = store.installationId
         store.clearSession()
         assertFalse(store.enrolled)
@@ -74,6 +76,8 @@ class RemoteCredentialStoreTest {
         assertNull(store.accountId)
         assertNull(store.session)
         assertEquals(0L, store.lastSyncAt)
+        assertEquals(0L, store.appliedGlobalSettingsRevision)
+        assertEquals(0L, store.appliedDeviceSettingsRevision)
         assertEquals(installationId, store.installationId)
     }
 

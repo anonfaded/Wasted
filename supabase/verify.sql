@@ -15,7 +15,8 @@ as $$ select 1 $$;
 create temp table pg_temp.verify_results as
 with expected_tables(name) as (
     values ('accounts'), ('devices'), ('account_settings'), ('device_status'),
-           ('account_actions'), ('device_commands'), ('command_events')
+           ('account_actions'), ('account_action_targets'), ('device_settings'),
+           ('device_commands'), ('command_events')
 ),
 expected_policies(tablename, policyname, cmd, roles, permissive, qual, with_check) as (
     values
@@ -42,6 +43,13 @@ expected_policies(tablename, policyname, cmd, roles, permissive, qual, with_chec
          null::text),
         ('command_events', 'command_events_select_owner', 'SELECT',
          array['authenticated']::name[], 'PERMISSIVE',
+         '(account_id = ( SELECT auth.uid() AS uid))', null::text),
+        ('device_settings', 'device_settings_select', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
+         '((account_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1 FROM devices d WHERE ((d.id = device_settings.device_id) AND (d.auth_user_id = ( SELECT auth.uid() AS uid)) AND (d.revoked_at IS NULL)))))',
+         null::text),
+        ('account_action_targets', 'account_action_targets_select_owner', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
          '(account_id = ( SELECT auth.uid() AS uid))', null::text)
 ),
 actual_policies as (
@@ -58,31 +66,33 @@ expected_rpcs(signature) as (
            ('public.rename_device(uuid,text)'),
            ('public.revoke_device(uuid)'),
            ('public.update_account_settings(bigint,integer,boolean,boolean)'),
-           ('public.create_account_action(text,uuid)'),
+           ('public.create_account_action(text,uuid,text,uuid[])'),
            ('public.expire_account_commands()'),
            ('public.claim_device_enrollment(text,uuid,text,integer,boolean,boolean)'),
-           ('public.device_reconcile(uuid,bigint,integer,boolean,bigint,boolean,boolean,boolean,boolean,text,smallint,text,text,boolean)'),
+           ('public.device_reconcile(uuid,bigint,bigint,integer,boolean,boolean,bigint,boolean,boolean,boolean,boolean,smallint,boolean,text,smallint,text,text)'),
            ('public.device_transition_command(uuid,uuid,text,text,text,text)'),
-           ('public.set_device_debug_mode(uuid,boolean,uuid)')
+           ('public.set_device_debug_mode(uuid,boolean,uuid)'),
+           ('public.list_device_effective_settings()'),
+           ('public.update_device_settings(uuid,bigint,jsonb)')
 ),
 checks as (
-    select 'public tables' as check_name, count(*) as found, 7 as expected
+    select 'public tables' as check_name, count(*) as found, 9 as expected
       from expected_tables
      where to_regclass('public.' || name) is not null
     union all
-    select 'RLS enabled', count(*), 7
+    select 'RLS enabled', count(*), 9
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relname in (select name from expected_tables)
        and c.relrowsecurity
     union all
-    select 'RLS forced', count(*), 7
+    select 'RLS forced', count(*), 9
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relname in (select name from expected_tables)
        and c.relrowsecurity and c.relforcerowsecurity
     union all
-    select 'SELECT-only policies', count(*), 7
+    select 'SELECT-only policies', count(*), 9
       from expected_policies
     union all
     select 'policy set exact', count(*), 0
@@ -110,7 +120,7 @@ checks as (
      where schemaname = 'public' and tablename in (select name from expected_tables)
        and cmd <> 'SELECT'
     union all
-    select 'authenticated select-only grants', count(*), 7
+    select 'authenticated select-only grants', count(*), 9
       from expected_tables
      where has_table_privilege('authenticated', format('public.%I', name), 'SELECT')
        and not has_table_privilege('authenticated', format('public.%I', name), 'INSERT')
@@ -129,40 +139,40 @@ checks as (
      where has_schema_privilege(role_name, 'private', 'USAGE')
         or has_table_privilege(role_name, 'private.device_enrollments', 'SELECT')
     union all
-    select 'public RPCs present', count(*), 12
+    select 'public RPCs present', count(*), 14
       from expected_rpcs
      where to_regprocedure(signature) is not null
     union all
-    select 'RPC security definer', count(*), 12
+    select 'RPC security definer', count(*), 14
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where p.prosecdef
     union all
-    select 'RPC owned by postgres', count(*), 12
+    select 'RPC owned by postgres', count(*), 14
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where pg_get_userbyid(p.proowner) = 'postgres'
     union all
-    select 'RPC empty search_path', count(*), 12
+    select 'RPC empty search_path', count(*), 14
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where 'search_path=""' = any(p.proconfig)
     union all
-    select 'RPC authenticated-only execute', count(*), 12
+    select 'RPC authenticated-only execute', count(*), 14
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where has_function_privilege('authenticated', p.oid, 'EXECUTE')
        and not has_function_privilege('anon', p.oid, 'EXECUTE')
     union all
-    select 'Realtime exact tables', count(*), 4
+    select 'Realtime exact tables', count(*), 5
       from pg_publication_tables
      where pubname = 'supabase_realtime' and schemaname = 'public'
-       and tablename in ('account_settings', 'devices', 'device_status', 'device_commands')
+       and tablename in ('account_settings', 'devices', 'device_status', 'device_settings', 'device_commands')
     union all
     select 'Realtime extra tables', count(*), 0
       from pg_publication_tables
      where pubname = 'supabase_realtime' and schemaname = 'public'
-       and tablename not in ('account_settings', 'devices', 'device_status', 'device_commands')
+       and tablename not in ('account_settings', 'devices', 'device_status', 'device_settings', 'device_commands')
     union all
     select 'anonymous cleanup job', count(*), 1
       from cron.job
@@ -195,7 +205,7 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:8'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:9'
     union all
     select 'single-owner hook present', count(*), 1
       from pg_proc

@@ -62,6 +62,7 @@
                     android:layout_marginHorizontal="16dp"
                     android:layoutDirection="rtl"
                     android:text="@string/wipe_data_checkbox"
+                    android:textColor="@color/wipe_state_text"
                     android:textAppearance="?attr/textAppearanceBodyLarge" />
 
                 <Space
@@ -77,6 +78,7 @@
                     android:layout_marginHorizontal="16dp"
                     android:layoutDirection="rtl"
                     android:text="@string/wipe_embedded_sim_checkbox"
+                    android:textColor="@color/wipe_state_text"
                     android:textAppearance="?attr/textAppearanceBodyLarge" />
 
                 <Space

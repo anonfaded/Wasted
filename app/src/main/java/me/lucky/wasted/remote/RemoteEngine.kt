@@ -10,6 +10,7 @@ import me.lucky.wasted.remote.data.LocalRemoteStatusProvider
 import me.lucky.wasted.remote.data.RemoteConfigStore
 import me.lucky.wasted.remote.data.RemoteCredentialStore
 import me.lucky.wasted.remote.data.RemoteDatabase
+import me.lucky.wasted.remote.data.RemoteRuntime
 import me.lucky.wasted.remote.data.SupabaseRemoteRepository
 import me.lucky.wasted.remote.domain.RemoteCommandProcessor
 import me.lucky.wasted.remote.domain.RemoteEventBus
@@ -38,8 +39,8 @@ class RemoteEngine private constructor(
             val configStore = RemoteConfigStore.new(ctx)
             if (!configStore.canStartRemoteWork()) return null
 
-            val credentials = RemoteCredentialStore.new(ctx)
-            val repository = SupabaseRemoteRepository(configStore, credentials)
+            val repository = RemoteRuntime.repository(ctx)
+            val credentials = repository.credentials
             val dao = RemoteDatabase.getInstance(ctx).remoteCommandDao()
             val applier = LocalSettingsApplier.create(ctx)
 
@@ -116,6 +117,7 @@ class RemoteEngine private constructor(
     }
 
     fun close() {
-        repository.close()
+        // The repository is process-wide for one Supabase client. Closing it here would tear
+        // down the auth refresh loop used by the foreground service, workers, and UI.
     }
 }

@@ -28,31 +28,51 @@ test("action types match the server allowlist", () => {
   assert.equal(DEBUG_MODE_OFF, "debug_mode_off");
 });
 
-test("createAction forwards type and key and returns the server summary", async () => {
+test("createAction forwards type, key, and explicit targets", async () => {
   let captured = null;
   const client = {
     rpc: async (name, params) => {
       captured = { name, params };
-      return { data: { action_id: "a1", device_count: 2 }, error: null };
+      return { data: { action_id: "a1", device_count: 2, target_scope: "selected" }, error: null };
     },
   };
   const key = newIdempotencyKey();
 
-  const result = await createAction(client, FORCE_RESET, key);
+  const result = await createAction(client, FORCE_RESET, key, "selected", ["d1", "d2"]);
 
   assert.equal(captured.name, "create_account_action");
   assert.deepEqual(captured.params, {
     p_action_type: FORCE_RESET,
     p_idempotency_key: key,
+    p_target_scope: "selected",
+    p_device_ids: ["d1", "d2"],
   });
   assert.equal(result.device_count, 2);
+});
+
+test("createAction sends an empty list only for all-active scope", async () => {
+  let captured = null;
+  const client = {
+    rpc: async (name, params) => {
+      captured = { name, params };
+      return { data: { action_id: "a1", device_count: 3, target_scope: "all" }, error: null };
+    },
+  };
+
+  await createAction(client, LOCK_NOW, newIdempotencyKey(), "all", []);
+
+  assert.deepEqual(captured.params.p_device_ids, []);
+  assert.equal(captured.params.p_target_scope, "all");
 });
 
 test("server errors are surfaced as thrown messages", async () => {
   const client = {
     rpc: async () => ({ data: null, error: { message: "unsupported action type" } }),
   };
-  await assert.rejects(() => createAction(client, "nope", newIdempotencyKey()), /unsupported action type/);
+  await assert.rejects(
+    () => createAction(client, "nope", newIdempotencyKey(), "selected", ["d1"]),
+    /unsupported action type/,
+  );
 });
 
 test("setDeviceDebugMode forwards the per-device request", async () => {

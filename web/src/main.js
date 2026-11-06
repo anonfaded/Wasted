@@ -7,8 +7,9 @@ import {
 } from "./account.js";
 import { fetchDashboardData, renameDevice, revokeDevice } from "./devices.js";
 import { createEnrollmentToken, tokenExpiryLabel } from "./enrollment.js";
-import { saveAccountSettings } from "./settings.js";
+import { saveAccountSettings, saveDeviceSettings } from "./settings.js";
 import { createAction, setDeviceDebugMode, newIdempotencyKey, RESET_TIMER, FORCE_RESET, LOCK_NOW } from "./commands.js";
+import { batteryLabel, batteryPercent, batteryTone, isLowBattery } from "./battery.js";
 import {
   extrapolatedRemaining,
   isRecentlyConnected,
@@ -41,15 +42,18 @@ const state = {
   lastDeviceCount: null,
   tokenTimer: null,
   liveTimers: [],
+  targetScope: "selected",
+  selectedDeviceIds: new Set(),
   data: {
     devices: [],
     statusByDevice: new Map(),
     latestCommand: new Map(),
+    effectiveSettingsByDevice: new Map(),
     settings: null,
   },
 };
 
-const CACHE_PREFIX = "wasted_dashboard_cache_v1_";
+const CACHE_PREFIX = "wasted_dashboard_cache_v2_";
 
 const config = readConfig();
 if (!config) {
@@ -234,7 +238,14 @@ function renderAuthState() {
     state.cacheSavedAt = 0;
     state.refreshFailures = 0;
     state.lastDeviceCount = null;
-    state.data = { devices: [], statusByDevice: new Map(), latestCommand: new Map(), settings: null };
+    state.data = {
+      devices: [],
+      statusByDevice: new Map(),
+      latestCommand: new Map(),
+      effectiveSettingsByDevice: new Map(),
+      settings: null,
+    };
+    state.selectedDeviceIds.clear();
     $("#account-panel").hidden = true;
     $("#account-email").textContent = "—";
     $("#account-message").textContent = "";
@@ -354,6 +365,7 @@ function saveDashboardCache() {
         devices: state.data.devices,
         statusByDevice: [...state.data.statusByDevice.entries()],
         latestCommand: [...state.data.latestCommand.entries()],
+        effectiveSettingsByDevice: [...state.data.effectiveSettingsByDevice.entries()],
         settings: state.data.settings,
       }),
     );
@@ -375,6 +387,7 @@ function loadCachedDashboard() {
       devices: cached.devices,
       statusByDevice: new Map(cached.statusByDevice ?? []),
       latestCommand: new Map(cached.latestCommand ?? []),
+      effectiveSettingsByDevice: new Map(cached.effectiveSettingsByDevice ?? []),
       settings: cached.settings ?? null,
     };
     state.dataLoaded = true;
@@ -447,21 +460,23 @@ function setDashboardOnline(online, reason = state.connectionReason ?? "offline"
 
   const selectors = [
     "#create-token",
-    "#lock-devices",
-    "#reset-timer",
-    "#force-reset",
     "#settings-form button[type=submit]",
     "#account-form button[type=submit]",
+    "#target-all",
+    "#target-selected",
   ];
   for (const selector of selectors) {
     const button = $(selector);
     if (button) button.disabled = !online;
   }
   document
-    .querySelectorAll("[data-device-rename], [data-device-revoke], [data-debug-device]")
+    .querySelectorAll(
+      "[data-device-rename], [data-device-revoke], [data-device-settings], [data-device-select], [data-debug-device]",
+    )
     .forEach((button) => {
       button.disabled = !online || button.dataset.debugUnknown === "true";
     });
+  if ($("#action-scope")) renderCommandScope(state.data.devices);
 }
 
 function subscribeRealtime(accountId) {
@@ -473,6 +488,7 @@ function subscribeRealtime(accountId) {
     .channel("wasted-dashboard")
     .on("postgres_changes", { event: "*", schema: "public", table: "devices", filter }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "account_settings", filter }, scheduleRefresh)
+    .on("postgres_changes", { event: "*", schema: "public", table: "device_settings", filter }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "device_status", filter }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "device_commands", filter }, scheduleRefresh)
     .subscribe((status) => {
@@ -506,16 +522,12 @@ function renderDevices() {
   container.replaceChildren();
   state.liveTimers = [];
 
-  const { devices, statusByDevice, latestCommand, settings } = state.data;
+  const { devices, statusByDevice, latestCommand, effectiveSettingsByDevice } = state.data;
+  pruneSelectedDevices(devices);
   renderDeviceSummary(devices, statusByDevice, now);
   const unavailableWithoutCache = !state.online && !state.dataLoaded;
   const unavailablePrefix =
     state.connectionReason === "offline" ? "Offline" : "Can't reach Supabase";
-  $("#action-scope").textContent = devices.length
-    ? `Applies to ${devices.length} active device(s).`
-    : unavailableWithoutCache
-      ? `${unavailablePrefix} — no cached device data.`
-      : "No active devices enrolled yet.";
 
   if (!devices.length) {
     container.append(
@@ -542,15 +554,46 @@ function renderDevices() {
 
   for (const device of devices) {
     const status = statusByDevice.get(device.id) ?? null;
+    const effective = effectiveSettingsByDevice.get(device.id) ?? null;
     const command = latestCommand.get(device.id) ?? null;
     const fresh = isRecentlyConnected(status, now);
-    const timerSpan = el("span", { text: timerText(status, now) });
+    const timerSpan = el("span", {
+      className: status?.timer_running ? "timer-live" : "timer-inactive",
+      text: timerText(status, now),
+    });
     const lastContactEl = el("dd", { text: formatLastContact(status, now) });
+    const selectInput = el("input", {
+      attrs: {
+        type: "checkbox",
+        "data-device-select": device.id,
+        "aria-label": `Select ${device.name || "this device"} for commands`,
+      },
+    });
+    selectInput.checked = state.selectedDeviceIds.has(device.id);
 
     const card = el("article", { className: "device-card" }, [
-      el("h3", { text: device.name || "Unnamed device" }),
+      el("div", { className: "device-card-head" }, [
+        el("h3", { text: device.name || "Unnamed device" }),
+        batteryPill(status, status?.battery_percent == null
+          ? "The phone has not reported a battery level yet."
+          : `Battery reported by the phone${status.battery_charging ? " · charging" : ""}.`),
+      ]),
       el("p", { className: "device-id", text: `ID ${device.id}` }),
       el("div", { className: "device-actions" }, [
+        el("label", { className: "device-select" }, [
+          selectInput,
+          el("span", { text: "Select" }),
+        ]),
+        el("button", {
+          className: "small",
+          text: "Settings",
+          icon: "controls",
+          attrs: {
+            type: "button",
+            "data-device-settings": device.id,
+            title: "Set this device's remote settings or inherit the global values",
+          },
+        }),
         el("button", {
           className: "small",
           text: "Rename",
@@ -584,18 +627,12 @@ function renderDevices() {
       el("dl", {}, [
         fieldTerm(
           "Connection",
-          "Recently connected means a status update arrived within the last 150 seconds. The device normally reports about once a minute.",
+          "Active means a status update arrived within the last 150 seconds; the device normally reports about once a minute. Inactive means no contact in that window. Colour key: 🟢 Active · 🔴 Inactive.",
         ),
         el("dd", {}, [
-          el("span", {
-            className: `badge ${fresh ? "fresh" : "stale"}`,
-            text: fresh ? "recently connected" : "offline / stale",
-            attrs: {
-              title: fresh
-                ? "Contacted the server within the last 150 seconds."
-                : "No contact in the last 150 seconds. The exact time is shown below.",
-            },
-          }),
+          statusBadge(fresh ? "Active" : "Inactive", fresh ? "active" : "inactive", fresh
+            ? "Contacted the server within the last 150 seconds."
+            : "No contact in the last 150 seconds. The exact time is shown below."),
         ]),
         fieldTerm(
           "Last contact",
@@ -603,48 +640,72 @@ function renderDevices() {
         ),
         lastContactEl,
         fieldTerm(
+          "Battery",
+          "Battery level and charging state reported with the last status sync. Unknown is not the same as 0%. Colour key: 🟢 healthy · 🟡 21–50% · 🔴 20% or less · ⚪ unknown.",
+        ),
+        el("dd", {}, [
+          batteryPill(status, status?.battery_percent == null
+            ? "No battery level reported yet."
+            : "Reported at the last status sync; not a live millisecond feed."),
+        ]),
+        fieldTerm(
+          "Settings status",
+          "Current means the phone has applied the latest global and per-device override revisions. Pending means it has not synced them yet. Colour key: 🟢 Current · 🟡 Pending.",
+        ),
+        el("dd", {}, [settingsStatusNode(status, effective)]),
+        fieldTerm(
           "Live countdown",
           "Actual time remaining before the Lock trigger fires. It starts after the phone locks or the screen turns off, is cancelled when unlocked, and stays inactive while the Lock trigger is OFF on the phone.",
         ),
         el("dd", {}, [timerSpan]),
         fieldTerm(
           "Lock trigger",
-          "The ON/OFF switch that arms the Lock workflow. It is not a timer and shows no remaining time. Device is the state reported by the phone; Account setting is the value saved in Controls.",
-        ),
-        el("dd", { text: desiredVsActual(settings?.lock_trigger_enabled, status?.actual_lock_trigger_enabled, formatEnabled) }),
-        fieldTerm(
-          "Lock delay setting",
-          "The configured wait before the Lock trigger fires — not time remaining. The phone reports it in whole minutes, converted to readable days, hours, and minutes. It runs only while the trigger is ON.",
-        ),
-        el("dd", { text: desiredVsActual(settings?.lock_timer_minutes, status?.actual_lock_timer_minutes, formatMinutes) }),
-        fieldTerm(
-          "USB trigger",
-          "When ON, connecting USB data to a locked device can fire the USB trigger. Device is what the phone reports; Account setting is saved in Controls. Change it there and save.",
-        ),
-        el("dd", { text: desiredVsActual(settings?.usb_trigger_enabled, status?.actual_usb_trigger_enabled, formatEnabled) }),
-        fieldTerm(
-          "Debug Mode",
-          "ON blocks Force Reset; Reset Timer and settings sync still work. The switch sends a command to this device and asks for confirmation.",
+          "The ON/OFF switch that arms the Lock workflow. It is not a timer and shows no remaining time. The saved setting is this device's override, otherwise the global value. Colour key: 🟢 ON · 🔴 OFF.",
         ),
         el("dd", {}, [
-          el("span", {
-            className: "badge debug",
-            text: !status ? "unknown" : status.debug_mode ? "ON (wipes blocked)" : "OFF",
-            attrs: {
-              title: !status
-                ? "Reported by the device after its first sync."
-                : status.debug_mode
-                  ? "ON blocks Force Reset; Reset Timer and settings sync still work."
-                  : "OFF allows destructive remote commands such as Force Reset.",
-            },
-          }),
+          desiredVsActualNode(effective?.lock_trigger_enabled, status?.actual_lock_trigger_enabled, formatEnabled),
+        ]),
+        fieldTerm(
+          "Lock delay setting",
+          "The effective wait before the Lock trigger fires — global default or this device's override, not time remaining. The phone reports it in whole minutes. It runs only while the trigger is ON.",
+        ),
+        el("dd", {}, [
+          desiredVsActualNode(effective?.lock_timer_minutes, status?.actual_lock_timer_minutes, formatMinutes),
+        ]),
+        fieldTerm(
+          "USB trigger",
+          "When ON, connecting USB data to a locked device can fire the USB trigger. The effective value is the global default unless this device has an override. Colour key: 🟢 ON · 🔴 OFF.",
+        ),
+        el("dd", {}, [
+          desiredVsActualNode(effective?.usb_trigger_enabled, status?.actual_usb_trigger_enabled, formatEnabled),
+        ]),
+        fieldTerm(
+          "Debug Mode",
+          "ON blocks Force Reset; Reset Timer and settings sync still work. The switch sends a command to this device and asks for confirmation. Colour key: 🟢 ON (safe) · 🔴 OFF (destructive commands allowed).",
+        ),
+        el("dd", {}, [
+          statusBadge(
+            !status ? "Unknown" : status.debug_mode ? "ON · wipes blocked" : "OFF",
+            !status ? "unknown" : status.debug_mode ? "on" : "off",
+            !status
+              ? "Reported by the device after its first sync."
+              : status.debug_mode
+                ? "ON blocks Force Reset; Reset Timer and settings sync still work."
+                : "OFF allows destructive remote commands such as Force Reset.",
+          ),
           el("span", { className: "inline-actions" }, [debugSwitch(device, status)]),
         ]),
         fieldTerm(
           "Reset support",
-          "Whether the device can run a reset with its current Device Admin/Device Owner protections. Android 14+ installs that are not Device Owner may use a best-effort wipe.",
+          "Whether the device can run a reset with its current Device Admin/Device Owner protections. Android 14+ installs that are not Device Owner may use a best-effort wipe. Colour key: 🟢 Supported · 🔴 Not supported.",
         ),
-        el("dd", { text: !status ? "unknown" : status.reset_supported ? "supported" : "not supported" }),
+        el("dd", {}, [
+          !status
+            ? statusBadge("Unknown", "unknown")
+            : status.reset_supported
+              ? statusBadge("Supported", "supported")
+              : statusBadge("Not supported", "danger"),
+        ]),
         fieldTerm(
           "App / OS",
           "The app version and Android SDK reported by the device.",
@@ -654,11 +715,11 @@ function renderDevices() {
           "Last command",
           "The newest remote command and its current state. The timestamp is when it was queued.",
         ),
-        el("dd", { text: describeCommand(command) }),
+        el("dd", {}, [describeCommandNode(command)]),
       ]),
       el("p", {
         className: "card-note",
-        text: "Lock delay is the configured wait, not remaining time. The Live countdown above is the actual time left. Both need the Lock trigger ON; the countdown is also inactive while the phone is unlocked.",
+        text: "Settings show the saved setting (global default plus any device override). Device reports is the last value from the phone. The Live countdown is actual time left; it is inactive while unlocked or while the Lock trigger is OFF.",
       }),
     ]);
 
@@ -666,6 +727,7 @@ function renderDevices() {
     state.liveTimers.push({ el: timerSpan, status, lastContactEl });
   }
   setDashboardOnline(state.online);
+  renderCommandScope(devices);
 }
 
 function renderDeviceSummary(devices, statusByDevice, now) {
@@ -675,20 +737,140 @@ function renderDeviceSummary(devices, statusByDevice, now) {
     container.replaceChildren();
     return;
   }
-  const connected = devices.filter((device) =>
+  const active = devices.filter((device) =>
     isRecentlyConnected(statusByDevice.get(device.id), now),
   ).length;
   const debug = devices.filter((device) => statusByDevice.get(device.id)?.debug_mode).length;
+  const lowBattery = devices.filter((device) => isLowBattery(statusByDevice.get(device.id))).length;
   container.replaceChildren(
     summaryCard("Devices", devices.length, "enrolled"),
-    summaryCard("Connected", connected, "within 150 s"),
-    summaryCard("Debug Mode", debug, "wipes blocked"),
+    summaryCard("Active", active, "within 150 s", active ? "success" : "muted"),
+    summaryCard("Debug Mode", debug, "wipes blocked", debug ? "success" : "muted"),
+    summaryCard("Low battery", lowBattery, "20% or less", lowBattery ? "danger" : "muted"),
   );
 }
 
-function summaryCard(label, value, detail) {
+function pruneSelectedDevices(devices) {
+  const active = new Set(devices.map((device) => device.id));
+  for (const id of [...state.selectedDeviceIds]) {
+    if (!active.has(id)) state.selectedDeviceIds.delete(id);
+  }
+}
+
+function targetDevices() {
+  if (state.targetScope === "all") return state.data.devices;
+  return state.data.devices.filter((device) => state.selectedDeviceIds.has(device.id));
+}
+
+function commandTargets() {
+  return {
+    scope: state.targetScope,
+    deviceIds: state.targetScope === "all" ? [] : [...state.selectedDeviceIds],
+  };
+}
+
+function renderCommandScope(devices) {
+  const selected = devices.filter((device) => state.selectedDeviceIds.has(device.id));
+  const scope = $("#action-scope");
+  if (scope) {
+    scope.textContent = state.targetScope === "all"
+      ? `Applies to all ${devices.length} active device(s).`
+      : selected.length
+        ? `Applies to ${selected.length} selected device(s): ${selected
+            .map((device) => device.name || "Unnamed device")
+            .join(", ")}.`
+        : "Select one or more devices on the cards below, or choose All active devices.";
+  }
+  const summary = $("#target-summary");
+  if (summary) summary.textContent = `${selected.length} selected`;
+  const canTarget = state.online && devices.length > 0 &&
+    (state.targetScope === "all" || selected.length > 0);
+  for (const selector of ["#lock-devices", "#reset-timer", "#force-reset"]) {
+    const button = $(selector);
+    if (button) button.disabled = !canTarget;
+  }
+  const all = $("#target-all");
+  const selectedRadio = $("#target-selected");
+  if (all) all.checked = state.targetScope === "all";
+  if (selectedRadio) selectedRadio.checked = state.targetScope === "selected";
+}
+
+function settingsStatusNode(status, effective) {
+  if (!status || !effective) {
+    return el("span", { className: "status-line" }, [
+      statusBadge("Unknown", "unknown"),
+      el("span", { className: "muted", text: "until the first sync" }),
+    ]);
+  }
+  const current =
+    Number(status.applied_global_settings_revision) >= Number(effective.global_revision) &&
+    Number(status.applied_device_settings_revision) >= Number(effective.device_revision);
+  const appliedAt = status.settings_applied_at
+    ? ` · applied ${formatDateTime(Date.parse(status.settings_applied_at))}`
+    : "";
+  return el("span", { className: "status-line" }, [
+    statusBadge(current ? "Current" : "Pending", current ? "current" : "pending"),
+    el("span", {
+      className: "muted",
+      text: `global v${effective.global_revision}, device v${effective.device_revision}${appliedAt}`,
+    }),
+  ]);
+}
+
+function statusBadge(text, tone = "unknown", title = "") {
+  return el("span", {
+    className: `status-badge ${tone}`,
+    text,
+    ...(title ? { attrs: { title } } : {}),
+  });
+}
+
+function batteryPill(status, title) {
+  const percent = batteryPercent(status);
+  const gauge = el("span", {
+    className: "battery-gauge",
+    attrs: { "aria-hidden": "true" },
+  }, percent === null
+    ? []
+    : [el("span", { className: "battery-fill", attrs: { style: `width:${percent}%` } })]);
+  return el("span", {
+    className: `battery-pill ${batteryTone(status)}`,
+    attrs: title ? { title } : {},
+  }, [gauge, el("span", { text: batteryLabel(status) })]);
+}
+
+function booleanNode(value) {
+  if (value === true) return el("span", { className: "value-on", text: "ON" });
+  if (value === false) return el("span", { className: "value-off", text: "OFF" });
+  return el("span", { className: "value-unknown", text: "Unknown" });
+}
+
+function desiredVsActualNode(desired, actual, formatValue) {
+  const desiredText =
+    desired === undefined || desired === null ? "not set" : formatValue(desired);
+  const actualText =
+    actual === undefined || actual === null ? "unknown" : formatValue(actual);
+  const actualNode = typeof actual === "boolean"
+    ? booleanNode(actual)
+    : el("span", { text: actualText });
+  if (actualText === desiredText) {
+    return el("span", { className: "status-line" }, [
+      el("span", { text: "Device reports: " }),
+      actualNode,
+      el("span", { className: "muted", text: " · saved setting matches" }),
+    ]);
+  }
+  return el("span", { className: "status-line" }, [
+    el("span", { text: "Device reports: " }),
+    actualNode,
+    el("span", { className: "muted", text: " · saved setting: " }),
+    el("span", { text: desiredText }),
+  ]);
+}
+
+function summaryCard(label, value, detail, tone = "") {
   return el("div", { className: "stat" }, [
-    el("span", { className: "stat-value", text: String(value) }),
+    el("span", { className: `stat-value ${tone}`.trim(), text: String(value) }),
     el("span", { className: "stat-label", text: label }),
     el("span", { className: "stat-detail", text: detail }),
   ]);
@@ -699,15 +881,6 @@ function timerText(status, now) {
   if (status.actual_lock_trigger_enabled === false) return "inactive — Lock trigger is OFF";
   if (!status.timer_running) return "inactive — no active lock countdown";
   return `live · ${formatRemaining(extrapolatedRemaining(status, now))} left (estimated)`;
-}
-
-function desiredVsActual(desired, actual, formatValue) {
-  const desiredText =
-    desired === undefined || desired === null ? "not set" : formatValue(desired);
-  const actualText =
-    actual === undefined || actual === null ? "unknown" : formatValue(actual);
-  if (actualText === desiredText) return `Device reports: ${actualText} · account matches`;
-  return `Device reports: ${actualText} · Account setting: ${desiredText}`;
 }
 
 function formatEnabled(value) {
@@ -749,14 +922,25 @@ function fieldTerm(label, info) {
   ]);
 }
 
-function describeCommand(command) {
-  if (!command) return "none";
+function describeCommandNode(command) {
+  if (!command) return el("span", { className: "muted", text: "none" });
   const label = COMMAND_LABELS[command.command_type] ?? command.command_type;
   const state = STATE_LABELS[command.state] ?? command.state;
   const result = command.result_code ? ` (${command.result_code})` : "";
   const when = Date.parse(command.created_at);
   const timestamp = Number.isNaN(when) ? command.created_at : formatDateTime(when);
-  return `${label} — ${state}${result} · ${timestamp}`;
+  const tone = command.state === "applied"
+    ? "success"
+    : ["failed", "expired", "rejected"].includes(command.state)
+      ? "danger"
+      : command.state === "debug_blocked"
+        ? "warning"
+        : "pending";
+  return el("span", { className: "status-line" }, [
+    el("span", { text: `${label} — ` }),
+    statusBadge(state, tone),
+    el("span", { className: "muted", text: `${result} · ${timestamp}` }),
+  ]);
 }
 
 function renderSettings() {
@@ -776,11 +960,11 @@ function renderSettings() {
   $("#lock-human").textContent =
     `Configured value: ${formatMinutes(settings.lock_timer_minutes)}`;
   const revision = $("#settings-revision");
-  revision.textContent = `Settings version ${settings.revision}${
+  revision.textContent = `Global settings version ${settings.revision}${
     settings.initialized_at ? "" : " · not initialized yet"
   }`;
   revision.title =
-    "The version increases each time account settings are saved. Devices apply the newest version.";
+    "The global version increases each time global settings are saved. Devices with overrides still apply the newest global values for fields they inherit.";
   form.dataset.revision = String(settings.revision);
 }
 
@@ -861,6 +1045,103 @@ async function toggleDebugMode(deviceId, enabled, input) {
     toast(error.message, "error");
   } finally {
     input.disabled = false;
+  }
+}
+
+function openDeviceSettingsDialog(deviceId) {
+  if (!state.online) {
+    toast(actionUnavailableMessage(state.connectionReason), "error");
+    return;
+  }
+  const effective = state.data.effectiveSettingsByDevice.get(deviceId);
+  const device = state.data.devices.find((item) => item.id === deviceId);
+  if (!effective || !device) {
+    toast("Device settings are not loaded yet.", "error");
+    return;
+  }
+  const dialog = $("#device-settings-dialog");
+  $("#device-settings-device-id").value = deviceId;
+  $("#device-settings-revision").value = String(effective.device_revision);
+  $("#device-settings-name").textContent = device.name || "Unnamed device";
+  $("#device-settings-message").textContent = "";
+
+  setOverrideField("ds-lock-trigger", "ds-lock-trigger-inherit", effective.lock_trigger_overridden);
+  setOverrideField("ds-usb-trigger", "ds-usb-trigger-inherit", effective.usb_trigger_overridden);
+  setOverrideField("ds-lock-minutes", "ds-lock-minutes-inherit", effective.lock_timer_overridden);
+  $("#ds-lock-trigger").checked = Boolean(effective.lock_trigger_enabled);
+  $("#ds-usb-trigger").checked = Boolean(effective.usb_trigger_enabled);
+  $("#ds-lock-minutes").value = String(effective.lock_timer_minutes);
+  const globalSettings = state.data.settings;
+  $("#ds-lock-minutes-global").textContent = globalSettings
+    ? `Global: ${formatMinutes(globalSettings.lock_timer_minutes)}`
+    : "Global value unavailable.";
+
+  dialog.returnValue = "";
+  dialog.showModal();
+  const onClose = async () => {
+    dialog.removeEventListener("close", onClose);
+    if (dialog.returnValue !== "ok") return;
+    const revision = Number($("#device-settings-revision").value);
+    const inheritMinutes = $("#ds-lock-minutes-inherit").checked;
+    const minutes = Number($("#ds-lock-minutes").value);
+    if (!inheritMinutes && (!Number.isInteger(minutes) || minutes < 1 || minutes > 525600)) {
+      toast("Lock delay must be between 1 and 525600 minutes.", "error");
+      return;
+    }
+    const patch = {
+      lock_trigger_enabled: $("#ds-lock-trigger-inherit").checked
+        ? null
+        : $("#ds-lock-trigger").checked,
+      lock_timer_minutes: inheritMinutes ? null : minutes,
+      usb_trigger_enabled: $("#ds-usb-trigger-inherit").checked
+        ? null
+        : $("#ds-usb-trigger").checked,
+    };
+    const confirmed = await confirmAction({
+      title: "Save device settings?",
+      message:
+        `Target: ${device.name || "Unnamed device"}.\n` +
+        `Lock trigger: ${patch.lock_trigger_enabled === null ? "inherit global" : patch.lock_trigger_enabled ? "ON" : "OFF"}.\n` +
+        `Lock delay: ${patch.lock_timer_minutes === null ? "inherit global" : formatMinutes(minutes)}.\n` +
+        `USB trigger: ${patch.usb_trigger_enabled === null ? "inherit global" : patch.usb_trigger_enabled ? "ON" : "OFF"}.\n\n` +
+        "This creates a new device settings version; no other device is affected.",
+      confirmLabel: "Save device settings",
+      danger: false,
+    });
+    if (!confirmed) return;
+    try {
+      await saveDeviceSettings(state.client, deviceId, revision, patch);
+      toast("Device settings saved.", "success");
+      scheduleRefresh();
+    } catch (error) {
+      if (error.code === "REVISION_CONFLICT") scheduleRefresh();
+      toast(error.message, "error");
+    }
+  };
+  dialog.addEventListener("close", onClose);
+}
+
+function setOverrideField(valueId, inheritId, overridden) {
+  const inherit = $(`#${inheritId}`);
+  const value = $(`#${valueId}`);
+  inherit.checked = !overridden;
+  value.disabled = !overridden;
+}
+
+function wireDeviceSettingsFields() {
+  for (const [valueId, inheritId, fallbackId] of [
+    ["ds-lock-trigger", "ds-lock-trigger-inherit", null],
+    ["ds-lock-minutes", "ds-lock-minutes-inherit", "ds-lock-minutes-global"],
+    ["ds-usb-trigger", "ds-usb-trigger-inherit", null],
+  ]) {
+    const inherit = $(`#${inheritId}`);
+    inherit?.addEventListener("change", () => {
+      const value = $(`#${valueId}`);
+      value.disabled = inherit.checked;
+      if (fallbackId && inherit.checked) {
+        $("#" + fallbackId).textContent = "Using the global value.";
+      }
+    });
   }
 }
 
@@ -1032,7 +1313,7 @@ function wireDashboard() {
   });
   $("#settings-info").addEventListener("click", () => {
     toast(
-      "Lock trigger, lock delay and USB trigger are independent settings in one account settings version, so one Save applies all three atomically. The Lock trigger arms the countdown; the delay is how long it waits after screen-off/lock. A local phone change is reported separately and does not rewrite the account values.",
+      "These are global defaults for Lock trigger, lock delay, and USB trigger. Each device can override any field from its Settings button; an override wins until cleared with Inherit global. Global saves do not clear device overrides. A local phone change is reported separately and does not rewrite either target.",
       "info",
     );
   });
@@ -1076,7 +1357,23 @@ function wireDashboard() {
     }
   });
 
+  for (const radio of document.querySelectorAll('input[name="command-target"]')) {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      state.targetScope = radio.value === "all" ? "all" : "selected";
+      renderCommandScope(state.data.devices);
+    });
+  }
+  wireDeviceSettingsFields();
+
   $("#devices").addEventListener("change", (event) => {
+    const select = event.target.closest("input[data-device-select]");
+    if (select) {
+      if (select.checked) state.selectedDeviceIds.add(select.dataset.deviceSelect);
+      else state.selectedDeviceIds.delete(select.dataset.deviceSelect);
+      renderCommandScope(state.data.devices);
+      return;
+    }
     const debug = event.target.closest("input[data-debug-device]");
     if (!debug) return;
     toggleDebugMode(debug.dataset.debugDevice, debug.checked, debug);
@@ -1086,6 +1383,11 @@ function wireDashboard() {
     const info = event.target.closest("button[data-info]");
     if (info) {
       toast(info.dataset.info, "info");
+      return;
+    }
+    const settingsButton = event.target.closest("button[data-device-settings]");
+    if (settingsButton) {
+      openDeviceSettingsDialog(settingsButton.dataset.deviceSettings);
       return;
     }
     const rename = event.target.closest("button[data-device-rename]");
@@ -1118,7 +1420,7 @@ function wireDashboard() {
         `Lock trigger: ${lockTrigger ? "ON" : "OFF"}. ` +
         `Lock delay: ${formatMinutes(lockMinutes)}. ` +
         `USB trigger: ${usbEnabled ? "enabled" : "disabled"}. ` +
-        "This creates a new settings version and every enrolled device applies it at its next sync.",
+        "This creates a new global settings version. Every device that inherits a field applies its new value at the next sync; device overrides remain in place.",
       confirmLabel: "Save and sync",
       danger: false,
     });
@@ -1135,7 +1437,7 @@ function wireDashboard() {
         lockTrigger,
       );
       state.data.settings = updated;
-      toast("Settings saved — every device will apply them.", "success");
+      toast("Global settings saved — inheriting devices will apply them.", "success");
       renderSettings();
       scheduleRefresh();
     } catch (error) {
@@ -1147,16 +1449,17 @@ function wireDashboard() {
   });
 
   $("#lock-devices").addEventListener("click", async () => {
-    const count = state.data.devices.length;
-    if (!count) {
-      toast("No active devices to lock.");
+    const targets = targetDevices();
+    if (!targets.length) {
+      toast("Select at least one device first.");
       return;
     }
+    const names = targets.map((device) => device.name || "Unnamed device").join(", ");
     const first = await confirmAction({
-      title: "Lock all devices?",
+      title: "Lock devices?",
       message:
-        `This locks the screen on ${count} active device(s) at their next sync. It does not wipe ` +
-        "data or change settings. You will be asked once more.",
+        `This locks the screen on ${targets.length} device(s) at their next sync:\n${names}\n\n` +
+        "It does not wipe data or change settings. You will be asked once more.",
       confirmLabel: "Continue",
       danger: false,
     });
@@ -1164,8 +1467,8 @@ function wireDashboard() {
     const second = await confirmAction({
       title: "Confirm lock",
       message:
-        `Send the lock command to ${count} device(s) now? The devices stay locked until someone ` +
-        "unlocks them locally.",
+        `Send the lock command to ${targets.length} device(s) now? The devices stay locked until ` +
+        "someone unlocks them locally.",
       confirmLabel: "Lock now",
       danger: false,
     });
@@ -1173,13 +1476,13 @@ function wireDashboard() {
   });
 
   $("#reset-timer").addEventListener("click", async () => {
-    const count = state.data.devices.length;
-    if (!count) {
-      toast("No active devices to reset.");
+    const targets = targetDevices();
+    if (!targets.length) {
+      toast("Select at least one device first.");
       return;
     }
     const now = Date.now();
-    const activeTimers = state.data.devices
+    const activeTimers = targets
       .map((device) => {
         const status = state.data.statusByDevice.get(device.id);
         if (!status?.timer_running) return null;
@@ -1189,28 +1492,29 @@ function wireDashboard() {
       .filter(Boolean);
     const preview = activeTimers.length
       ? `Active timers now:\n${activeTimers.join("\n")}`
-      : "No device currently has an active lock countdown.";
+      : "No targeted device currently has an active lock countdown.";
     const confirmed = await confirmAction({
       title: "Reset Timer",
       message:
-        `${preview}\n\nRestart the lock countdown on ${count} device(s). Devices that are ` +
-        "unlocked or have the Lock trigger OFF stay inactive. The cards update from the device " +
-        "after it syncs.",
+        `${preview}\n\nRestart the lock countdown on ${targets.length} targeted device(s). Devices ` +
+        "that are unlocked or have the Lock trigger OFF stay inactive. The cards update from the " +
+        "devices after they sync.",
     });
     if (confirmed) await sendAction(RESET_TIMER);
   });
 
   $("#force-reset").addEventListener("click", async () => {
-    const count = state.data.devices.length;
-    if (!count) {
-      toast("No active devices to reset.");
+    const targets = targetDevices();
+    if (!targets.length) {
+      toast("Select at least one device first.");
       return;
     }
     const confirmed = await confirmAction({
       title: "Force Reset",
       message:
-        `Send a factory-reset command to ${count} device(s). Devices in Debug Mode ` +
-        "will NOT be reset. This cannot be undone.",
+        `Send a factory-reset command to ${targets.length} targeted device(s):\n` +
+        `${targets.map((device) => device.name || "Unnamed device").join(", ")}\n\n` +
+        "Devices in Debug Mode will NOT be reset. This cannot be undone.",
       typedPhrase: "RESET",
     });
     if (confirmed) await sendAction(FORCE_RESET);
@@ -1278,6 +1582,11 @@ function updateTokenExpiry(expiresAt) {
 
 async function sendAction(actionType) {
   if (!requireOnline("#commands-message")) return;
+  const targets = commandTargets();
+  if (targets.scope === "selected" && targets.deviceIds.length === 0) {
+    showMessage("#commands-message", "Select at least one device first.", "error");
+    return;
+  }
   const button = actionType === FORCE_RESET
     ? $("#force-reset")
     : actionType === LOCK_NOW
@@ -1286,8 +1595,14 @@ async function sendAction(actionType) {
   clearMessage("#commands-message");
   setBusy(button, true);
   try {
-    const result = await createAction(state.client, actionType, newIdempotencyKey());
-    toast(`Command queued for ${result.device_count} device(s).`, "success");
+    const result = await createAction(
+      state.client,
+      actionType,
+      newIdempotencyKey(),
+      targets.scope,
+      targets.deviceIds,
+    );
+    toast(`${COMMAND_LABELS[actionType] ?? actionType} queued for ${result.device_count} device(s).`, "success");
     scheduleRefresh();
   } catch (error) {
     showMessage("#commands-message", error.message, "error");

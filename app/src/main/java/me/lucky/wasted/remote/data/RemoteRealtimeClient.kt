@@ -28,8 +28,12 @@ class RemoteRealtimeClient(
         private const val CHANNEL_TOPIC = "wasted:remote-sync"
     }
 
+    @Volatile
     private var channel: RealtimeChannel? = null
     private val collectJobs = mutableListOf<Job>()
+
+    val isStarted: Boolean
+        get() = channel != null
 
     suspend fun start(
         scope: CoroutineScope,
@@ -40,6 +44,13 @@ class RemoteRealtimeClient(
         stop()
         val client = clientProvider() ?: return
         runCatching { client.auth.awaitInitialization() }
+        val session = client.auth.currentSessionOrNull()
+        if (session == null || session.expiresAt <= kotlin.time.Clock.System.now()) {
+            // Reconcile/heartbeat still runs without Realtime. Never subscribe with an expired
+            // or missing session; the SDK's reconnect path must not run without a valid socket.
+            Log.w(TAG, "Realtime skipped: no valid authenticated session")
+            return
+        }
 
         val newChannel = client.channel(CHANNEL_TOPIC)
 
@@ -61,15 +72,29 @@ class RemoteRealtimeClient(
             }
         }
 
+        val deviceSettingsFlow = newChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
+            table = "device_settings"
+            filter("device_id", FilterOperator.EQ, deviceId)
+        }
+        collectJobs += scope.launch {
+            deviceSettingsFlow.collect { onSyncRequired() }
+        }
+
         collectJobs += scope.launch {
             newChannel.status.collect { status ->
                 if (status == RealtimeChannel.Status.SUBSCRIBED) onSyncRequired()
             }
         }
 
-        newChannel.subscribe()
-        channel = newChannel
-        Log.i(TAG, "Realtime channel joined")
+        runCatching { newChannel.subscribe() }
+            .onSuccess {
+                channel = newChannel
+                Log.i(TAG, "Realtime channel joined")
+            }
+            .onFailure {
+                Log.w(TAG, "Realtime subscribe failed; heartbeat remains active", it)
+                runCatching { client.realtime.removeChannel(newChannel) }
+            }
     }
 
     suspend fun stop() {

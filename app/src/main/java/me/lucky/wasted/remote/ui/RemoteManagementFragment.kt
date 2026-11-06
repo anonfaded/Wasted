@@ -31,7 +31,7 @@ import me.lucky.wasted.remote.RemoteEngine
 import me.lucky.wasted.remote.data.RemoteConfigStore
 import me.lucky.wasted.remote.data.RemoteCredentialStore
 import me.lucky.wasted.remote.data.RemoteDatabase
-import me.lucky.wasted.remote.data.SupabaseRemoteRepository
+import me.lucky.wasted.remote.data.RemoteRuntime
 import me.lucky.wasted.remote.domain.ClaimEnrollmentParams
 import me.lucky.wasted.remote.domain.RemoteConfig
 import me.lucky.wasted.remote.domain.RemoteConfigError
@@ -69,7 +69,7 @@ class RemoteManagementFragment : Fragment() {
         defaultDashboardStatusColor = binding.dashboardStatus.currentTextColor
         prefs = Preferences.new(requireContext())
         configStore = RemoteConfigStore.new(requireContext())
-        credentials = RemoteCredentialStore.new(requireContext())
+        credentials = RemoteRuntime.repository(requireContext()).credentials
         adminManager = DeviceAdminManager(requireContext())
         init()
         setup()
@@ -257,6 +257,7 @@ class RemoteManagementFragment : Fragment() {
                 return
             }
             if (configStore.save(config)) {
+                RemoteRuntime.reset()
                 snackbar("Configuration saved.")
                 refreshState()
             } else {
@@ -286,15 +287,13 @@ class RemoteManagementFragment : Fragment() {
         snackbar("Testing Supabase connection…")
         scope.launch {
             val result = withContext(Dispatchers.IO) {
-                val repository = SupabaseRemoteRepository(configStore, credentials)
+                val repository = RemoteRuntime.repository(requireContext())
                 try {
                     Result.success(repository.testConnection())
                 } catch (e: RemoteException) {
                     Result.failure(e)
                 } catch (e: Exception) {
                     Result.failure(e)
-                } finally {
-                    repository.close()
                 }
             }
             result.fold(
@@ -526,7 +525,7 @@ class RemoteManagementFragment : Fragment() {
         scope.launch {
             val wasEnrolled = credentials.enrolled
             val message = withContext(Dispatchers.IO) {
-                val repository = SupabaseRemoteRepository(configStore, credentials)
+                val repository = RemoteRuntime.repository(requireContext())
                 try {
                     repository.ensureAnonymousSession()
                     val device = repository.claimEnrollment(
@@ -542,12 +541,11 @@ class RemoteManagementFragment : Fragment() {
                     credentials.deviceId = device.id
                     credentials.accountId = device.accountId
                     credentials.enrolled = true
-                    credentials.appliedSettingsRevision = 0
+                    credentials.appliedGlobalSettingsRevision = 0
+                    credentials.appliedDeviceSettingsRevision = 0
                     "Enrolled as ${device.name}."
                 } catch (e: Exception) {
                     "Enrollment failed: ${e.message}"
-                } finally {
-                    repository.close()
                 }
             }
             binding.enrollmentProgress.visibility = View.GONE
@@ -612,6 +610,7 @@ class RemoteManagementFragment : Fragment() {
                 credentials.clearSession()
                 credentials.rotateInstallationId()
                 configStore.remoteEnabled = false
+                RemoteRuntime.reset()
                 RemoteDatabase.clear(requireContext())
                 Utils(requireContext()).updateForegroundRequiredEnabled()
                 snackbar("Remote enrollment reset.")

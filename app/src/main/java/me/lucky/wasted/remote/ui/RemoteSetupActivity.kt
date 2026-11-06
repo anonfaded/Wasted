@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 
 import me.lucky.wasted.databinding.ActivityRemoteSetupBinding
 import me.lucky.wasted.remote.data.RemoteConfigStore
+import me.lucky.wasted.remote.data.RemoteRuntime
 import me.lucky.wasted.remote.domain.DashboardTemplate
 import me.lucky.wasted.remote.domain.RemoteConfig
 import me.lucky.wasted.remote.domain.RemoteConfigField
@@ -241,6 +242,7 @@ class RemoteSetupActivity : AppCompatActivity() {
                 snackbar("Could not save the dashboard URL.")
                 return
             }
+            RemoteRuntime.reset()
         }
         finish()
     }

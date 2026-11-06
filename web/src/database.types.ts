@@ -12,38 +12,99 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.18"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
+      account_action_targets: {
+        Row: {
+          account_id: string
+          action_id: string
+          created_at: string
+          device_id: string
+        }
+        Insert: {
+          account_id: string
+          action_id: string
+          created_at?: string
+          device_id: string
+        }
+        Update: {
+          account_id?: string
+          action_id?: string
+          created_at?: string
+          device_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_action_targets_action_account_fk"
+            columns: ["action_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "account_actions"
+            referencedColumns: ["id", "account_id"]
+          },
+          {
+            foreignKeyName: "account_action_targets_device_account_fk"
+            columns: ["device_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id", "account_id"]
+          },
+        ]
+      }
       account_actions: {
         Row: {
           account_id: string
           action_type: string
           created_at: string
           created_by: string | null
-          device_id: string | null
           expires_at: string
           id: string
           idempotency_key: string
+          target_scope: string
         }
         Insert: {
           account_id: string
           action_type: string
           created_at?: string
           created_by?: string | null
-          device_id?: string | null
           expires_at: string
           id?: string
           idempotency_key: string
+          target_scope: string
         }
         Update: {
           account_id?: string
           action_type?: string
           created_at?: string
           created_by?: string | null
-          device_id?: string | null
           expires_at?: string
           id?: string
           idempotency_key?: string
+          target_scope?: string
         }
         Relationships: [
           {
@@ -53,13 +114,6 @@ export type Database = {
             referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "account_actions_device_fk"
-            columns: ["device_id", "account_id"]
-            isOneToOne: false
-            referencedRelation: "devices"
-            referencedColumns: ["id", "account_id"]
-          },
         ]
       }
       account_settings: {
@@ -67,6 +121,7 @@ export type Database = {
           account_id: string
           initialized_at: string | null
           lock_timer_minutes: number
+          lock_trigger_enabled: boolean
           revision: number
           updated_at: string
           updated_by: string | null
@@ -76,6 +131,7 @@ export type Database = {
           account_id: string
           initialized_at?: string | null
           lock_timer_minutes?: number
+          lock_trigger_enabled?: boolean
           revision?: number
           updated_at?: string
           updated_by?: string | null
@@ -85,6 +141,7 @@ export type Database = {
           account_id?: string
           initialized_at?: string | null
           lock_timer_minutes?: number
+          lock_trigger_enabled?: boolean
           revision?: number
           updated_at?: string
           updated_by?: string | null
@@ -219,14 +276,60 @@ export type Database = {
           },
         ]
       }
+      device_settings: {
+        Row: {
+          account_id: string
+          device_id: string
+          lock_timer_minutes: number | null
+          lock_trigger_enabled: boolean | null
+          revision: number
+          updated_at: string
+          updated_by: string | null
+          usb_trigger_enabled: boolean | null
+        }
+        Insert: {
+          account_id: string
+          device_id: string
+          lock_timer_minutes?: number | null
+          lock_trigger_enabled?: boolean | null
+          revision?: number
+          updated_at?: string
+          updated_by?: string | null
+          usb_trigger_enabled?: boolean | null
+        }
+        Update: {
+          account_id?: string
+          device_id?: string
+          lock_timer_minutes?: number | null
+          lock_trigger_enabled?: boolean | null
+          revision?: number
+          updated_at?: string
+          updated_by?: string | null
+          usb_trigger_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_settings_device_account_fk"
+            columns: ["device_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id", "account_id"]
+          },
+        ]
+      }
       device_status: {
         Row: {
           account_id: string
           actual_lock_timer_minutes: number
+          actual_lock_trigger_enabled: boolean | null
           actual_usb_trigger_enabled: boolean
           android_sdk: number
           app_version: string
-          applied_settings_revision: number
+          applied_device_settings_revision: number
+          applied_global_settings_revision: number
+          battery_charging: boolean | null
+          battery_percent: number | null
+          battery_sampled_at: string | null
           debug_mode: boolean
           device_id: string
           last_error_code: string | null
@@ -234,6 +337,7 @@ export type Database = {
           last_seen_at: string
           remote_enabled: boolean
           reset_supported: boolean
+          settings_applied_at: string | null
           timer_remaining_seconds: number
           timer_running: boolean
           timer_sampled_at: string
@@ -242,10 +346,15 @@ export type Database = {
         Insert: {
           account_id: string
           actual_lock_timer_minutes: number
+          actual_lock_trigger_enabled?: boolean | null
           actual_usb_trigger_enabled: boolean
           android_sdk: number
           app_version: string
-          applied_settings_revision?: number
+          applied_device_settings_revision?: number
+          applied_global_settings_revision?: number
+          battery_charging?: boolean | null
+          battery_percent?: number | null
+          battery_sampled_at?: string | null
           debug_mode: boolean
           device_id: string
           last_error_code?: string | null
@@ -253,6 +362,7 @@ export type Database = {
           last_seen_at: string
           remote_enabled: boolean
           reset_supported: boolean
+          settings_applied_at?: string | null
           timer_remaining_seconds: number
           timer_running: boolean
           timer_sampled_at: string
@@ -261,10 +371,15 @@ export type Database = {
         Update: {
           account_id?: string
           actual_lock_timer_minutes?: number
+          actual_lock_trigger_enabled?: boolean | null
           actual_usb_trigger_enabled?: boolean
           android_sdk?: number
           app_version?: string
-          applied_settings_revision?: number
+          applied_device_settings_revision?: number
+          applied_global_settings_revision?: number
+          battery_charging?: boolean | null
+          battery_percent?: number | null
+          battery_sampled_at?: string | null
           debug_mode?: boolean
           device_id?: string
           last_error_code?: string | null
@@ -272,6 +387,7 @@ export type Database = {
           last_seen_at?: string
           remote_enabled?: boolean
           reset_supported?: boolean
+          settings_applied_at?: string | null
           timer_remaining_seconds?: number
           timer_running?: boolean
           timer_sampled_at?: string
@@ -341,6 +457,7 @@ export type Database = {
           p_device_name: string
           p_installation_id: string
           p_local_lock_timer_minutes: number
+          p_local_lock_trigger_enabled: boolean
           p_local_usb_trigger_enabled: boolean
           p_token: string
         }
@@ -363,7 +480,12 @@ export type Database = {
         }
       }
       create_account_action: {
-        Args: { p_action_type: string; p_idempotency_key: string }
+        Args: {
+          p_action_type: string
+          p_device_ids: string[]
+          p_idempotency_key: string
+          p_target_scope: string
+        }
         Returns: Json
       }
       create_device_enrollment: {
@@ -377,14 +499,18 @@ export type Database = {
       device_reconcile: {
         Args: {
           p_actual_lock_timer_minutes: number
+          p_actual_lock_trigger_enabled: boolean
           p_actual_usb_trigger_enabled: boolean
           p_android_sdk: number
           p_app_version: string
-          p_applied_settings_revision: number
+          p_applied_device_settings_revision: number
+          p_applied_global_settings_revision: number
+          p_battery_charging: boolean
+          p_battery_percent: number
           p_debug_mode: boolean
           p_device_id: string
-          p_last_error_code?: string
-          p_last_error_message?: string
+          p_last_error_code: string
+          p_last_error_message: string
           p_remote_enabled: boolean
           p_reset_supported: boolean
           p_timer_remaining_seconds: number
@@ -438,6 +564,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      list_device_effective_settings: {
+        Args: never
+        Returns: {
+          account_id: string
+          applied_device_settings_revision: number
+          applied_global_settings_revision: number
+          device_id: string
+          device_name: string
+          device_revision: number
+          global_revision: number
+          initialized: boolean
+          last_seen_at: string
+          lock_timer_minutes: number
+          lock_timer_overridden: boolean
+          lock_trigger_enabled: boolean
+          lock_trigger_overridden: boolean
+          settings_applied_at: string
+          usb_trigger_enabled: boolean
+          usb_trigger_overridden: boolean
+        }[]
+      }
       list_latest_device_commands: {
         Args: never
         Returns: {
@@ -448,20 +595,6 @@ export type Database = {
           result_code: string
           state: string
         }[]
-      }
-      update_owner_handle: {
-        Args: { p_handle: string }
-        Returns: {
-          created_at: string
-          handle: string
-          id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "accounts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       rename_device: {
         Args: { p_device_id: string; p_name: string }
@@ -496,12 +629,14 @@ export type Database = {
         Args: {
           p_expected_revision: number
           p_lock_timer_minutes: number
+          p_lock_trigger_enabled: boolean
           p_usb_trigger_enabled: boolean
         }
         Returns: {
           account_id: string
           initialized_at: string | null
           lock_timer_minutes: number
+          lock_trigger_enabled: boolean
           revision: number
           updated_at: string
           updated_by: string | null
@@ -510,6 +645,28 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "account_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_device_settings: {
+        Args: {
+          p_device_id: string
+          p_expected_revision: number
+          p_patch: Json
+        }
+        Returns: Json
+      }
+      update_owner_handle: {
+        Args: { p_handle: string }
+        Returns: {
+          created_at: string
+          handle: string
+          id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounts"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -637,14 +794,14 @@ export type CompositeTypes<
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions] extends {
-      schema: keyof DatabaseWithoutInternals
-    }
-    ? DatabaseWithoutInternals[DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-  : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

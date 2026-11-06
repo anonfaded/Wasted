@@ -351,8 +351,9 @@
         <p class="eyebrow">Control panel</p>
         <h2 id="dashboard-title">Remote dashboard</h2>
         <p class="section-desc">
-          Monitor enrolled devices, change account-wide settings, and send commands. Values are
-          reported by the device; commands apply at its next sync.
+          Monitor enrolled devices, set global defaults or per-device overrides, and send commands to
+          all devices or only the ones you select. Values are reported by the device; commands apply
+          at its next sync.
         </p>
       </div>
       <p id="account-line" class="account-chip"></p>
@@ -456,14 +457,14 @@
           <section class="panel" aria-labelledby="settings-title">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Account-wide</p>
-                <h3 id="settings-title">Trigger settings</h3>
+                <p class="eyebrow">Global defaults</p>
+                <h3 id="settings-title">Global trigger settings</h3>
                 <p class="section-desc">
-                  Account-wide. Lock trigger arms the lock workflow; Lock delay sets how long it
-                  waits after screen-off/lock; USB trigger is separate. All three are saved together
-                  in one settings version. A local phone change is shown as the device value and does
-                  not rewrite the account value. Wipe data remains phone-local and is never changed
-                  by this page.
+                  These values apply to every device that has not overridden the field. Lock trigger
+                  arms the lock workflow; Lock delay sets how long it waits after screen-off/lock;
+                  USB trigger is separate. All three are saved together in one global version. A
+                  device override wins until you clear it in that device's Settings. Wipe data remains
+                  phone-local and is never changed by this page.
                 </p>
               </div>
             </div>
@@ -472,9 +473,9 @@
                 <div class="setting-copy">
                   <span id="lock-trigger-title" class="setting-title">Lock trigger</span>
                   <p id="lock-trigger-hint" class="hint">
-                    Arms the lock workflow on every enrolled device. When the countdown finishes,
-                    Wasted locks the phone; if Wipe data is on, the reset starts (Debug Mode blocks
-                    the wipe).
+                    Global default for the lock workflow. Devices with a Lock trigger override use
+                    their own value. When the countdown finishes, Wasted locks the phone; if Wipe data
+                    is on, the reset starts (Debug Mode blocks the wipe).
                   </p>
                 </div>
                 <label class="switch" aria-label="Lock trigger enabled">
@@ -514,9 +515,9 @@
               </div>
               <div class="actions">
                 <button type="submit" class="primary"
-                        title="Save these values and sync them to every enrolled device">
+                        title="Save these global defaults; devices without overrides apply them">
                   <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>
-                  <span class="button-label">Save trigger settings</span>
+                  <span class="button-label">Save global settings</span>
                 </button>
                 <span id="settings-revision" class="muted"></span>
                 <button id="settings-info" type="button" class="info-button"
@@ -530,37 +531,43 @@
             <div class="section-head">
               <div>
                 <p class="eyebrow">Remote commands</p>
-                <h3 id="commands-title">Account actions</h3>
+                <h3 id="commands-title">Targeted actions</h3>
                 <p class="section-desc">
-                  Commands target every active device in this account and are confirmed before sending.
-                  Devices apply them at their next sync.
+                  Choose all active devices or select specific devices on the cards. Every command is
+                  confirmed with the exact target list and applies at the next sync.
                 </p>
               </div>
             </div>
+            <fieldset class="target-picker">
+              <legend>Command targets</legend>
+              <label><input id="target-all" type="radio" name="command-target" value="all"> All active devices</label>
+              <label><input id="target-selected" type="radio" name="command-target" value="selected" checked> Selected devices</label>
+              <span id="target-summary" class="muted">0 selected</span>
+            </fieldset>
             <p class="muted" id="action-scope"></p>
             <div class="command-grid">
               <div class="command-card">
                 <button id="lock-devices" type="button" class="primary"
-                        title="Lock the screen on all active devices; requires two confirmations">
+                        title="Lock the screen on the selected target devices; requires two confirmations">
                   <svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg>
-                  <span class="button-label">Lock All Devices</span>
+                  <span class="button-label">Lock Devices</span>
                 </button>
                 <p class="hint">
-                  Locks the screen on every active device. It does not wipe data or change any
-                  settings. Confirm twice before sending.
+                  Locks the screen on the selected target devices. It does not wipe data or change
+                  any settings. Confirm twice before sending.
                 </p>
               </div>
               <div class="command-card">
                 <button id="reset-timer" type="button"
-                        title="Restart the lock countdown on all active devices">
+                        title="Restart the lock countdown on the selected target devices">
                   <svg class="icon" aria-hidden="true"><use href="#icon-reset"/></svg>
                   <span class="button-label">Reset Timer</span>
                 </button>
                 <p class="hint">
-                  Restarts the lock countdown on devices where the Lock trigger is enabled and the
-                  countdown is active. Unlocked devices and devices with Lock trigger OFF stay
-                  inactive. The card updates from the device's next status report, not a simulated
-                  value.
+                  Restarts the lock countdown on the selected target devices where the Lock trigger
+                  is enabled and the countdown is active. Unlocked devices and devices with Lock
+                  trigger OFF stay inactive. The card updates from the device's next status report,
+                  not a simulated value.
                 </p>
               </div>
               <div class="command-card danger-zone">
@@ -570,9 +577,10 @@
                   <span class="button-label">Force Reset</span>
                 </button>
                 <p class="hint">
-                  Queues a factory reset. Only executes on devices with Debug Mode OFF; devices with
-                  Debug Mode ON are blocked and reported. It is independent of the phone's local
-                  Wipe data switch, so it still resets. You must type RESET to confirm.
+                  Queues a factory reset on the selected target devices. Only executes on devices
+                  with Debug Mode OFF; devices with Debug Mode ON are blocked and reported. It is
+                  independent of the phone's local Wipe data switch, so it still resets. You must type
+                  RESET to confirm.
                 </p>
               </div>
             </div>
@@ -663,10 +671,11 @@
               <dl>
                 <dt>Connection</dt>
                 <dd>
-                  <strong>Recently connected</strong> means the device contacted the server within
-                  the last 150 seconds. Otherwise the exact last-contact time is shown and commands
-                  stay queued until it reconnects, subject to their expiry (Reset Timer 24 hours;
-                  Force Reset and Debug Mode OFF 10 minutes; Debug Mode ON 24 hours).
+                  <strong>Active</strong> means the device contacted the server within the last
+                  150 seconds; <strong>Inactive</strong> means it has not. The exact last-contact time
+                  is shown below. Commands stay queued until it reconnects, subject to their expiry
+                  (Reset Timer 24 hours; Force Reset and Debug Mode OFF 10 minutes; Debug Mode ON
+                  24 hours).
                 </dd>
                 <dt>Live countdown</dt>
                 <dd>
@@ -678,36 +687,64 @@
                 </dd>
                 <dt>Lock trigger</dt>
                 <dd>
-                  The switch that arms the lock workflow. The dashboard can turn it on or off for
-                  every enrolled device; it has its own reported value and account value. When the
-                  countdown finishes, Wasted locks the phone and, if Wipe data is on, starts the reset
-                  (Debug Mode still blocks the wipe).
+                  The switch that arms the lock workflow. The saved value is the device override
+                  when one exists, otherwise the global default. Green ON means armed; red OFF means
+                  disarmed. When the countdown finishes, Wasted locks the phone and, if Wipe data is
+                  on, starts the reset (Debug Mode still blocks the wipe).
                 </dd>
                 <dt>Lock delay setting</dt>
                 <dd>
                   The wait after screen-off/lock before the Lock trigger fires. It runs only while
                   the Lock trigger is ON. “Device reports” is the phone's delay, converted from whole
-                  minutes and shown with only non-zero units. “Account setting” is the value saved
-                  here and sent at the next sync. Wipe data is a phone-local setting and is not
-                  changed by the dashboard.
+                  minutes and shown with only non-zero units. “Saved setting” is the device
+                  override, otherwise the global default. Wipe data is a phone-local setting and is
+                  not changed by the dashboard.
                 </dd>
                 <dt>USB trigger</dt>
                 <dd>
                   When ON, a USB data connection while the phone is locked can fire the trigger.
-                  “Device” is the phone's reported value; “Account setting” is the value saved here.
-                  Changing the switch on the phone affects only that phone and does not rewrite the
-                  account value; the card shows the mismatch until both values agree.
+                  Green ON means armed; red OFF means disabled. “Device reports” is the phone's value;
+                  “Saved setting” is the device override, otherwise the global default. Changing
+                  the switch on the phone affects only that phone and does not rewrite either target;
+                  the card shows the mismatch until they agree.
+                </dd>
+                <dt>Battery</dt>
+                <dd>
+                  Battery percentage and charging state reported at the last status sync, with a
+                  filled battery icon. Green is healthy, amber is 21–50%, red is 20% or less, and a
+                  dashed grey/unknown icon means the phone did not report a value; unknown is not the
+                  same as 0%. The value updates about once a minute, not continuously.
+                </dd>
+                <dt>Settings status</dt>
+                <dd>
+                  <strong>Current</strong> is green and means the device has applied the latest
+                  global and per-device override revisions. <strong>Pending</strong> is amber and
+                  means the next sync is still outstanding. The applied time is recorded by the
+                  server when the device reports a new revision.
                 </dd>
                 <dt>Settings version</dt>
                 <dd>
-                  An internal revision number. Saving the account-wide trigger settings increments
-                  it; devices apply only the newest version. It is not a device setting and does not
-                  need to match anything by hand.
+                  Global and device versions are independent. Saving global settings increments the
+                  global version; saving a device override increments only that device's version.
+                  Devices apply the saved value from both. Neither version needs to match by hand.
+                </dd>
+                <dt>Device settings</dt>
+                <dd>
+                  Each card's Settings button overrides Lock trigger, Lock delay, or USB trigger for
+                  that device only. Check Inherit global to remove an override. Global saves never
+                  clear overrides; no other device is affected.
+                </dd>
+                <dt>Command targets</dt>
+                <dd>
+                  Choose All active devices or select devices on the cards. The command confirmation
+                  lists the exact count and names. Selected targets must be active and owned; a
+                  revoked or empty selection is rejected before any command is queued.
                 </dd>
                 <dt>Debug Mode</dt>
                 <dd>
-                  ON blocks destructive remote commands (Force Reset). Reset Timer and settings sync
-                  keep working. Enable/Disable sends a command to that device only.
+                  Green ON blocks destructive remote commands (Force Reset); red OFF allows them.
+                  Reset Timer and settings sync keep working. Enable/Disable sends a command to that
+                  device only.
                 </dd>
                 <dt>Reset support</dt>
                 <dd>
@@ -757,8 +794,9 @@
               </ol>
               <p class="muted">
                 A local change in the app is reported back as the device value, but it does not
-                rewrite the account setting. Use this page when you want the change applied to every
-                enrolled device.
+                rewrite the global or device target. Use the device's Settings button for one device;
+                use Global settings for every device that inherits the field. Select one or more
+                devices on the cards before sending a command, or choose All active devices.
               </p>
               <p class="muted">
                 When the countdown completes, Wasted fires the Lock trigger: it locks the phone. If
@@ -778,8 +816,9 @@
                 behavior. Force Reset is an explicit reset command.
               </p>
               <p>
-                <strong>Lock All Devices</strong> only locks the screen; it never wipes or changes
-                settings. It asks twice, and an offline device ignores it after 5 minutes.
+                <strong>Lock Devices</strong> only locks the screen on the selected targets; it never
+                wipes or changes settings. It asks twice, and an offline device ignores it after
+                5 minutes.
               </p>
               <p>
                 Revoking a device stops remote commands but does not wipe it. Reset enrollment in the
@@ -832,6 +871,54 @@
     <div class="actions">
       <button value="cancel" formnovalidate>Cancel</button>
       <button value="ok" class="primary">Save name</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="device-settings-dialog" aria-labelledby="device-settings-title">
+  <form method="dialog" id="device-settings-form">
+    <h2 id="device-settings-title">Device settings</h2>
+    <p id="device-settings-name" class="muted"></p>
+    <p class="hint">
+      Check “Inherit global” to remove the override. A saved override applies only to this device.
+    </p>
+    <div class="setting-row">
+      <div class="setting-copy">
+        <span class="setting-title">Lock trigger</span>
+        <p class="hint">Arm the lock workflow for this device only.</p>
+        <label class="inherit-label"><input id="ds-lock-trigger-inherit" type="checkbox"> Inherit global</label>
+      </div>
+      <label class="switch" aria-label="Device Lock trigger override">
+        <input id="ds-lock-trigger" type="checkbox">
+        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+      </label>
+    </div>
+    <div class="setting-row">
+      <div class="setting-copy">
+        <label for="ds-lock-minutes">Lock delay setting (minutes)</label>
+        <p class="hint" id="ds-lock-minutes-global"></p>
+        <label class="inherit-label"><input id="ds-lock-minutes-inherit" type="checkbox"> Inherit global</label>
+      </div>
+      <input id="ds-lock-minutes" type="number" min="1" max="525600" step="1"
+             inputmode="numeric" class="compact-input">
+    </div>
+    <div class="setting-row">
+      <div class="setting-copy">
+        <span class="setting-title">USB trigger</span>
+        <p class="hint">Arm the USB trigger for this device only.</p>
+        <label class="inherit-label"><input id="ds-usb-trigger-inherit" type="checkbox"> Inherit global</label>
+      </div>
+      <label class="switch" aria-label="Device USB trigger override">
+        <input id="ds-usb-trigger" type="checkbox">
+        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+      </label>
+    </div>
+    <input id="device-settings-revision" type="hidden">
+    <input id="device-settings-device-id" type="hidden">
+    <p id="device-settings-message" class="message" role="status"></p>
+    <div class="actions">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button id="device-settings-save" value="ok" class="primary">Save device settings</button>
     </div>
   </form>
 </dialog>

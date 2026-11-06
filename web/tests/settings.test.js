@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { saveAccountSettings } from "../src/settings.js";
+import { saveAccountSettings, saveDeviceSettings } from "../src/settings.js";
 
 test("saveAccountSettings forwards the revision and values", async () => {
   let captured = null;
@@ -42,5 +42,44 @@ test("other server errors surface their message", async () => {
   await assert.rejects(
     () => saveAccountSettings(client, 1, 0, true, true),
     /between 1 and 525600/,
+  );
+});
+
+test("saveDeviceSettings sends the override patch and expected revision", async () => {
+  let captured = null;
+  const client = {
+    rpc: async (name, params) => {
+      captured = { name, params };
+      return { data: { device_id: "device-1", device_revision: 3 }, error: null };
+    },
+  };
+
+  const result = await saveDeviceSettings(client, "device-1", 2, {
+    lock_trigger_enabled: false,
+    lock_timer_minutes: null,
+    usb_trigger_enabled: true,
+  });
+
+  assert.equal(captured.name, "update_device_settings");
+  assert.deepEqual(captured.params, {
+    p_device_id: "device-1",
+    p_expected_revision: 2,
+    p_patch: {
+      lock_trigger_enabled: false,
+      lock_timer_minutes: null,
+      usb_trigger_enabled: true,
+    },
+  });
+  assert.equal(result.device_revision, 3);
+});
+
+test("device settings conflicts map to REVISION_CONFLICT", async () => {
+  const client = {
+    rpc: async () => ({ data: null, error: { message: "device settings revision conflict" } }),
+  };
+
+  await assert.rejects(
+    () => saveDeviceSettings(client, "device-1", 1, { lock_timer_minutes: 60 }),
+    (error) => error.code === "REVISION_CONFLICT",
   );
 });

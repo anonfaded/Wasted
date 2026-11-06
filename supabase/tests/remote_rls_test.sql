@@ -70,9 +70,19 @@ values ('da000000-0000-4000-8000-0000000000a1', '0a0a0a0a-0000-4000-8000-0000000
        ('db000000-0000-4000-8000-0000000000b1', '0b0b0b0b-0000-4000-8000-0000000000b1', 1440, true,
         0, false, true, true, true, '2.0.0-test', 33, now(), now(), now());
 
-insert into public.account_actions (id, account_id, action_type, idempotency_key, expires_at) values
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, expires_at) values
     ('aa000000-0000-4000-8000-0000000000a1', '0a0a0a0a-0000-4000-8000-0000000000a1',
-     'reset_timer', 'cc000000-0000-4000-8000-0000000000a1', now() + interval '24 hours');
+     'reset_timer', 'cc000000-0000-4000-8000-0000000000a1', 'all', now() + interval '24 hours');
+
+insert into public.account_action_targets (action_id, account_id, device_id) values
+    ('aa000000-0000-4000-8000-0000000000a1', '0a0a0a0a-0000-4000-8000-0000000000a1',
+     'da000000-0000-4000-8000-0000000000a1');
+
+insert into public.device_settings (
+    device_id, account_id, revision, lock_timer_minutes
+) values (
+    'da000000-0000-4000-8000-0000000000a1', '0a0a0a0a-0000-4000-8000-0000000000a1', 1, 60
+);
 
 insert into public.device_commands (id, action_id, device_id, account_id, command_type, expires_at) values
     ('ee000000-0000-4000-8000-0000000000a1', 'aa000000-0000-4000-8000-0000000000a1',
@@ -101,7 +111,7 @@ begin
         perform pg_temp.assert_true(r.relforcerowsecurity, 'RLS not forced on ' || r.relname);
     end loop;
 
-    perform pg_temp.assert_true(public_tables = 7, 'expected exactly 7 public tables, found ' || public_tables);
+    perform pg_temp.assert_true(public_tables = 9, 'expected exactly 9 public tables, found ' || public_tables);
 
     perform pg_temp.assert_true(
         not has_schema_privilege('authenticated', 'private', 'usage'),
@@ -153,7 +163,8 @@ declare
 begin
     foreach table_name in array array[
         'accounts', 'devices', 'account_settings', 'device_status',
-        'account_actions', 'device_commands', 'command_events'
+        'device_settings', 'account_actions', 'account_action_targets',
+        'device_commands', 'command_events'
     ] loop
         perform pg_temp.assert_true(
             has_table_privilege('authenticated', format('public.%I', table_name), 'SELECT'),
@@ -178,12 +189,14 @@ begin
         'public.rename_device(uuid,text)',
         'public.revoke_device(uuid)',
         'public.update_account_settings(bigint,integer,boolean,boolean)',
-        'public.create_account_action(text,uuid)',
+        'public.create_account_action(text,uuid,text,uuid[])',
         'public.expire_account_commands()',
         'public.claim_device_enrollment(text,uuid,text,integer,boolean,boolean)',
-        'public.device_reconcile(uuid,bigint,integer,boolean,bigint,boolean,boolean,boolean,boolean,text,smallint,text,text,boolean)',
+        'public.device_reconcile(uuid,bigint,bigint,integer,boolean,boolean,bigint,boolean,boolean,boolean,boolean,smallint,boolean,text,smallint,text,text)',
         'public.device_transition_command(uuid,uuid,text,text,text,text)',
-        'public.set_device_debug_mode(uuid,boolean,uuid)'
+        'public.set_device_debug_mode(uuid,boolean,uuid)',
+        'public.list_device_effective_settings()',
+        'public.update_device_settings(uuid,bigint,jsonb)'
     ] loop
         proc_oid := signature::regprocedure;
         perform pg_temp.assert_true(

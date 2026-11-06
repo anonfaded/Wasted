@@ -49,14 +49,13 @@ insert into auth.users (instance_id, id, aud, role, created_at, updated_at, is_a
     ('00000000-0000-0000-0000-000000000000', '0a2a2a2a-0000-4000-8000-0000000000a2', 'authenticated', 'authenticated', now(), now(), true),
     ('00000000-0000-0000-0000-000000000000', '0c0c0c0c-0000-4000-8000-0000000000c1', 'authenticated', 'authenticated', now(), now(), true);
 
+insert into public.accounts (id, handle)
+values ('0a0a0a0a-0000-4000-8000-0000000000a1', 'ConcurrencyOwner');
+insert into public.account_settings (account_id) values ('0a0a0a0a-0000-4000-8000-0000000000a1');
+
 set local role authenticated;
 select set_config('request.jwt.claims',
     '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
-do $$
-begin
-    perform public.initialize_owner_account('ConcurrencyOwner');
-end;
-$$;
 
 -- ─── First-enrollment seeding: exactly one winner ────────────────────────────
 
@@ -69,7 +68,7 @@ select set_config('request.jwt.claims',
 create temp table pg_temp.t_claim_1 as
     select d.* from public.claim_device_enrollment(
         (select enrollment_token from pg_temp.t_enroll_1),
-        '2a000000-0000-4000-8000-0000000000f1', 'Device One', 1440, true) d;
+        '2a000000-0000-4000-8000-0000000000f1', 'Device One', 1440, true, false) d;
 
 select set_config('request.jwt.claims',
     '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
@@ -83,7 +82,7 @@ select set_config('request.jwt.claims',
 create temp table pg_temp.t_claim_2 as
     select d.* from public.claim_device_enrollment(
         (select enrollment_token from pg_temp.t_enroll_2),
-        '2a000000-0000-4000-8000-0000000000f2', 'Device Two', 60, false) d;
+        '2a000000-0000-4000-8000-0000000000f2', 'Device Two', 60, false, false) d;
 
 reset role;
 
@@ -109,12 +108,12 @@ select set_config('request.jwt.claims',
 
 do $$
 begin
-    perform (select public.update_account_settings(1, 2000, true)); -- winner
+    perform (select public.update_account_settings(1, 2000, true, false)); -- winner
 end;
 $$;
 
 select pg_temp.expect_error(
-    $$select public.update_account_settings(1, 9999, false)$$,
+    $$select public.update_account_settings(1, 9999, false, false)$$,
     'P0001', 'revision conflict'
 );
 
@@ -141,8 +140,8 @@ declare
     first jsonb;
     retry jsonb;
 begin
-    first := public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000d1');
-    retry := public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000d1');
+    first := public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000d1', 'all', '{}'::uuid[]);
+    retry := public.create_account_action('reset_timer', 'dd000000-0000-4000-8000-0000000000d1', 'all', '{}'::uuid[]);
     perform pg_temp.assert_true(
         (first->>'action_id') = (retry->>'action_id')
             and (first->>'device_count') = (retry->>'device_count'),
@@ -181,10 +180,12 @@ select set_config('request.jwt.claims',
 
 create temp table pg_temp.t_rec_1 as
     select public.device_reconcile(
-        (select id from pg_temp.t_claim_1), 2, 2000, true, 0, false, true, true, true, '2.0.0', 34::smallint) as result;
+        (select id from pg_temp.t_claim_1), 2, 0, 2000, true, false, 0, false, true, true, true,
+        null::smallint, null::boolean, '2.0.0', 34::smallint, null, null) as result;
 create temp table pg_temp.t_rec_2 as
     select public.device_reconcile(
-        (select id from pg_temp.t_claim_1), 2, 2000, true, 0, false, true, true, true, '2.0.0', 34::smallint) as result;
+        (select id from pg_temp.t_claim_1), 2, 0, 2000, true, false, 0, false, true, true, true,
+        null::smallint, null::boolean, '2.0.0', 34::smallint, null, null) as result;
 
 do $$
 declare
@@ -241,7 +242,7 @@ select set_config('request.jwt.claims',
     '{"sub":"0c0c0c0c-0000-4000-8000-0000000000c1","role":"authenticated","is_anonymous":true}', true);
 
 select pg_temp.expect_error(
-    format($$select public.claim_device_enrollment(%L, '2c000000-0000-4000-8000-0000000000f1', 'Late', 60, false)$$,
+    format($$select public.claim_device_enrollment(%L, '2c000000-0000-4000-8000-0000000000f1', 'Late', 60, false, false)$$,
            (select enrollment_token from pg_temp.t_enroll_2)),
     'P0001', 'already used'
 );
@@ -281,7 +282,7 @@ declare
 begin
     replacement := public.claim_device_enrollment(
         (select enrollment_token from pg_temp.t_enroll_3),
-        '2c000000-0000-4000-8000-0000000000f2', 'Replacement', 2000, true);
+        '2c000000-0000-4000-8000-0000000000f2', 'Replacement', 2000, true, false);
     perform pg_temp.assert_true(replacement.revoked_at is null, 'replacement device must be active');
 end;
 $$;

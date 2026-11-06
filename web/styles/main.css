@@ -20,6 +20,8 @@
   --danger-bg: #f8e9e7;
   --success: #17623c;
   --success-bg: #e7f3eb;
+  --warning: #8a6418;
+  --warning-bg: #f7efdd;
   --info: #28527f;
   --info-bg: #e8eff8;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
@@ -44,6 +46,8 @@
     --danger-bg: #2b1414;
     --success: #8de0b0;
     --success-bg: #10261a;
+    --warning: #f0c674;
+    --warning-bg: #2a2110;
     --info: #9dc6ff;
     --info-bg: #122034;
   }
@@ -403,12 +407,138 @@ button.small {
   box-shadow: 0 1px 0 var(--shadow), 0 16px 28px -28px var(--shadow);
   padding: 0.95rem 1rem 1.05rem;
 }
+.device-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
 .device-card h3 {
   margin: 0;
   font-size: 1rem;
   letter-spacing: 0.05em;
 }
 .device-card h3::before { display: none; }
+
+.battery-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.battery-gauge {
+  position: relative;
+  display: block;
+  width: 23px;
+  height: 11px;
+  padding: 2px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+}
+.battery-gauge::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: -3px;
+  width: 2px;
+  height: 4px;
+  border-radius: 0 1px 1px 0;
+  background: currentColor;
+}
+.battery-fill {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: 1px;
+  background: currentColor;
+  transition: width 180ms ease;
+}
+.battery-pill.healthy { color: var(--success); background: var(--success-bg); }
+.battery-pill.medium { color: var(--warning); background: var(--warning-bg); }
+.battery-pill.low { color: var(--danger); background: var(--danger-bg); border-style: double; }
+.battery-pill.unknown { color: var(--muted); border-style: dashed; }
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.08rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  white-space: normal;
+  max-width: 100%;
+}
+.status-badge::before {
+  content: "";
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-badge.active,
+.status-badge.current,
+.status-badge.on,
+.status-badge.supported,
+.status-badge.success {
+  color: var(--success);
+  background: var(--success-bg);
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border));
+}
+.status-badge.inactive,
+.status-badge.off,
+.status-badge.failed,
+.status-badge.expired,
+.status-badge.rejected,
+.status-badge.danger {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+}
+.status-badge.pending,
+.status-badge.queued,
+.status-badge.received,
+.status-badge.executing,
+.status-badge.warning {
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
+}
+.status-badge.info { color: var(--info); background: var(--info-bg); border-color: color-mix(in srgb, var(--info) 40%, var(--border)); }
+.status-badge.unknown { color: var(--muted); border-style: dashed; background: transparent; }
+.value-on { color: var(--success); font-weight: 700; }
+.value-off { color: var(--danger); font-weight: 700; }
+.value-unknown { color: var(--muted); }
+.timer-live { color: var(--success); font-weight: 700; }
+.timer-inactive { color: var(--muted); }
+.status-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+
+.device-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.device-select input { accent-color: var(--ink); }
 .device-card .device-id {
   font-family: var(--mono);
   font-size: 0.7rem;
@@ -872,9 +1002,12 @@ main { max-width: 1180px; }
 
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.7rem;
   margin-top: 1rem;
+}
+@media (max-width: 720px) {
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .stat {
   display: grid;
@@ -892,6 +1025,10 @@ main { max-width: 1180px; }
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
+.stat-value.success { color: var(--success); }
+.stat-value.danger { color: var(--danger); }
+.stat-value.warning { color: var(--warning); }
+.stat-value.muted { color: var(--muted); }
 .stat-label {
   font-family: var(--mono);
   font-size: 0.67rem;
@@ -972,6 +1109,40 @@ main { max-width: 1180px; }
 }
 .switch input:disabled + .switch-track { opacity: 0.5; cursor: not-allowed; }
 
+.target-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem 1.2rem;
+  margin: 0.85rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface-raised);
+  font-size: 0.82rem;
+}
+.target-picker legend {
+  padding: 0 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.67rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.target-picker label { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+.target-picker input { accent-color: var(--ink); }
+.target-picker #target-summary { margin-left: auto; }
+
+.inherit-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.inherit-label input { accent-color: var(--ink); }
+
 .command-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -985,6 +1156,11 @@ main { max-width: 1180px; }
   background: var(--surface-raised);
 }
 .command-card .hint { margin: 0.5rem 0 0; max-width: 42ch; }
+@media (max-width: 640px) {
+  .command-grid { grid-template-columns: 1fr; }
+  .target-picker { align-items: flex-start; flex-direction: column; }
+  .target-picker #target-summary { margin-left: 0; }
+}
 .command-card.danger-zone {
   border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
   background: color-mix(in srgb, var(--danger-bg) 65%, var(--surface-raised));

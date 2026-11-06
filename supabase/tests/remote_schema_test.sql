@@ -52,7 +52,8 @@ declare
 begin
     foreach target in array array[
         'accounts', 'devices', 'account_settings', 'device_status',
-        'account_actions', 'device_commands', 'command_events'
+        'device_settings', 'account_actions', 'account_action_targets',
+        'device_commands', 'command_events'
     ] loop
         perform pg_temp.assert_true(
             to_regclass('public.' || target) is not null,
@@ -67,8 +68,8 @@ begin
 
     foreach target in array array[
         'accounts_handle_lower_uidx', 'devices_account_active_idx',
-        'device_status_account_seen_idx', 'account_actions_account_created_idx',
-        'account_actions_device_idx',
+        'device_status_account_seen_idx', 'device_settings_account_idx',
+        'account_actions_account_created_idx', 'account_action_targets_device_idx',
         'device_commands_device_pending_idx', 'device_commands_account_created_idx',
         'command_events_command_created_idx', 'command_events_account_created_idx'
     ] loop
@@ -125,9 +126,13 @@ values ('dd000000-0000-4000-8000-0000000000d1', '0d0d0d0d-0000-4000-8000-0000000
         '0d0d0d0d-0000-4000-8000-0000000000d3', '2d000000-0000-4000-8000-0000000000d1', 'Device One');
 
 -- command/action consistency trigger
-insert into public.account_actions (id, account_id, action_type, idempotency_key, expires_at)
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, expires_at)
 values ('aa000000-0000-4000-8000-0000000000d1', '0d0d0d0d-0000-4000-8000-0000000000d1',
-        'reset_timer', 'cc000000-0000-4000-8000-0000000000d1', now() + interval '24 hours');
+        'reset_timer', 'cc000000-0000-4000-8000-0000000000d1', 'all', now() + interval '24 hours');
+
+insert into public.account_action_targets (action_id, account_id, device_id)
+values ('aa000000-0000-4000-8000-0000000000d1', '0d0d0d0d-0000-4000-8000-0000000000d1',
+        'dd000000-0000-4000-8000-0000000000d1');
 
 select pg_temp.expect_error(
     $$insert into public.device_commands (action_id, device_id, account_id, command_type, expires_at)
@@ -166,9 +171,13 @@ insert into public.devices (id, account_id, auth_user_id, installation_id, name)
 values ('dd000000-0000-4000-8000-0000000000d2', '0d0d0d0d-0000-4000-8000-0000000000d1',
         '0d0d0d0d-0000-4000-8000-0000000000d4', '2d000000-0000-4000-8000-0000000000d2', 'Device Two');
 
-insert into public.account_actions (id, account_id, action_type, idempotency_key, expires_at, device_id)
+insert into public.account_actions (id, account_id, action_type, idempotency_key, target_scope, expires_at)
 values ('aa000000-0000-4000-8000-0000000000d2', '0d0d0d0d-0000-4000-8000-0000000000d1',
-        'debug_mode_on', 'cc000000-0000-4000-8000-0000000000d2', now() + interval '24 hours',
+        'debug_mode_on', 'cc000000-0000-4000-8000-0000000000d2', 'selected',
+        now() + interval '24 hours');
+
+insert into public.account_action_targets (action_id, account_id, device_id)
+values ('aa000000-0000-4000-8000-0000000000d2', '0d0d0d0d-0000-4000-8000-0000000000d1',
         'dd000000-0000-4000-8000-0000000000d1');
 
 insert into public.device_commands (id, action_id, device_id, account_id, command_type, expires_at)
@@ -184,27 +193,19 @@ select pg_temp.expect_error(
     'P0001'
 );
 
--- scope: debug actions require a device; legacy actions must not carry one
+-- explicit target scope is required and constrained
 select pg_temp.expect_error(
-    $$insert into public.account_actions (account_id, action_type, idempotency_key, expires_at)
-      values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'debug_mode_off',
-              'cc000000-0000-4000-8000-0000000000d3', now() + interval '10 minutes')$$,
-    '23514'
-);
-select pg_temp.expect_error(
-    $$insert into public.account_actions (account_id, action_type, idempotency_key, expires_at, device_id)
+    $$insert into public.account_actions (account_id, action_type, idempotency_key, target_scope, expires_at)
       values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'reset_timer',
-              'cc000000-0000-4000-8000-0000000000d4', now() + interval '24 hours',
-              'dd000000-0000-4000-8000-0000000000d1')$$,
+              'cc000000-0000-4000-8000-0000000000d4', 'nobody', now() + interval '24 hours')$$,
     '23514'
 );
 
--- unknown action types stay rejected (device_commands inherits the allowlist through the trigger)
+-- unknown action types stay rejected
 select pg_temp.expect_error(
-    $$insert into public.account_actions (account_id, action_type, idempotency_key, expires_at, device_id)
+    $$insert into public.account_actions (account_id, action_type, idempotency_key, target_scope, expires_at)
       values ('0d0d0d0d-0000-4000-8000-0000000000d1', 'set_debug_mode',
-              'cc000000-0000-4000-8000-0000000000d5', now() + interval '1 hour',
-              'dd000000-0000-4000-8000-0000000000d1')$$,
+              'cc000000-0000-4000-8000-0000000000d5', 'selected', now() + interval '1 hour')$$,
     '23514'
 );
 
@@ -243,14 +244,14 @@ begin
      where pubname = 'supabase_realtime'
        and schemaname = 'public';
 
-    perform pg_temp.assert_true(public_tables = 4,
-        'realtime publication should contain exactly the 4 remote tables, found ' || public_tables);
+    perform pg_temp.assert_true(public_tables = 5,
+        'realtime publication should contain exactly the 5 remote tables, found ' || public_tables);
 
     perform pg_temp.assert_true(
         (select count(*) from pg_publication_tables
           where pubname = 'supabase_realtime'
-            and tablename in ('account_settings', 'devices', 'device_status', 'device_commands')) = 4,
-        'all four remote tables must be published'
+            and tablename in ('account_settings', 'devices', 'device_status', 'device_settings', 'device_commands')) = 5,
+        'all five remote tables must be published'
     );
 
     perform pg_temp.assert_true(
