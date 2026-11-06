@@ -603,18 +603,18 @@ function renderDevices() {
         ),
         lastContactEl,
         fieldTerm(
-          "Lock countdown",
-          "The live remaining delay before the Lock trigger fires. It starts after the phone locks or the screen turns off, is cancelled when unlocked, and stays inactive while the Lock trigger is OFF on the phone.",
+          "Live countdown",
+          "Actual time remaining before the Lock trigger fires. It starts after the phone locks or the screen turns off, is cancelled when unlocked, and stays inactive while the Lock trigger is OFF on the phone.",
         ),
         el("dd", {}, [timerSpan]),
         fieldTerm(
           "Lock trigger",
-          "Device is the trigger state reported by the phone; Account setting is the value saved in Controls. The trigger arms the countdown. Either the dashboard or the phone can change it; local changes do not rewrite the account value.",
+          "The ON/OFF switch that arms the Lock workflow. It is not a timer and shows no remaining time. Device is the state reported by the phone; Account setting is the value saved in Controls.",
         ),
         el("dd", { text: desiredVsActual(settings?.lock_trigger_enabled, status?.actual_lock_trigger_enabled, formatEnabled) }),
         fieldTerm(
-          "Lock delay",
-          "The configured delay after screen-off/lock, reported by the device. It runs only while the Lock trigger is ON. Account setting is saved in Controls.",
+          "Lock delay setting",
+          "The configured wait before the Lock trigger fires — not time remaining. The phone reports it in whole minutes, converted to readable days, hours, and minutes. It runs only while the trigger is ON.",
         ),
         el("dd", { text: desiredVsActual(settings?.lock_timer_minutes, status?.actual_lock_timer_minutes, formatMinutes) }),
         fieldTerm(
@@ -658,7 +658,7 @@ function renderDevices() {
       ]),
       el("p", {
         className: "card-note",
-        text: "Lock delay only runs when the Lock trigger is ON in the app's Settings → Lock trigger. The countdown is inactive while the phone is unlocked.",
+        text: "Lock delay is the configured wait, not remaining time. The Live countdown above is the actual time left. Both need the Lock trigger ON; the countdown is also inactive while the phone is unlocked.",
       }),
     ]);
 
@@ -698,7 +698,7 @@ function timerText(status, now) {
   if (!status) return "unknown";
   if (status.actual_lock_trigger_enabled === false) return "inactive — Lock trigger is OFF";
   if (!status.timer_running) return "inactive — no active lock countdown";
-  return `running · ${formatRemaining(extrapolatedRemaining(status, now))} left (est.)`;
+  return `live · ${formatRemaining(extrapolatedRemaining(status, now))} left (estimated)`;
 }
 
 function desiredVsActual(desired, actual, formatValue) {
@@ -706,8 +706,8 @@ function desiredVsActual(desired, actual, formatValue) {
     desired === undefined || desired === null ? "not set" : formatValue(desired);
   const actualText =
     actual === undefined || actual === null ? "unknown" : formatValue(actual);
-  if (actualText === desiredText) return `${actualText} · device and account match`;
-  return `Device: ${actualText} · Account setting: ${desiredText}`;
+  if (actualText === desiredText) return `Device reports: ${actualText} · account matches`;
+  return `Device reports: ${actualText} · Account setting: ${desiredText}`;
 }
 
 function formatEnabled(value) {
@@ -774,8 +774,7 @@ function renderSettings() {
   $("#lock-minutes").value = String(settings.lock_timer_minutes);
   $("#usb-trigger").checked = Boolean(settings.usb_trigger_enabled);
   $("#lock-human").textContent =
-    `Current value: ${formatMinutes(settings.lock_timer_minutes)} ` +
-    `(${settings.lock_timer_minutes} minutes)`;
+    `Configured value: ${formatMinutes(settings.lock_timer_minutes)}`;
   const revision = $("#settings-revision");
   revision.textContent = `Settings version ${settings.revision}${
     settings.initialized_at ? "" : " · not initialized yet"
@@ -1028,7 +1027,7 @@ function wireDashboard() {
   $("#lock-minutes").addEventListener("input", (event) => {
     const minutes = Number(event.target.value);
     $("#lock-human").textContent = Number.isFinite(minutes) && minutes > 0
-      ? `Current value: ${formatMinutes(minutes)} (${minutes} minutes)`
+      ? `Configured value: ${formatMinutes(minutes)}`
       : "";
   });
   $("#settings-info").addEventListener("click", () => {
@@ -1117,7 +1116,7 @@ function wireDashboard() {
       title: "Save trigger settings?",
       message:
         `Lock trigger: ${lockTrigger ? "ON" : "OFF"}. ` +
-        `Lock delay: ${formatMinutes(lockMinutes)} (${lockMinutes} minutes). ` +
+        `Lock delay: ${formatMinutes(lockMinutes)}. ` +
         `USB trigger: ${usbEnabled ? "enabled" : "disabled"}. ` +
         "This creates a new settings version and every enrolled device applies it at its next sync.",
       confirmLabel: "Save and sync",

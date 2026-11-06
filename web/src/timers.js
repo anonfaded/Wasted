@@ -1,18 +1,18 @@
 export const FRESHNESS_WINDOW_MS = 150_000;
 
-/** Formats remaining seconds as readable units while keeping the live seconds visible. */
+/** Formats remaining seconds using only non-zero units. */
 export function formatRemaining(totalSeconds) {
   const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
-  if (s === 0) return "0s";
+  if (s === 0) return "0 seconds";
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);
   const minutes = Math.floor((s % 3600) / 60);
   const seconds = s % 60;
   const parts = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (days > 0 || hours > 0) parts.push(`${hours}h`);
-  if (days > 0 || hours > 0 || minutes > 0) parts.push(`${minutes}m`);
-  parts.push(`${seconds}s`);
+  if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+  if (hours > 0) parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+  if (minutes > 0) parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
+  if (seconds > 0) parts.push(`${seconds} second${seconds === 1 ? "" : "s"}`);
   return parts.join(" ");
 }
 
@@ -63,12 +63,11 @@ export function formatMinutes(minutes) {
   const days = Math.floor(value / 1440);
   const hours = Math.floor((value % 1440) / 60);
   const mins = value % 60;
-  return [
-    `${days} day${days === 1 ? "" : "s"}`,
-    `${hours} hour${hours === 1 ? "" : "s"}`,
-    `${mins} minute${mins === 1 ? "" : "s"}`,
-    "0 seconds",
-  ].join(" ");
+  const parts = [];
+  if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+  if (hours > 0) parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+  if (mins > 0) parts.push(`${mins} minute${mins === 1 ? "" : "s"}`);
+  return parts.length ? parts.join(" ") : "0 minutes";
 }
 
 /** Relative + exact last-contact label; never hides staleness. */

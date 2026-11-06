@@ -11,11 +11,11 @@ import {
   formatMinutes,
 } from "../src/timers.js";
 
-test("formatRemaining renders readable live units", () => {
-  assert.equal(formatRemaining(0), "0s");
-  assert.equal(formatRemaining(3661), "1h 1m 1s");
-  assert.equal(formatRemaining(90000), "1d 1h 0m 0s");
-  assert.equal(formatRemaining(-5), "0s");
+test("formatRemaining renders only non-zero live units", () => {
+  assert.equal(formatRemaining(0), "0 seconds");
+  assert.equal(formatRemaining(3661), "1 hour 1 minute 1 second");
+  assert.equal(formatRemaining(90000), "1 day 1 hour");
+  assert.equal(formatRemaining(-5), "0 seconds");
 });
 
 test("extrapolatedRemaining subtracts elapsed time and clamps at zero", () => {
@@ -83,10 +83,17 @@ test("relative time uses readable units", () => {
   assert.match(formatDateTime(now), /2026/);
 });
 
-test("lock durations include days, hours, minutes, and seconds", () => {
-  assert.equal(formatMinutes(10080), "7 days 0 hours 0 minutes 0 seconds");
-  assert.equal(formatMinutes(1440), "1 day 0 hours 0 minutes 0 seconds");
-  assert.equal(formatMinutes(60), "0 days 1 hour 0 minutes 0 seconds");
-  assert.equal(formatMinutes(90), "0 days 1 hour 30 minutes 0 seconds");
-  assert.equal(formatMinutes(1), "0 days 0 hours 1 minute 0 seconds");
+test("lock durations omit zero units", () => {
+  assert.equal(formatMinutes(10080), "7 days");
+  assert.equal(formatMinutes(1440), "1 day");
+  assert.equal(formatMinutes(60), "1 hour");
+  assert.equal(formatMinutes(90), "1 hour 30 minutes");
+  assert.equal(formatMinutes(1), "1 minute");
+});
+
+test("lock durations parse arbitrary device-reported whole minutes", () => {
+  assert.equal(formatMinutes(12345), "8 days 13 hours 45 minutes");
+  assert.equal(formatMinutes(10081), "7 days 1 minute");
+  assert.equal(formatMinutes(59), "59 minutes");
+  assert.equal(formatMinutes(0), "0 minutes");
 });

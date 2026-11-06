@@ -485,11 +485,12 @@
               </div>
               <div class="setting-row">
                 <div class="setting-copy">
-                  <label for="lock-minutes">Lock delay (minutes)</label>
+                  <label for="lock-minutes">Lock delay setting (minutes, not countdown)</label>
                   <p id="lock-hint" class="hint">
                     How long the phone waits after it locks or its screen turns off before firing
                     the Lock trigger. It runs only when the Lock trigger is ON. Examples:
-                    10080 = 7 days, 1440 = 1 day, 60 = 1 hour.
+                    10080 = 7 days 0 hours 0 minutes 0 seconds; 1440 = 1 day 0 hours 0 minutes
+                    0 seconds; 60 = 0 days 1 hour 0 minutes 0 seconds.
                   </p>
                   <p id="lock-human" class="hint"></p>
                 </div>
@@ -570,7 +571,8 @@
                 </button>
                 <p class="hint">
                   Queues a factory reset. Only executes on devices with Debug Mode OFF; devices with
-                  Debug Mode ON are blocked and reported. You must type RESET to confirm.
+                  Debug Mode ON are blocked and reported. It is independent of the phone's local
+                  Wipe data switch, so it still resets. You must type RESET to confirm.
                 </p>
               </div>
             </div>
@@ -666,12 +668,13 @@
                   stay queued until it reconnects, subject to their expiry (Reset Timer 24 hours;
                   Force Reset and Debug Mode OFF 10 minutes; Debug Mode ON 24 hours).
                 </dd>
-                <dt>Lock countdown</dt>
+                <dt>Live countdown</dt>
                 <dd>
-                  The live countdown before the Lock trigger fires. It starts after the phone locks or
-                  its screen turns off, stops when the phone is unlocked, and stays inactive when the
-                  Lock trigger is OFF. The value is extrapolated every second from the last real
-                  device report, so it is labelled estimated while running.
+                  The live remaining countdown before the Lock trigger fires, shown in days, hours,
+                  minutes, and seconds. It starts after the phone locks or its screen turns off,
+                  stops when the phone is unlocked, and stays inactive when the Lock trigger is OFF.
+                  The value is extrapolated every second from the last real device report, so it is
+                  labelled estimated while running.
                 </dd>
                 <dt>Lock trigger</dt>
                 <dd>
@@ -680,12 +683,13 @@
                   countdown finishes, Wasted locks the phone and, if Wipe data is on, starts the reset
                   (Debug Mode still blocks the wipe).
                 </dd>
-                <dt>Lock delay</dt>
+                <dt>Lock delay setting</dt>
                 <dd>
                   The wait after screen-off/lock before the Lock trigger fires. It runs only while
-                  the Lock trigger is ON. “Device” is the phone's reported delay; “Account setting”
-                  is the value saved here and sent at the next sync. Wipe data is a phone-local
-                  setting and is not changed by the dashboard.
+                  the Lock trigger is ON. “Device reports” is the phone's delay, converted from whole
+                  minutes and shown with only non-zero units. “Account setting” is the value saved
+                  here and sent at the next sync. Wipe data is a phone-local setting and is not
+                  changed by the dashboard.
                 </dd>
                 <dt>USB trigger</dt>
                 <dd>
@@ -769,7 +773,9 @@
             <div class="help-body">
               <p>
                 Force Reset is destructive and cannot be undone. It is blocked when Debug Mode is ON
-                and requires typing <strong>RESET</strong> in the confirmation dialog.
+                and requires typing <strong>RESET</strong> in the confirmation dialog. It does not
+                consult the phone's local Wipe data switch; that switch only controls trigger
+                behavior. Force Reset is an explicit reset command.
               </p>
               <p>
                 <strong>Lock All Devices</strong> only locks the screen; it never wipes or changes
