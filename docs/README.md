@@ -34,7 +34,7 @@ Everything needed to set up, operate, upgrade, verify, and reason about the syst
 - [`supabase/README.md`](../supabase/README.md) — backend operations quick reference.
 - [`supabase/releases/`](../supabase/releases/) — generated SQL per app release (setup, updates,
   verify, manifests, release notes).
-- [`web/config.example.js`](../web/config.example.js) — optional build-time configuration.
+- [`.env.example`](../.env.example) — local dashboard and backend values; copy to the gitignored `.env`.
 - [`README.md`](../README.md) — user-facing app/remote/hosting guide.
 
 ## Rules

@@ -59,7 +59,7 @@ const config = readConfig();
 if (!config) {
   const banner = $("#config-error");
   banner.textContent =
-    "This dashboard is not configured: add config.js (copy of config.example.js) " +
+    "This dashboard is not configured: set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in .env " +
     "with your Supabase URL and publishable key.";
   banner.hidden = false;
   $("#auth-section").hidden = true;

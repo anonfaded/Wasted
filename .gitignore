@@ -15,6 +15,8 @@
 local.properties
 .idea/*
 .env
+.env.local
+.env.*.local
 .commandcode/
 archive/
 /keystore/
@@ -22,6 +24,5 @@ keystore.properties
 evidence/
 web/node_modules/
 web/dist/
-web/config.js
 web/assets/
 .netlify/

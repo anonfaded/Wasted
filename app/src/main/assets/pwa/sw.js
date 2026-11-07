@@ -47,13 +47,12 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache Vite's development graph or the local config shim.
+  // Never cache Vite's development graph.
   if (
     url.pathname.startsWith("/@vite/") ||
     url.pathname.startsWith("/src/") ||
     url.pathname.startsWith("/node_modules/") ||
-    url.pathname.startsWith("/styles/") ||
-    url.pathname.endsWith("/config.js")
+    url.pathname.startsWith("/styles/")
   ) {
     return;
   }

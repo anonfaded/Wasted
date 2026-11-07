@@ -72,8 +72,38 @@ scripts/styles, and `no-referrer`. If you use a custom/self-hosted Supabase doma
 and rebuild. For strict deployments, serve the config externally and use response-header CSP hashes
 plus `frame-ancestors 'none'`.
 
-## Why not environment variables?
+## Source/local builds
 
-This is a static page: any value the browser needs is delivered to the browser. Netlify-style env
-vars only help build steps/functions; they do not hide values from visitors. The publishable key is
-public by design, and the secret key must never be in the page.
+The app-generated ZIP is the normal path. If you are building the dashboard from source, copy
+`.env.example` to `.env` at the repository root and set:
+
+```dotenv
+SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
+DASHBOARD_URL=http://localhost:5173/
+```
+
+`pnpm dev` in `web/` loads those values through Vite. `pnpm build` writes them into
+`web/dist/index.html` and copies `_headers`; deploy the whole `web/dist` directory.
+The remaining `.env.example` entries are optional local reference for Supabase CLI,
+database, and account work; the app and dashboard do not read them, and they can stay
+empty. Never put the secret/service-role key, database password, or account password in
+the three public values.
+
+For a manual Netlify CLI deploy, no `netlify.toml` is needed:
+
+```bash
+cd web && pnpm build
+netlify deploy --prod --dir=dist
+```
+
+For a Git-connected Netlify build, set the same three public variables in the site’s
+environment settings and configure the build command as `pnpm build` with base `web`
+and publish directory `dist`; that is the only case where a `netlify.toml` is useful.
+
+## Why secrets cannot be hidden in the page
+
+For a deployed static page, any value the browser needs is delivered to the browser.
+Netlify-style env vars only help build steps/functions; they do not hide values from visitors.
+The publishable key is public by design, and the secret key must never be in the page. For local
+development, `.env` is only a convenience for loading the public dashboard values.

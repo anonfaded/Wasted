@@ -1,15 +1,18 @@
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { renderDashboardHtml } from "./build-lib.mjs";
+import { dashboardEnv } from "./env-config.mjs";
 
-const version = "3.0.0";
+const config = dashboardEnv("production");
+const version = config.version;
 
 await rm("dist", { recursive: true, force: true });
 await mkdir("dist", { recursive: true });
 
 const html = await renderDashboardHtml({
-  supabaseUrl: "",
-  supabasePublishableKey: "",
+  supabaseUrl: config.supabaseUrl,
+  supabasePublishableKey: config.supabasePublishableKey,
+  dashboardUrl: config.dashboardUrl,
   version,
 });
 
