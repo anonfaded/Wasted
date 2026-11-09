@@ -128,3 +128,6 @@ revoke execute on function public.claim_device_enrollment(text, uuid, text, inte
     from public, anon, authenticated;
 grant execute on function public.claim_device_enrollment(text, uuid, text, integer, boolean, boolean)
     to authenticated;
+
+-- Make the replaced RPC visible to PostgREST when applied individually.
+notify pgrst, 'reload schema';

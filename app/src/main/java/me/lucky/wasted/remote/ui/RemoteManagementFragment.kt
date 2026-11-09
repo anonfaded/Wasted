@@ -424,6 +424,8 @@ class RemoteManagementFragment : Fragment() {
             "Supabase reported a configuration conflict."
         RemoteError.Validation ->
             "Supabase rejected the request. Check the Project URL and publishable key, and make sure the backend setup is complete."
+        RemoteError.BackendUnavailable ->
+            "Supabase cannot find the backend function. Reload the schema cache or re-run the backend setup."
         is RemoteError.Unknown ->
             "unexpected Supabase error. Check the Project URL/key and Auth settings."
     }

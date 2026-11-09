@@ -3985,6 +3985,9 @@ revoke execute on function public.claim_device_enrollment(text, uuid, text, inte
 grant execute on function public.claim_device_enrollment(text, uuid, text, integer, boolean, boolean)
     to authenticated;
 
+-- Make the replaced RPC visible to PostgREST when applied individually.
+notify pgrst, 'reload schema';
+
 -- ===== 20261109120100_remote_schema_marker_12.sql =====
 comment on schema public is 'wasted-remote-schema:12';
 

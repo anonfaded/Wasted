@@ -65,6 +65,10 @@ class RemoteRetryPolicyTest {
             RemoteErrors.classify(400, "P0001", isNetwork = false, message = "settings revision conflict"),
         )
         assertEquals(
+            RemoteError.BackendUnavailable,
+            RemoteErrors.classify(404, "PGRST202", isNetwork = false, message = null),
+        )
+        assertEquals(
             RemoteError.Validation,
             RemoteErrors.classify(400, "P0001", isNetwork = false, message = "unsupported action type"),
         )

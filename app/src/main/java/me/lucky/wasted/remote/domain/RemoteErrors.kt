@@ -9,6 +9,7 @@ sealed class RemoteError(val sanitizedReason: String) {
     data object RlsDenied : RemoteError("access denied")
     data object Conflict : RemoteError("state conflict")
     data object Validation : RemoteError("request rejected")
+    data object BackendUnavailable : RemoteError("backend function unavailable; retry after the server reloads")
     data class Unknown(val detail: String?) : RemoteError("unexpected error")
 }
 
@@ -32,6 +33,7 @@ object RemoteErrors {
         if (statusCode != null && statusCode >= 500) return RemoteError.Server(statusCode)
         if (statusCode == 401) return RemoteError.Authentication
         if (statusCode == 403 || sqlState == "42501") return RemoteError.RlsDenied
+        if (sqlState == "PGRST202") return RemoteError.BackendUnavailable
 
         val text = message.orEmpty()
         return when {
