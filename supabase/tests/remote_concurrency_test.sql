@@ -280,6 +280,12 @@ create temp table pg_temp.t_enroll_3 as
 select set_config('request.jwt.claims',
     '{"sub":"0c0c0c0c-0000-4000-8000-0000000000c1","role":"authenticated","is_anonymous":true}', true);
 
+select pg_temp.expect_error(
+    format($$select public.claim_device_enrollment(%L, '2a000000-0000-4000-8000-0000000000f2', 'Revived', 60, false, false)$$,
+           (select enrollment_token from pg_temp.t_enroll_3)),
+    'P0001', 'device was revoked'
+);
+
 do $$
 declare
     replacement public.devices;

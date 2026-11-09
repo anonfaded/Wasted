@@ -142,7 +142,9 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
   - terminal rows (`applied`, `reset_initiated`, `debug_blocked`, `rejected`, `failed`, `expired`)
     are preserved.
 - A revoked device cannot reconcile or transition commands; its session/rows remain denied by RLS.
-- Re-enrollment requires a fresh token and creates a new device identity.
+- A revoked `installation_id` cannot be used to claim a new token. Reset enrollment on the device
+  first so the installation id rotates, then claim a fresh token; the result is a new device row
+  while the revoked row is retained for audit.
 
 ## Settings synchronization
 

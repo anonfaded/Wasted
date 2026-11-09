@@ -3,7 +3,7 @@
   "releases": [
     {
       "appVersion": "3.0.0",
-      "schemaVersion": 11,
+      "schemaVersion": 12,
       "migrations": [
         "20261018125854_remote_schema.sql",
         "20261018133312_remote_rpcs.sql",
@@ -37,7 +37,9 @@
         "20261106120400_remote_supersede_pending_commands.sql",
         "20261106120500_remote_schema_marker_10.sql",
         "20261106120600_remote_supersede_command_families.sql",
-        "20261106120700_remote_schema_marker_11.sql"
+        "20261106120700_remote_schema_marker_11.sql",
+        "20261109120000_remote_reject_revoked_reclaim.sql",
+        "20261109120100_remote_schema_marker_12.sql"
       ]
     }
   ]
