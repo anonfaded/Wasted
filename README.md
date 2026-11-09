@@ -77,6 +77,22 @@ The app and dashboard store only the project URL and a publishable key. Never us
 
 If Wasted is not the Device Owner on Android 14+, Remote Management shows a **Device Owner setup required** card. Full factory reset commands (remote or local) need that role; tap **Go to Home setup** and follow **Set up Device Owner** there.
 
+### Keep remote management working after reboot
+
+Wasted registers a boot receiver, a foreground service, a persisted JobScheduler job, and a WorkManager recovery path. Many Android manufacturers still block background auto-start until the user allows the app once. This is enforced by the phone's vendor power manager, not by Wasted.
+
+Common locations (names vary by model and OS version):
+
+- **Google Pixel / AOSP / Motorola / Nokia / Sony / Asus / Nothing:** normally no vendor auto-start switch is needed; leave Wasted unrestricted in battery settings if the option exists.
+- **TECNO / Infinix / itel:** Phone Master → Tools → **Auto-start management** → allow Wasted; also set Wasted battery usage to unrestricted.
+- **Xiaomi / Redmi / POCO:** enable **Autostart** and set battery saver to **No restrictions**.
+- **Samsung:** remove Wasted from **Sleeping apps / Deep sleeping apps**; set battery to **Unrestricted**.
+- **OPPO / Realme / OnePlus:** enable **Auto Launch** and unrestricted background activity.
+- **Vivo / iQOO:** enable **Autostart** and allow high background power usage.
+- **Huawei / Honor:** App launch → manage Wasted manually; allow background activity.
+
+After allowing it, reboot the phone and do **not** open Wasted. The foreground notification should appear and the dashboard's last-contact time should update within about a minute. If it does not, the vendor auto-start rule is still blocking the app.
+
 ### Hosting the dashboard
 
 The dashboard package is generated **by the app**, already configured with your own Supabase project URL and publishable key. There is no file editing and no dashboard server: the page talks directly to your Supabase project over HTTPS/WSS.

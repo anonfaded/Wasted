@@ -58,10 +58,12 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
   rotates refresh tokens; separate clients sharing one stored session can race and invalidate each
   other. The Realtime client never subscribes without a valid session, and the heartbeat continues
   if Realtime is unavailable.
-- **Boot/reboot:** `BOOT_COMPLETED` schedules the network-constrained WorkManager recovery path
-  instead of starting a foreground service directly (blocked on Android 15+). `USER_UNLOCKED`
-  starts the normal foreground service. Credential-encrypted storage, including the remote session
-  and settings, remains unavailable until that first unlock by Android design.
+- **Boot/reboot:** `LOCKED_BOOT_COMPLETED` / `BOOT_COMPLETED` start the foreground service when
+  remote management is active; a persisted JobScheduler job and WorkManager recovery path remain as
+  fallbacks. `USER_UNLOCKED` hands the remote subsystem from direct-boot to credential-backed
+  storage. Credential-encrypted storage, including the remote session and settings, remains
+  unavailable until that first unlock by Android design. Some OEM autostart managers block reboot
+  launches until the user allowlists Wasted; see the README reliability section.
 - **Device:** separate anonymous Supabase Auth user per installation. It has no access to owner
   data until an authenticated owner creates a one-time enrollment token and the device claims it;
   the claim RPC binds the device row to the owner account.

@@ -27,6 +27,12 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    **Account**.
 6. **Connect the app**: paste the dashboard URL into Remote Management, Save, Enable; create an
    enrollment token in the dashboard and claim it in the app. Send Reset Timer to verify.
+   Then allow Wasted to **auto-start / run in the background** in the phone's vendor settings.
+   Pixel/AOSP-style phones normally need only unrestricted battery usage; TECNO/Infinix/itel use
+   Phone Master → Tools → Auto-start management. Other brands use similar Autostart/Battery
+   controls. Without that one-time permission, some phones block reboot recovery and commands wait
+   until the app is opened. Reboot without opening Wasted to verify the dashboard last-contact time
+   updates.
 
 If you are upgrading, save the cumulative bundle whose name matches your installed version
 (`update-from-<your version>-to-<current>.sql`); one file covers the jump. Never re-run `setup.sql`
