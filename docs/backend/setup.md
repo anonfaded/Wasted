@@ -68,9 +68,9 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
 3. **Save dashboard ZIP** — the app suggests `wasted-dashboard.zip`; it contains
    `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. It installs as a
    standalone app and provides an offline app shell on supported browsers.
-4. Open **Netlify Drop**, sign in if asked, and drop the ZIP. Confirm the site appears and copy its
-   final `https://…` URL. If it starts private, make it public. To update later, upload the new ZIP
-   to the same Netlify site; do not create another site.
+4. In Netlify, sign in and choose **Add new project → Deploy manually**, then upload the ZIP.
+   Confirm the project appears and copy its final `https://…` URL. If it starts private, make it
+   public. To update later, upload the new ZIP to the same project; do not create another project.
 
 The file contains only the project URL + publishable key. It is not a secret, but anyone who can
 open the URL can attempt to create an account; RLS protects the data.

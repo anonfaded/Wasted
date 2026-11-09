@@ -116,7 +116,7 @@ class RemoteSetupActivity : AppCompatActivity() {
         binding.generateDashboardPackage.setOnClickListener {
             if (saveDetails()) createPackage.launch("wasted-dashboard.zip")
         }
-        binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/drop") }
+        binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/") }
         binding.skipToDashboard.setOnClickListener {
             if (saveDetails()) showStep(STEP_DASHBOARD)
         }
@@ -363,7 +363,7 @@ class RemoteSetupActivity : AppCompatActivity() {
                 }.isSuccess
             }
             binding.dashboardGeneratedStatus.text = if (saved) {
-                "Dashboard ZIP saved. Upload it to Netlify Drop."
+                "Dashboard ZIP saved. Upload it to your Netlify project."
             } else {
                 "Could not save the dashboard ZIP. Try again."
             }

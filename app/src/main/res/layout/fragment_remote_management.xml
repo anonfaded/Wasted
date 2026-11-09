@@ -182,7 +182,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Already hosted? Paste its HTTPS URL here and tap Test dashboard URL. If it is not hosted yet, use the setup wizard to generate the dashboard ZIP, then upload it to Netlify Drop."
+                android:text="Already hosted? Paste its HTTPS URL here and tap Test dashboard URL. If it is not hosted yet, use the setup wizard to generate the dashboard ZIP, then upload it to your Netlify project."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 
             <TextView

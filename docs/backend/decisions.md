@@ -16,7 +16,7 @@ remains a future option if per-user maintenance is unacceptable.
 **Context:** Users should not edit HTML or use a terminal.
 **Decision:** The app bundles a dashboard template (HTML shell plus PWA assets); the setup wizard
 injects the project URL + publishable key and exports the configured package via Android SAF. Users
-host it themselves through Netlify Drop. The app exports one dashboard ZIP format.
+host it themselves through a Netlify project. The app exports one dashboard ZIP format.
 **Consequences:** No file editing, no shared URL, works offline. The package contains the public
 publishable key (not a secret). Changing keys requires regenerating/re-uploading. A runtime
 connection form was considered and rejected by the client.
@@ -105,8 +105,9 @@ legacy APIs unless needed.
 
 **Context:** Users must host a static dashboard package easily, and later updates must keep the
 same URL.
-**Decision:** Support one Netlify Drop site: drop the ZIP, sign in if asked, and update the same
-site later. Netlify Drop is the only supported dashboard hosting path.
+**Decision:** Support one signed-in Netlify project: **Add new project → Deploy manually**, upload
+the ZIP, and update the same project through **Deploys**. This is the only supported dashboard
+hosting path.
 **Consequences:** The project appears immediately in the user's team and has no anonymous claim or
 one-hour expiry. Updates reuse the same URL; creating a new project changes it.
 

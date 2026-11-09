@@ -19,7 +19,7 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
      │ bundled dashboard template   │ owner signs in from browser
      └─ setup wizard ── SAF export ─┘
             │
-            └─ user hosts the package (Netlify Drop)
+            └─ user hosts the package (Netlify project)
 ```
 
 | Component | Responsibility |

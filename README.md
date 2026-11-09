@@ -87,16 +87,16 @@ The dashboard package is generated **by the app**, already configured with your 
 4. In the wizard, use **Save dashboard ZIP**. It contains `index.html`,
    `manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. The package installs as a standalone
    app and provides the offline app shell on supported browsers.
-5. Open **Netlify Drop**, sign in if asked, and drop the ZIP. Copy the site’s HTTPS URL. If the
-   site starts private, make it public.
+5. In Netlify, sign in and choose **Add new project → Deploy manually**, then upload the ZIP.
+   Copy the project’s HTTPS URL. If the project starts private, make it public.
    No Supabase Auth URL configuration is needed for owner signup.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app. The account name is
    saved to Supabase and appears on every browser; change it under **Account**.
 
-To update an existing dashboard, open that **same Netlify project → project menu → Deploys**, use
-the deploy drop zone, and upload the new ZIP. Do not create another project; that changes the URL and
-requires updating Remote Management.
+To update an existing dashboard, open that **same Netlify project → project menu → Deploys**, and
+upload the new ZIP there. Do not create another project; that changes the URL and requires updating
+Remote Management.
 
 ### Install as an app (PWA)
 

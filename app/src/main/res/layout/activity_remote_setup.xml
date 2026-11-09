@@ -391,14 +391,14 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="5. Upload to Netlify Drop"
+                    android:text="5. Create the Netlify project"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Open Netlify Drop, sign in if asked, and drop the ZIP. Netlify creates the site immediately; copy its site URL.\n\nUpdating later: upload the new ZIP to the same site. Do not create another site, or the URL changes."
+                    android:text="Open Netlify, sign in if asked, and choose Add new project → Deploy manually. Upload the ZIP there; Netlify creates the project immediately. Copy its site URL.\n\nUpdating later: upload the new ZIP to the same project. Do not create another project, or the URL changes."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -406,7 +406,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Open Netlify Drop" />
+                    android:text="Open Netlify dashboard" />
 
                 <TextView
                     android:layout_width="match_parent"

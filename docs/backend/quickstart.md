@@ -19,9 +19,9 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
 4. **Generate the dashboard** in the wizard and save the deployable ZIP (`index.html`,
    `manifest.webmanifest`, `sw.js`, `icons/`, `_headers`). The package supports PWA install and the
    offline app shell on supported browsers.
-   In <https://app.netlify.com/drop>, sign in if asked, and drop the ZIP; Netlify creates the site.
-   Copy the site URL; make it public if it starts private. For updates, upload the new ZIP to the
-   same site; do not create another site.
+   In <https://app.netlify.com/>, sign in, choose **Add new project → Deploy manually**, and upload
+   the ZIP. Copy the project URL; make it public if it starts private. For updates, upload the new
+   ZIP to the same project; do not create another project.
 5. **Create your account** on the hosted dashboard URL. The first account becomes the owner
    immediately; no email is sent. The account name is saved to Supabase and can be changed under
    **Account**.

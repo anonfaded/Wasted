@@ -5,15 +5,15 @@ plus the web app manifest, service worker, and icons. It contains only the proje
 publishable key and talks directly to Supabase over HTTPS/WSS. There is no dashboard server,
 database credential, or CDN dependency.
 
-## Steps (Netlify Drop — supported)
+## Steps (Netlify project — supported)
 
 1. In the app: **Remote Management → Open setup wizard** → enter project URL + publishable key.
 2. Tap **Save dashboard ZIP**. It contains `index.html`, `manifest.webmanifest`, `sw.js`,
    `icons/`, and `_headers`; deploy all of it. It provides installable PWA support and the offline
    app shell. Netlify requires an `index.html` home page; a differently named file shows “page not
    found.”
-3. Open <https://app.netlify.com/drop>, sign in if asked, and drag the ZIP onto the drop zone. This
-   creates one site in your team.
+3. Sign in to <https://app.netlify.com/> and choose **Add new project → Deploy manually**. Upload
+   the ZIP. This creates one project in your team.
 4. Confirm the project appears, make it public if it is private by default, and copy its final HTTPS
    URL.
 5. Open the URL, create your account, then enter it in the app and enable Remote Management.
@@ -27,13 +27,13 @@ and test again; an old URL stops working, but the device enrollment remains vali
 **HTTP 401/403 after a dashboard test** usually means the Netlify project is private or
 password-protected. Make it public (or disable password protection), then test again.
 
-No CORS setup is needed (password sign-in only). Use the Netlify Drop upload path described above. Signup is direct and does not send email, so no
-No Auth Site URL or Redirect URL is required for owner signup. HTTPS is still required.
+No CORS setup is needed (password sign-in only). Signup is direct and does not send email, so no
+Auth Site URL or Redirect URL is required for owner signup. HTTPS is still required.
 
 ## Updating the dashboard
 
 Regenerate the package in the app, open the **same Netlify project → project menu → Deploys**, use
-the deploy drop zone, and upload the new ZIP. Do **not** create another project, because that changes the
+the deploy area, and upload the new ZIP. Do **not** create another project, because that changes the
 URL and you would have to update Remote Management. Keep the previous deploy if you want a rollback
 path. If the publishable key rotates, regenerate the package and update the app's saved key.
 

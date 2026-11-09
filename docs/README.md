@@ -24,7 +24,7 @@ Everything needed to set up, operate, upgrade, verify, and reason about the syst
 | [backend/updates.md](./backend/updates.md) | User upgrade guide and release-notes template |
 | [backend/release-checklist.md](./backend/release-checklist.md) | Step-by-step developer release runbook |
 | [backend/security.md](./backend/security.md) | Keys, RLS, RPCs, Debug Mode, wipe boundary, threat model |
-| [backend/hosting.md](./backend/hosting.md) | Dashboard generation, Netlify Drop upload, CSP |
+| [backend/hosting.md](./backend/hosting.md) | Dashboard generation, Netlify project upload, CSP |
 | [backend/capacity.md](./backend/capacity.md) | Free-plan limits, load model, review thresholds, monitoring |
 | [backend/troubleshooting.md](./backend/troubleshooting.md) | Common setup/update failures and fixes |
 | [backend/verification.md](./backend/verification.md) | Commands, expected results, test/gate matrix |
