@@ -14,7 +14,11 @@ import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 import java.util.*
 
 import me.lucky.wasted.Application as WastedApp
@@ -49,6 +53,15 @@ class MainFragment : Fragment() {
         init()
         setup()
         return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                shizuku()?.state?.collect { refreshProtectionUI() }
+            }
+        }
     }
 
     override fun onStart() {
@@ -374,6 +387,7 @@ class MainFragment : Fragment() {
             act.runOnUiThread {
                 if (!isAdded) return@runOnUiThread
                 binding.setupAction.isEnabled = true
+                if (success) refreshProtectionUI()
                 AlertDialog.Builder(ctx)
                     .setTitle(if (success) "✓ Device Owner Set" else "Failed")
                     .setMessage(message)
