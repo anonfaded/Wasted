@@ -147,7 +147,8 @@ class RemoteManagementFragment : Fragment() {
         setupWizard.setOnClickListener {
             startActivity(Intent(requireContext(), RemoteSetupActivity::class.java))
         }
-        saveConfig.setOnClickListener { saveConfig() }
+        saveConfig.setOnClickListener { saveConnection() }
+        saveDashboard.setOnClickListener { saveDashboard() }
         testConnection.setOnClickListener { testConnection() }
         testDashboard.setOnClickListener { testDashboard() }
         openSupabase.setOnClickListener { openUrl("https://supabase.com/dashboard") }
@@ -203,7 +204,7 @@ class RemoteManagementFragment : Fragment() {
         val message = buildString {
             if (config == null) {
                 if (draft != null) {
-                    append("Project details saved. Next: host the dashboard, paste its URL under 2. Dashboard URL, and tap Save connection.")
+                    append("Supabase connection saved. Next: host the dashboard, paste its URL under 2. Dashboard URL, and tap Save dashboard URL.")
                 } else {
                     append("Not set up yet. Start with the setup wizard below.")
                 }
@@ -241,7 +242,36 @@ class RemoteManagementFragment : Fragment() {
         }
     }
 
-    private fun saveConfig() {
+    private fun saveConnection() {
+        with(binding) {
+            val projectUrl = projectUrl.editText?.text?.toString().orEmpty()
+            val publishableKey = publishableKey.editText?.text?.toString().orEmpty()
+            val errors = RemoteConfigValidator.validateConnection(projectUrl, publishableKey)
+            applyConnectionErrors(errors)
+            if (errors.isNotEmpty()) {
+                snackbar("Fix the Supabase connection fields.")
+                return
+            }
+
+            val existing = configStore.load()
+            val saved = if (existing != null) {
+                configStore.save(
+                    RemoteConfig(projectUrl, publishableKey, existing.websiteUrl),
+                )
+            } else {
+                configStore.saveDraft(projectUrl, publishableKey)
+            }
+            if (saved) {
+                RemoteRuntime.reset()
+                snackbar("Supabase connection saved.")
+                refreshState()
+            } else {
+                snackbar("Supabase connection could not be saved.")
+            }
+        }
+    }
+
+    private fun saveDashboard() {
         with(binding) {
             val config = RemoteConfig(
                 projectUrl = projectUrl.editText?.text?.toString().orEmpty(),
@@ -260,10 +290,22 @@ class RemoteManagementFragment : Fragment() {
             }
             if (configStore.save(config)) {
                 RemoteRuntime.reset()
-                snackbar("Configuration saved.")
+                snackbar("Dashboard URL saved.")
                 refreshState()
             } else {
-                snackbar("Configuration could not be saved.")
+                snackbar("Dashboard URL could not be saved.")
+            }
+        }
+    }
+
+    private fun applyConnectionErrors(errors: List<RemoteConfigError>) = with(binding) {
+        projectUrl.error = null
+        publishableKey.error = null
+        for (error in errors) {
+            when (error.field) {
+                RemoteConfigField.PROJECT_URL -> projectUrl.error = error.message
+                RemoteConfigField.PUBLISHABLE_KEY -> publishableKey.error = error.message
+                RemoteConfigField.WEBSITE_URL -> Unit
             }
         }
     }
@@ -282,8 +324,12 @@ class RemoteManagementFragment : Fragment() {
     }
 
     private fun testConnection() {
-        if (!configStore.isConfigured) {
-            snackbar("Save the connection details first.")
+        val saved = configStore.load()
+        val draft = if (saved == null) configStore.loadDraft() else null
+        val projectUrl = saved?.projectUrl ?: draft?.projectUrl
+        val publishableKey = saved?.publishableKey ?: draft?.publishableKey
+        if (projectUrl == null || publishableKey == null) {
+            snackbar("Save the Supabase connection first.")
             return
         }
         snackbar("Testing Supabase connection…")
@@ -291,7 +337,7 @@ class RemoteManagementFragment : Fragment() {
             val result = withContext(Dispatchers.IO) {
                 val repository = RemoteRuntime.repository(requireContext())
                 try {
-                    Result.success(repository.testConnection())
+                    Result.success(repository.testConnection(projectUrl, publishableKey))
                 } catch (e: RemoteException) {
                     Result.failure(e)
                 } catch (e: Exception) {

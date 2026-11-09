@@ -112,10 +112,15 @@ class SupabaseRemoteRepository(
     suspend fun testConnection(): Boolean = withContext(Dispatchers.IO) {
         val config = configStore.load()
             ?: throw RemoteException(RemoteError.Validation)
-        val endpoint = config.projectUrl.trimEnd('/') + "/auth/v1/settings"
+        testConnection(config.projectUrl, config.publishableKey)
+    }
+
+    suspend fun testConnection(projectUrl: String, publishableKey: String): Boolean =
+        withContext(Dispatchers.IO) {
+        val endpoint = projectUrl.trimEnd('/') + "/auth/v1/settings"
         val request = Request.Builder()
             .url(endpoint)
-            .header("apikey", config.publishableKey)
+            .header("apikey", publishableKey)
             .get()
             .build()
         val response = try {

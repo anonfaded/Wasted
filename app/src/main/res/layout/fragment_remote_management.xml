@@ -151,7 +151,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Save connection" />
+                android:text="Save Supabase connection" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/testConnection"
@@ -204,6 +204,13 @@
                     android:layout_height="wrap_content"
                     android:inputType="textUri" />
             </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/saveDashboard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Save dashboard URL" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/testDashboard"

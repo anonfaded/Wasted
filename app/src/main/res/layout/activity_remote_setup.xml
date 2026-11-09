@@ -467,7 +467,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="1. Go back to Remote Management.\n2. Enter the same Project URL, publishable key, and dashboard URL, then tap Save connection.\n3. Enable Remote Management.\n4. Create a token in the dashboard and claim it on this device. Each device needs its own token."
+                    android:text="1. Go back to Remote Management.\n2. Enter the Project URL and publishable key, then tap Save Supabase connection.\n3. Enter the dashboard URL, then tap Save dashboard URL.\n4. Enable Remote Management.\n5. Create a token in the dashboard and claim it on this device. Each device needs its own token."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
