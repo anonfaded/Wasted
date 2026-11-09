@@ -11,14 +11,26 @@ import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.realtime
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 
 /**
- * Channel lifecycle only: subscribes to the device's commands and the account's settings.
+ * Keeps one Realtime channel alive and re-creates it after a disconnect.
+ *
  * Every change — and every (re)subscribe — is only a "sync required" invalidation signal;
- * the authoritative state always comes from device_reconcile.
+ * the authoritative state always comes from device_reconcile. A dead channel must never be
+ * treated as started, otherwise commands silently fall back to the 60-second heartbeat.
  */
 class RemoteRealtimeClient(
     private val clientProvider: () -> SupabaseClient?,
@@ -26,84 +38,147 @@ class RemoteRealtimeClient(
     companion object {
         private const val TAG = "RemoteRealtime"
         private const val CHANNEL_TOPIC = "wasted:remote-sync"
+        private const val SUBSCRIBE_TIMEOUT_MS = 15_000L
+        private const val RECONNECT_DELAY_MS = 5_000L
     }
 
+    private val mutex = Mutex()
+
     @Volatile
-    private var channel: RealtimeChannel? = null
-    private val collectJobs = mutableListOf<Job>()
+    private var connection: Job? = null
+
+    @Volatile
+    private var currentChannel: RealtimeChannel? = null
+
+    private var deviceId: String? = null
+    private var accountId: String? = null
+    private var generation = 0
 
     val isStarted: Boolean
-        get() = channel != null
+        get() = connection?.isActive == true
 
     suspend fun start(
         scope: CoroutineScope,
         deviceId: String,
         accountId: String?,
         onSyncRequired: () -> Unit,
-    ) {
-        stop()
-        val client = clientProvider() ?: return
+    ) = mutex.withLock {
+        if (connection?.isActive == true && this.deviceId == deviceId && this.accountId == accountId) {
+            return@withLock
+        }
+
+        stopLocked()
+
+        val client = clientProvider() ?: return@withLock
         runCatching { client.auth.awaitInitialization() }
         val session = client.auth.currentSessionOrNull()
         if (session == null || session.expiresAt <= kotlin.time.Clock.System.now()) {
             // Reconcile/heartbeat still runs without Realtime. Never subscribe with an expired
             // or missing session; the SDK's reconnect path must not run without a valid socket.
             Log.w(TAG, "Realtime skipped: no valid authenticated session")
-            return
+            return@withLock
         }
 
-        val newChannel = client.channel(CHANNEL_TOPIC)
+        this.deviceId = deviceId
+        this.accountId = accountId
+        connection = scope.launch {
+            runConnectionLoop(client, deviceId, accountId, onSyncRequired)
+        }
+    }
 
-        val commandsFlow = newChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
+    private suspend fun runConnectionLoop(
+        client: SupabaseClient,
+        deviceId: String,
+        accountId: String?,
+        onSyncRequired: () -> Unit,
+    ) {
+        while (currentCoroutineContext().isActive) {
+            val session = runCatching { client.auth.currentSessionOrNull() }.getOrNull()
+            if (session == null || session.expiresAt <= kotlin.time.Clock.System.now()) {
+                Log.w(TAG, "Realtime paused: no valid authenticated session")
+                delay(RECONNECT_DELAY_MS)
+                continue
+            }
+
+            try {
+                connectOnce(client, deviceId, accountId, onSyncRequired)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Realtime connection lost; retrying", e)
+            }
+            delay(RECONNECT_DELAY_MS)
+        }
+    }
+
+    private suspend fun connectOnce(
+        client: SupabaseClient,
+        deviceId: String,
+        accountId: String?,
+        onSyncRequired: () -> Unit,
+    ) = coroutineScope {
+        val topic = "$CHANNEL_TOPIC:$deviceId:${++generation}"
+        val channel = client.channel(topic)
+        currentChannel = channel
+
+        val commandsFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
             table = "device_commands"
             filter("device_id", FilterOperator.EQ, deviceId)
         }
-        collectJobs += scope.launch {
-            commandsFlow.collect { onSyncRequired() }
-        }
-
-        if (accountId != null) {
-            val settingsFlow = newChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
+        val settingsFlow = accountId?.let { account ->
+            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
                 table = "account_settings"
-                filter("account_id", FilterOperator.EQ, accountId)
-            }
-            collectJobs += scope.launch {
-                settingsFlow.collect { onSyncRequired() }
+                filter("account_id", FilterOperator.EQ, account)
             }
         }
-
-        val deviceSettingsFlow = newChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
+        val deviceSettingsFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
             table = "device_settings"
             filter("device_id", FilterOperator.EQ, deviceId)
         }
-        collectJobs += scope.launch {
-            deviceSettingsFlow.collect { onSyncRequired() }
-        }
 
-        collectJobs += scope.launch {
-            newChannel.status.collect { status ->
-                if (status == RealtimeChannel.Status.SUBSCRIBED) onSyncRequired()
+        try {
+            withTimeout(SUBSCRIBE_TIMEOUT_MS) {
+                channel.subscribe(blockUntilSubscribed = true)
             }
-        }
+            Log.i(TAG, "Realtime channel joined")
+            onSyncRequired()
 
-        runCatching { newChannel.subscribe() }
-            .onSuccess {
-                channel = newChannel
-                Log.i(TAG, "Realtime channel joined")
+            val collectors = listOfNotNull(
+                launch { commandsFlow.collect { onSyncRequired() } },
+                settingsFlow?.let { flow ->
+                    launch { flow.collect { onSyncRequired() } }
+                },
+                launch { deviceSettingsFlow.collect { onSyncRequired() } },
+            )
+            try {
+                channel.status.first { it == RealtimeChannel.Status.UNSUBSCRIBED }
+            } finally {
+                collectors.forEach { it.cancel() }
             }
-            .onFailure {
-                Log.w(TAG, "Realtime subscribe failed; heartbeat remains active", it)
-                runCatching { client.realtime.removeChannel(newChannel) }
-            }
+        } finally {
+            if (currentChannel === channel) currentChannel = null
+            runCatching { client.realtime.removeChannel(channel) }
+            Log.i(TAG, "Realtime channel removed")
+        }
     }
 
-    suspend fun stop() {
-        collectJobs.forEach { it.cancel() }
-        collectJobs.clear()
-        val current = channel ?: return
-        channel = null
-        val client = clientProvider() ?: return
-        runCatching { client.realtime.removeChannel(current) }
-        Log.i(TAG, "Realtime channel removed")
+    suspend fun stop() = mutex.withLock {
+        stopLocked()
+    }
+
+    private suspend fun stopLocked() {
+        val active = connection
+        connection = null
+        deviceId = null
+        accountId = null
+        active?.cancelAndJoin()
+
+        val channel = currentChannel
+        currentChannel = null
+        if (channel != null) {
+            clientProvider()?.let { client ->
+                runCatching { client.realtime.removeChannel(channel) }
+            }
+        }
     }
 }
