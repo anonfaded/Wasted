@@ -84,15 +84,12 @@ The dashboard package is generated **by the app**, already configured with your 
 1. In the app: **Remote Management → Open setup wizard**.
 2. Create a free Supabase project, then paste its **Project URL** and **publishable key** into the wizard.
 3. In Supabase, open **SQL Editor**, run the setup SQL copied from the wizard, then under **Authentication → Providers** enable **anonymous sign-ins**, keep the **Email provider ON**, and turn **Confirm email OFF**. Enable **Authentication → Hooks → Before User Created** with Hook type **Postgres**, Postgres schema **public**, and Postgres function **`hook_single_owner_signup`**; click Save. Anonymous sign-ins give each device its own private identity; the first email/password account becomes the owner and later email accounts are rejected. If you do not want Remote Management, you can leave anonymous sign-ins off; the rest of the app and the dashboard still work, but devices cannot enroll or sync. Under **Authentication → Rate Limits**, set anonymous sign-ins to 10/hour/IP and sign-in/sign-up to 10 per 5 minutes/IP (or verify your chosen values). CAPTCHA is optional.
-4. In the wizard, use **Save deployable package (.zip)**. It contains `index.html`,
+4. In the wizard, use **Save dashboard ZIP**. It contains `index.html`,
    `manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. The package installs as a standalone
-   app and provides the offline app shell on supported browsers. Use **Download index.html only**
-   only when the host cannot accept the ZIP; that loses the manifest, service worker, icons, and
-   installability.
-5. In Netlify, sign in and create one project: **Add new project → Deploy manually**, then upload
-   the ZIP. Copy the project’s HTTPS URL. If the project starts private, make it public.
-   No Supabase Auth URL configuration is needed for owner signup. Alternatives: Cloudflare Pages
-   direct upload, GitHub Pages, Vercel, any HTTPS static host.
+   app and provides the offline app shell on supported browsers.
+5. Open **Netlify Drop**, sign in if asked, and drop the ZIP. Copy the site’s HTTPS URL. If the
+   site starts private, make it public.
+   No Supabase Auth URL configuration is needed for owner signup.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app. The account name is
    saved to Supabase and appears on every browser; change it under **Account**.

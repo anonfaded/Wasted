@@ -5,16 +5,15 @@ plus the web app manifest, service worker, and icons. It contains only the proje
 publishable key and talks directly to Supabase over HTTPS/WSS. There is no dashboard server,
 database credential, or CDN dependency.
 
-## Steps (Netlify project — recommended)
+## Steps (Netlify Drop — supported)
 
 1. In the app: **Remote Management → Open setup wizard** → enter project URL + publishable key.
-2. Tap **Save deployable package (.zip)**. It contains `index.html`, `manifest.webmanifest`, `sw.js`,
-   `icons/`, and `_headers`; deploy all of it. The package provides installable PWA support and the
-   offline app shell. The single HTML file alone loses the manifest, icons, service worker, and
-   installability, and cannot send `frame-ancestors`/`X-Frame-Options`.
-   Netlify requires an `index.html` home page; a differently named file shows “page not found.”
-3. Sign in to <https://app.netlify.com/> and choose **Add new project → Deploy manually**. Upload the
-   ZIP. This creates one project in your team.
+2. Tap **Save dashboard ZIP**. It contains `index.html`, `manifest.webmanifest`, `sw.js`,
+   `icons/`, and `_headers`; deploy all of it. It provides installable PWA support and the offline
+   app shell. Netlify requires an `index.html` home page; a differently named file shows “page not
+   found.”
+3. Open <https://app.netlify.com/drop>, sign in if asked, and drag the ZIP onto the drop zone. This
+   creates one site in your team.
 4. Confirm the project appears, make it public if it is private by default, and copy its final HTTPS
    URL.
 5. Open the URL, create your account, then enter it in the app and enable Remote Management.
@@ -28,14 +27,7 @@ and test again; an old URL stops working, but the device enrollment remains vali
 **HTTP 401/403 after a dashboard test** usually means the Netlify project is private or
 password-protected. Make it public (or disable password protection), then test again.
 
-## Alternatives
-
-- **Cloudflare Pages** — Create project → direct upload → drop the extracted package.
-- **GitHub Pages** — publish the extracted package from a `docs/` folder or an Actions workflow.
-- **Vercel** — `vercel deploy --prod` from a folder containing the extracted package.
-- Any HTTPS static host (S3 + CloudFront, nginx, Caddy, …).
-
-No CORS setup is needed (password sign-in only). Signup is direct and does not send email, so no
+No CORS setup is needed (password sign-in only). Use the Netlify Drop upload path described above. Signup is direct and does not send email, so no
 No Auth Site URL or Redirect URL is required for owner signup. HTTPS is still required.
 
 ## Updating the dashboard
@@ -52,7 +44,7 @@ up Supabase before schema updates; see [updates.md](./updates.md).
 
 ## Anti-framing and response headers
 
-A meta CSP cannot set `frame-ancestors`, so the single HTML file alone cannot prevent framing.
+A meta CSP cannot set `frame-ancestors`, so the host must send the framing policy.
 Production hosting must send:
 
 - `Content-Security-Policy: …; frame-ancestors 'none'`
@@ -60,9 +52,8 @@ Production hosting must send:
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: no-referrer`
 
-The repository provides `web/_headers` for hosts that support `_headers` files (Netlify, Cloudflare
-Pages): deploy the package containing `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, and
-`_headers`, or configure the equivalent headers in the host. The page also includes a frame-busting
+The repository provides `web/_headers` for Netlify: deploy the package containing `index.html`,
+`manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. The page also includes a frame-busting
 fallback, but it is defense-in-depth only.
 
 ## CSP and custom domains

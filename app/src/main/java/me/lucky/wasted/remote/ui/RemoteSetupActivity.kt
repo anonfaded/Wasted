@@ -38,8 +38,7 @@ import java.util.zip.ZipOutputStream
 
 /**
  * Guided, offline setup: choose a path, collect the project URL/key, provide the database SQL
- * and Auth checklist, generate the dashboard package (or single-file fallback), and optionally save
- * its hosted URL.
+ * and Auth checklist, generate the Netlify-ready dashboard ZIP, and optionally save its hosted URL.
  */
 class RemoteSetupActivity : AppCompatActivity() {
     private companion object {
@@ -57,11 +56,6 @@ class RemoteSetupActivity : AppCompatActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private var currentStep = STEP_CHOICE
-
-    private val createDocument =
-        registerForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri ->
-            if (uri != null) writeDashboard(uri)
-        }
 
     private val createPackage =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -119,13 +113,10 @@ class RemoteSetupActivity : AppCompatActivity() {
         binding.openSqlEditor.setOnClickListener { openProjectPage("sql/new") }
         binding.openAuthSettings.setOnClickListener { openProjectPage("auth/providers") }
         binding.openAuthHooks.setOnClickListener { openProjectPage("auth/hooks") }
-        binding.generateDashboard.setOnClickListener {
-            if (saveDetails()) createDocument.launch("index.html")
-        }
         binding.generateDashboardPackage.setOnClickListener {
             if (saveDetails()) createPackage.launch("wasted-dashboard.zip")
         }
-        binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/") }
+        binding.openNetlify.setOnClickListener { openUrl("https://app.netlify.com/drop") }
         binding.skipToDashboard.setOnClickListener {
             if (saveDetails()) showStep(STEP_DASHBOARD)
         }
@@ -325,38 +316,6 @@ class RemoteSetupActivity : AppCompatActivity() {
             .onFailure { snackbar("No browser available.") }
     }
 
-    private fun writeDashboard(uri: Uri) {
-        val draft = configStore.loadDraft() ?: run {
-            snackbar("Save valid project details first.")
-            return
-        }
-        val version = appVersion()
-
-        binding.dashboardGeneratedStatus.text = "Saving dashboard file…"
-        scope.launch {
-            val saved = withContext(Dispatchers.IO) {
-                runCatching {
-                    val html = renderDashboardHtml(draft.projectUrl, draft.publishableKey, version)
-                    contentResolver.openOutputStream(uri)?.use { stream ->
-                        stream.write(html.toByteArray(Charsets.UTF_8))
-                    } ?: error("no output stream")
-                }.isSuccess
-            }
-            binding.dashboardGeneratedStatus.text = if (saved) {
-                "Dashboard HTML saved. PWA install, icons, and offline shell are unavailable in this single-file export."
-            } else {
-                "Could not save the dashboard file. Try again."
-            }
-            snackbar(
-                if (saved) {
-                    "Dashboard saved without PWA assets. Use the ZIP for install and offline support."
-                } else {
-                    "Could not save the dashboard file."
-                },
-            )
-        }
-    }
-
     private fun writeDashboardPackage(uri: Uri) {
         val draft = configStore.loadDraft() ?: run {
             snackbar("Save valid project details first.")
@@ -364,7 +323,7 @@ class RemoteSetupActivity : AppCompatActivity() {
         }
         val version = appVersion()
 
-        binding.dashboardGeneratedStatus.text = "Saving deployable package…"
+        binding.dashboardGeneratedStatus.text = "Saving dashboard ZIP…"
         scope.launch {
             val saved = withContext(Dispatchers.IO) {
                 runCatching {
@@ -404,15 +363,15 @@ class RemoteSetupActivity : AppCompatActivity() {
                 }.isSuccess
             }
             binding.dashboardGeneratedStatus.text = if (saved) {
-                "Deployable package saved. Upload its contents to the same host/site."
+                "Dashboard ZIP saved. Upload it to Netlify Drop."
             } else {
-                "Could not save the deployable package. Try again."
+                "Could not save the dashboard ZIP. Try again."
             }
             snackbar(
                 if (saved) {
-                    "Package saved with the dashboard, manifest, service worker, icons, and headers."
+                    "ZIP saved with the dashboard, manifest, service worker, icons, and headers."
                 } else {
-                    "Could not save the deployable package."
+                    "Could not save the dashboard ZIP."
                 },
             )
         }

@@ -101,7 +101,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:text="Create the Supabase database, Authentication settings, and dashboard package. Choose this even if you only need to generate and download the dashboard HTML file."
+                            android:text="Create the Supabase database, Authentication settings, and a Netlify-ready dashboard ZIP."
                             android:textAppearance="?attr/textAppearanceBodySmall" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -221,12 +221,12 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Skip to dashboard export" />
+                    android:text="Skip to dashboard ZIP" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Use this if you already have the Project URL and publishable key and only want the dashboard HTML file. You can finish the SQL and Auth steps later."
+                    android:text="Use this if you already have the Project URL and publishable key and only want the dashboard ZIP. You can finish the SQL and Auth steps later."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
             </LinearLayout>
         </ScrollView>
@@ -349,14 +349,14 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="4. Save the dashboard package"
+                    android:text="4. Save the dashboard ZIP"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="The app builds the dashboard from the Project URL and publishable key you saved. Tap Save deployable package (.zip). It contains index.html, manifest.webmanifest, sw.js, icons, and _headers. This package supports install-to-home-screen, standalone app mode, and the offline app shell on supported browsers. Use it for Netlify, Cloudflare Pages, GitHub Pages, or Vercel.\n\nThis is the website you host; it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
+                    android:text="The app builds the dashboard from the Project URL and publishable key you saved. Tap Save dashboard ZIP. It contains index.html, manifest.webmanifest, sw.js, icons, and _headers.\n\nThis is the website you host; it is not the Supabase dashboard. It contains only your public publishable key, never a secret key."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -364,22 +364,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Save deployable package (.zip)" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/generateDashboard"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Download index.html only" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Use the single file only if your host cannot accept the ZIP. It loses the web app manifest, service worker, icons, installability, and offline shell. The ZIP is required for PWA install."
-                    android:textAppearance="?attr/textAppearanceBodySmall" />
+                    android:text="Save dashboard ZIP" />
 
                 <TextView
                     android:id="@+id/dashboardGeneratedStatus"
@@ -406,14 +391,14 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="5. Create the Netlify project"
+                    android:text="5. Upload to Netlify Drop"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Sign in to Netlify and open your team dashboard. Choose Add new project → Deploy manually, then upload the ZIP. The project is created immediately; copy its site URL.\n\nUpdating later: open the project → project menu → Deploys → drop zone, and upload the new ZIP. Do not create another project, or the URL changes."
+                    android:text="Open Netlify Drop, sign in if asked, and drop the ZIP. Netlify creates the site immediately; copy its site URL.\n\nUpdating later: upload the new ZIP to the same site. Do not create another site, or the URL changes."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
@@ -421,13 +406,13 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Open Netlify dashboard" />
+                    android:text="Open Netlify Drop" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="If the new project is private, make it public so the dashboard URL opens. If you cannot find it, check the team selector in Netlify. Then copy the final https://… URL into the field above."
+                    android:text="If the new site is private, make it public so the dashboard URL opens. Then copy the final https://… URL into the field above."
                     android:textAppearance="?attr/textAppearanceBodySmall" />
 
                 <com.google.android.material.textfield.TextInputLayout

@@ -16,7 +16,7 @@ remains a future option if per-user maintenance is unacceptable.
 **Context:** Users should not edit HTML or use a terminal.
 **Decision:** The app bundles a dashboard template (HTML shell plus PWA assets); the setup wizard
 injects the project URL + publishable key and exports the configured package via Android SAF. Users
-host it themselves. A single-file export remains available as a fallback.
+host it themselves through Netlify Drop. The app exports one dashboard ZIP format.
 **Consequences:** No file editing, no shared URL, works offline. The package contains the public
 publishable key (not a secret). Changing keys requires regenerating/re-uploading. A runtime
 connection form was considered and rejected by the client.
@@ -105,9 +105,8 @@ legacy APIs unless needed.
 
 **Context:** Users must host a static dashboard package easily, and later updates must keep the
 same URL.
-**Decision:** Recommend one signed-in Netlify project: **Add new project → Deploy manually**, upload
-the ZIP, and update the same project through **Deploys**. Document Cloudflare Pages, GitHub Pages,
-Vercel, and generic static hosts.
+**Decision:** Support one Netlify Drop site: drop the ZIP, sign in if asked, and update the same
+site later. Netlify Drop is the only supported dashboard hosting path.
 **Consequences:** The project appears immediately in the user's team and has no anonymous claim or
 one-hour expiry. Updates reuse the same URL; creating a new project changes it.
 
@@ -139,11 +138,10 @@ remain required in the release gate.
 
 ## ADR-16 — Anti-framing requires host headers
 
-**Context:** Meta CSP cannot set `frame-ancestors`; a single HTML file cannot prevent framing.
+**Context:** Meta CSP cannot set `frame-ancestors`; a page without host headers cannot prevent framing.
 **Decision:** Production hosting must send framing headers; the repo ships `web/_headers` for
-header-capable hosts, plus a frame-busting fallback in the page.
-**Consequences:** A lone `index.html` is insufficient for strict framing; upload the ZIP with
-`_headers` to the Netlify project or configure the host. This is documented as a deployment
+Netlify, plus a frame-busting fallback in the page.
+**Consequences:** Upload the ZIP with `_headers` to Netlify. This is documented as a deployment
 constraint.
 
 ## ADR-17 — Notifications follow meaningful events, not heartbeats

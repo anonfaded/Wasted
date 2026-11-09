@@ -6,8 +6,7 @@ Use this for a new installation. For upgrades, see [updates.md](./updates.md).
 
 - The Wasted app (v3.0.0+) installed.
 - A free Supabase account.
-- A place to host the static dashboard package over HTTPS (Netlify is the simplest; a single-file
-  export exists but loses PWA/offline support).
+- A Netlify account to host the static dashboard ZIP over HTTPS.
 
 ## Accounts vs devices
 
@@ -66,16 +65,12 @@ Do not run `setup.sql` twice and do not mix it with `supabase db push` on the sa
 
 1. In the app: **Remote Management → Open setup wizard**.
 2. Paste the Project URL and publishable key → **Continue**.
-3. **Save deployable package (.zip)** — the app suggests `wasted-dashboard.zip`; it contains
-   `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. Use this package for
-   Netlify, Cloudflare Pages, GitHub Pages, or Vercel. It installs as a standalone app and provides
-   an offline app shell on supported browsers. Use **Download index.html only** only when the host
-   cannot accept the ZIP; that loses installability and offline support.
-4. In Netlify, sign in and create one project: **Add new project → Deploy manually**, then upload the
-   ZIP. Confirm the project appears in your team and copy its final `https://…` URL. If it starts
-   private, make it public. To update later, open the same project → project menu → **Deploys**,
-   use the deploy drop zone, and upload the new ZIP; do not create another project. Alternatives:
-   Cloudflare Pages, GitHub Pages, Vercel, any HTTPS static host.
+3. **Save dashboard ZIP** — the app suggests `wasted-dashboard.zip`; it contains
+   `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, and `_headers`. It installs as a
+   standalone app and provides an offline app shell on supported browsers.
+4. Open **Netlify Drop**, sign in if asked, and drop the ZIP. Confirm the site appears and copy its
+   final `https://…` URL. If it starts private, make it public. To update later, upload the new ZIP
+   to the same Netlify site; do not create another site.
 
 The file contains only the project URL + publishable key. It is not a secret, but anyone who can
 open the URL can attempt to create an account; RLS protects the data.

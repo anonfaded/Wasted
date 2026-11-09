@@ -19,14 +19,14 @@ Android app ── HTTPS/WSS ──► Supabase (Auth / PostgREST / Realtime)
      │ bundled dashboard template   │ owner signs in from browser
      └─ setup wizard ── SAF export ─┘
             │
-            └─ user hosts the package (Netlify project etc.)
+            └─ user hosts the package (Netlify Drop)
 ```
 
 | Component | Responsibility |
 | --- | --- |
 | `app/src/main/java/me/lucky/wasted/remote/` | Config, session, sync, command processing, realtime, recovery, UI |
 | `app/src/main/java/me/lucky/wasted/admin/ResetExecutor.kt` | Only destructive boundary; Debug Mode re-check |
-| `web/` | Dashboard sources; build emits a multi-file PWA package (single-file fallback) |
+| `web/` | Dashboard sources; build emits a multi-file PWA package |
 | `supabase/migrations/` | Immutable ordered schema history |
 | `supabase/releases/` | Generated per-release SQL (setup, updates, verify, manifest) |
 | `supabase/tests/` | SQL suites for schema/RLS/RPC/concurrency |

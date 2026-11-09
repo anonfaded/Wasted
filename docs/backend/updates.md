@@ -90,7 +90,7 @@ device locally and never retry a wipe blindly.
 ## Rollback
 
 - **App:** reinstall the previous APK (compatible with the additive schema).
-- **Dashboard:** re-upload the previous package (or single-file export).
+- **Dashboard:** re-upload the previous ZIP.
 - **Database:** restore the backup; do not attempt ad-hoc down-migrations.
 - **Remote off:** disable Remote Management locally to stop sync without touching local behavior;
   the device stays enrolled, so re-enabling resumes sync. Use Reset enrollment to remove the local
