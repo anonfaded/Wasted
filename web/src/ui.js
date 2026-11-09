@@ -52,6 +52,29 @@ export async function copyText(value) {
 
 const busyLabels = new WeakMap();
 
+/**
+ * Dialog forms default to implicit submission through their first submit button, which is
+ * Cancel. Make Enter run the intended primary action instead and never close with lost input.
+ */
+export function wireDialogEnterKeys() {
+  for (const dialog of document.querySelectorAll("dialog")) {
+    const form = dialog.querySelector('form[method="dialog"]');
+    if (!form) continue;
+    form.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.isComposing || event.keyCode === 229) return;
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (["checkbox", "radio", "hidden", "file", "button", "submit", "reset"].includes(target.type)) {
+        return;
+      }
+      const primary = form.querySelector('button[value="ok"]');
+      if (!primary) return;
+      event.preventDefault();
+      if (!primary.disabled) primary.click();
+    });
+  }
+}
+
 export function setBusy(button, busy, busyLabel = "Working…") {
   if (!button) return;
   const label = button.querySelector(".button-label") ?? button;

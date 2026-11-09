@@ -18,7 +18,16 @@ import {
   formatDateTime,
   formatMinutes,
 } from "./timers.js";
-import { $, toast, setBusy, confirmAction, showMessage, clearMessage, copyText } from "./ui.js";
+import {
+  $,
+  toast,
+  setBusy,
+  confirmAction,
+  showMessage,
+  clearMessage,
+  copyText,
+  wireDialogEnterKeys,
+} from "./ui.js";
 import { actionUnavailableMessage, isReachabilityError, retryDelayMs } from "./connection.js";
 import { installRipple } from "./ripple.js";
 
@@ -83,6 +92,7 @@ async function boot(cfg) {
   wireDashboardTabs();
   wireSignOut();
   wireHeaderMenu();
+  wireDialogEnterKeys();
   installRipple();
   onAuthChange(state.client, (session, event) => {
     if (event === "SIGNED_OUT" && state.session && !state.explicitSignOut) {
