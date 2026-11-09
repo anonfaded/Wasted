@@ -527,18 +527,6 @@ button.small {
 .timer-inactive { color: var(--muted); }
 .status-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
 
-.device-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.35rem;
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-}
-.device-select input { accent-color: var(--ink); }
 .device-card .device-id {
   font-family: var(--mono);
   font-size: 0.7rem;
@@ -1131,6 +1119,40 @@ main { max-width: 1180px; }
 .target-picker label { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; }
 .target-picker input { accent-color: var(--ink); }
 .target-picker #target-summary { margin-left: auto; }
+.target-device-list {
+  display: grid;
+  flex: 1 0 100%;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 0.4rem;
+}
+.target-device-list[hidden] { display: none; }
+.target-device-option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface);
+}
+.target-device-option:hover { border-color: var(--ink); }
+.target-device-option:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--surface-raised);
+}
+.target-device-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.target-device-option .status-badge {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.58rem;
+}
 
 .inherit-label {
   display: inline-flex;

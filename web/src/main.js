@@ -562,14 +562,6 @@ function renderDevices() {
       text: timerText(status, now),
     });
     const lastContactEl = el("dd", { text: formatLastContact(status, now) });
-    const selectInput = el("input", {
-      attrs: {
-        type: "checkbox",
-        "data-device-select": device.id,
-        "aria-label": `Select ${device.name || "this device"} for commands`,
-      },
-    });
-    selectInput.checked = state.selectedDeviceIds.has(device.id);
 
     const card = el("article", { className: "device-card" }, [
       el("div", { className: "device-card-head" }, [
@@ -580,10 +572,6 @@ function renderDevices() {
       ]),
       el("p", { className: "device-id", text: `ID ${device.id}` }),
       el("div", { className: "device-actions" }, [
-        el("label", { className: "device-select" }, [
-          selectInput,
-          el("span", { text: "Select" }),
-        ]),
         el("button", {
           className: "small",
           text: "Settings",
@@ -769,8 +757,43 @@ function commandTargets() {
   };
 }
 
+function renderTargetDeviceList(devices) {
+  const container = $("#target-device-list");
+  if (!container) return;
+  container.replaceChildren();
+  container.hidden = state.targetScope === "all";
+  if (state.targetScope === "all") return;
+  if (!devices.length) {
+    container.append(el("p", { className: "hint", text: "No enrolled devices to select." }));
+    return;
+  }
+
+  const now = Date.now();
+  for (const device of devices) {
+    const status = state.data.statusByDevice.get(device.id);
+    const fresh = isRecentlyConnected(status, now);
+    const input = el("input", {
+      attrs: {
+        type: "checkbox",
+        "data-device-select": device.id,
+        "aria-label": `Select ${device.name || "this device"} for commands`,
+      },
+    });
+    input.checked = state.selectedDeviceIds.has(device.id);
+    input.disabled = !state.online;
+    container.append(
+      el("label", { className: "target-device-option" }, [
+        input,
+        el("span", { className: "target-device-name", text: device.name || "Unnamed device" }),
+        statusBadge(fresh ? "Active" : "Inactive", fresh ? "active" : "inactive"),
+      ]),
+    );
+  }
+}
+
 function renderCommandScope(devices) {
   const selected = devices.filter((device) => state.selectedDeviceIds.has(device.id));
+  renderTargetDeviceList(devices);
   const scope = $("#action-scope");
   if (scope) {
     scope.textContent = state.targetScope === "all"
@@ -779,10 +802,14 @@ function renderCommandScope(devices) {
         ? `Applies to ${selected.length} selected device(s): ${selected
             .map((device) => device.name || "Unnamed device")
             .join(", ")}.`
-        : "Select one or more devices on the cards below, or choose All enrolled devices.";
+        : "Select devices above, or choose All enrolled devices.";
   }
   const summary = $("#target-summary");
-  if (summary) summary.textContent = `${selected.length} selected`;
+  if (summary) {
+    summary.textContent = state.targetScope === "all"
+      ? `${devices.length} devices`
+      : `${selected.length} of ${devices.length} selected`;
+  }
   const canTarget = state.online && devices.length > 0 &&
     (state.targetScope === "all" || selected.length > 0);
   for (const selector of ["#lock-devices", "#reset-timer", "#force-reset"]) {
@@ -1366,14 +1393,15 @@ function wireDashboard() {
   }
   wireDeviceSettingsFields();
 
-  $("#devices").addEventListener("change", (event) => {
+  $("#target-device-list").addEventListener("change", (event) => {
     const select = event.target.closest("input[data-device-select]");
-    if (select) {
-      if (select.checked) state.selectedDeviceIds.add(select.dataset.deviceSelect);
-      else state.selectedDeviceIds.delete(select.dataset.deviceSelect);
-      renderCommandScope(state.data.devices);
-      return;
-    }
+    if (!select) return;
+    if (select.checked) state.selectedDeviceIds.add(select.dataset.deviceSelect);
+    else state.selectedDeviceIds.delete(select.dataset.deviceSelect);
+    renderCommandScope(state.data.devices);
+  });
+
+  $("#devices").addEventListener("change", (event) => {
     const debug = event.target.closest("input[data-debug-device]");
     if (!debug) return;
     toggleDebugMode(debug.dataset.debugDevice, debug.checked, debug);
