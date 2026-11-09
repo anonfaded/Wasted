@@ -2,6 +2,9 @@ package me.lucky.wasted.remote.domain
 
 import android.util.Log
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
 import me.lucky.wasted.admin.ResetResult
 import me.lucky.wasted.remote.data.RemoteCommandDao
 import me.lucky.wasted.remote.data.RemoteCommandJournalEntity
@@ -44,13 +47,15 @@ class RemoteCommandProcessor(
         private const val TYPE_LOCK = "lock_now"
         private const val TYPE_DEBUG_ON = "debug_mode_on"
         private const val TYPE_DEBUG_OFF = "debug_mode_off"
+
+        private val processMutex = Mutex()
     }
 
     data class ProcessOutcome(val processed: Int, val failed: Int)
 
-    suspend fun processPending(): ProcessOutcome {
+    suspend fun processPending(): ProcessOutcome = processMutex.withLock {
         val deviceId = credentials.deviceId
-        if (!credentials.enrolled || deviceId == null) return ProcessOutcome(0, 0)
+        if (!credentials.enrolled || deviceId == null) return@withLock ProcessOutcome(0, 0)
 
         recoverInterrupted(deviceId)
 
@@ -60,7 +65,7 @@ class RemoteCommandProcessor(
         for (row in pending.sortedBy { it.receivedAt }) {
             if (processOne(deviceId, row)) processed++ else failed++
         }
-        return ProcessOutcome(processed, failed)
+        ProcessOutcome(processed, failed)
     }
 
     /** Force Reset rows interrupted before `reset_initiated` are never resumed destructively. */

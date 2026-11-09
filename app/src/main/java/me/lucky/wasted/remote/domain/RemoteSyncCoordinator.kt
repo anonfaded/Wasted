@@ -6,6 +6,7 @@ import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 
 import me.lucky.wasted.remote.data.RemoteCommandDao
@@ -42,6 +43,7 @@ class RemoteSyncCoordinator(
         private const val KIND_TRANSITION = "transition"
         private const val SYNC_RESTORED_GAP_MS = 5 * 60_000L
         private val json = Json { encodeDefaults = true }
+        private val reconcileMutex = Mutex()
     }
 
     private val mutex = Mutex()
@@ -156,7 +158,10 @@ class RemoteSyncCoordinator(
         }
     }
 
-    private suspend fun runReconcile(deviceId: String): SyncOutcome {
+    private suspend fun runReconcile(deviceId: String): SyncOutcome =
+        reconcileMutex.withLock { runReconcileLocked(deviceId) }
+
+    private suspend fun runReconcileLocked(deviceId: String): SyncOutcome {
         drainOutbox()
 
         val previousLastSync = credentials.lastSyncAt

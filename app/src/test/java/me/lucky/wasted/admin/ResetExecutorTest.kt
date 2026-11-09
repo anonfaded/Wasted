@@ -1,5 +1,10 @@
 package me.lucky.wasted.admin
 
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+import kotlin.concurrent.thread
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -75,5 +80,33 @@ class ResetExecutorTest {
         assertTrue(result is ResetResult.Failed)
         assertTrue((result as ResetResult.Failed).message.contains("system user"))
         assertEquals(1, port.wipeCalls)
+    }
+
+    @Test
+    fun `concurrent reset is rejected without a second wipe`() {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val slowPort = object : ResetPort {
+            override fun getResetSupport() = DeviceAdminManager.ResetSupport(
+                isSupported = true,
+                userMessage = "supported",
+            )
+
+            override fun wipeData() {
+                started.countDown()
+                release.await()
+            }
+        }
+        val first = thread { executor({ false }, slowPort).execute() }
+        try {
+            assertTrue(started.await(2, TimeUnit.SECONDS))
+            val secondPort = FakeResetPort()
+            val result = executor({ false }, secondPort).execute()
+            assertTrue(result is ResetResult.Failed)
+            assertEquals(0, secondPort.wipeCalls)
+        } finally {
+            release.countDown()
+            first.join(2_000)
+        }
     }
 }

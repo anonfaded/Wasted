@@ -2,6 +2,9 @@ package me.lucky.wasted.admin
 
 import android.content.Context
 import android.util.Log
+
+import java.util.concurrent.locks.ReentrantLock
+
 import me.lucky.wasted.Preferences
 
 sealed class ResetResult {
@@ -36,6 +39,7 @@ class ResetExecutor(
         private const val TAG = "ResetExecutor"
         private const val DEBUG_BLOCKED_MESSAGE =
             "Debug Mode is ON — device reset was not executed"
+        private val executionLock = ReentrantLock()
 
         fun create(ctx: Context) = ResetExecutor(
             isDebugModeOn = { Preferences.new(ctx).isDebugMode },
@@ -44,6 +48,18 @@ class ResetExecutor(
     }
 
     fun execute(): ResetResult {
+        if (!executionLock.tryLock()) {
+            Log.w(TAG, "Another reset request is already executing; ignoring duplicate")
+            return ResetResult.Failed("A device reset is already in progress")
+        }
+        try {
+            return executeLocked()
+        } finally {
+            executionLock.unlock()
+        }
+    }
+
+    private fun executeLocked(): ResetResult {
         if (readDebugMode()) {
             Log.i(TAG, "Debug Mode ON — reset blocked, zero destructive calls")
             return ResetResult.DebugBlocked(DEBUG_BLOCKED_MESSAGE)
