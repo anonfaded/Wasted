@@ -1165,6 +1165,66 @@ main { max-width: 1180px; }
 }
 .inherit-label input { accent-color: var(--ink); }
 
+.command-progress {
+  margin: 0.8rem 0 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--info);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--info-bg) 55%, var(--surface-raised));
+}
+.command-progress[data-tone="success"] {
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success-bg) 55%, var(--surface-raised));
+}
+.command-progress[data-tone="warning"] {
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning-bg) 55%, var(--surface-raised));
+}
+.command-progress[data-tone="danger"] {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger-bg) 55%, var(--surface-raised));
+}
+.command-progress-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+.command-progress-head h3 { margin: 0.15rem 0 0.2rem; }
+.command-progress-head .muted { margin: 0; }
+.command-progress-side {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+.command-progress-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.command-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+.command-progress-row:first-child { border-top: 0; padding-top: 0; }
+.command-progress-row .status-line { margin: 0; }
+.command-progress-device { font-weight: 600; }
+.command-progress-time { font-family: var(--mono); font-size: 0.76rem; }
+@media (max-width: 640px) {
+  .command-progress-head { flex-direction: column; }
+  .command-progress-side { justify-content: flex-start; }
+}
+
 .command-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

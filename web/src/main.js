@@ -51,6 +51,8 @@ const state = {
   lastDeviceCount: null,
   tokenTimer: null,
   liveTimers: [],
+  commandProgress: null,
+  commandProgressTimer: null,
   targetScope: "selected",
   selectedDeviceIds: new Set(),
   data: {
@@ -248,6 +250,7 @@ function renderAuthState() {
     state.cacheSavedAt = 0;
     state.refreshFailures = 0;
     state.lastDeviceCount = null;
+    clearCommandProgress();
     state.data = {
       devices: [],
       statusByDevice: new Map(),
@@ -312,6 +315,7 @@ async function refreshDashboard() {
       setDashboardOnline(true);
       renderSettings();
       renderDevices();
+      if (state.commandProgress) void refreshCommandProgress();
       subscribeRealtime(state.session.user.id);
       $("#offline-banner").hidden = true;
     } catch (error) {
@@ -944,6 +948,45 @@ const STATE_LABELS = {
   expired: "expired",
 };
 
+const PROGRESS_STATE_LABELS = {
+  sending: "sending",
+  waiting: "waiting for device",
+  not_sent: "not sent",
+  queued: "queued",
+  received: "received",
+  executing: "executing",
+  applied: "applied",
+  reset_initiated: "reset initiated",
+  debug_blocked: "blocked",
+  rejected: "rejected",
+  failed: "failed",
+  expired: "expired",
+};
+
+const PROGRESS_TERMINAL_STATES = new Set([
+  "applied",
+  "reset_initiated",
+  "debug_blocked",
+  "rejected",
+  "failed",
+  "expired",
+]);
+
+const PROGRESS_STATE_TONES = {
+  sending: "pending",
+  waiting: "unknown",
+  not_sent: "danger",
+  queued: "queued",
+  received: "received",
+  executing: "executing",
+  applied: "success",
+  reset_initiated: "warning",
+  debug_blocked: "warning",
+  rejected: "danger",
+  failed: "danger",
+  expired: "danger",
+};
+
 function fieldTerm(label, info) {
   return el("dt", {}, [
     el("span", { text: label }),
@@ -978,6 +1021,241 @@ function describeCommandNode(command) {
     statusBadge(state, tone),
     el("span", { className: "muted", text: `${result} · ${timestamp}` }),
   ]);
+}
+
+function beginCommandProgress(label, deviceIds) {
+  clearTimeout(state.commandProgressTimer);
+  state.commandProgressTimer = null;
+  const names = new Map(
+    state.data.devices.map((device) => [
+      device.id,
+      device.name || "Unnamed device",
+    ]),
+  );
+  state.commandProgress = {
+    label,
+    actionId: null,
+    targets: [...new Set(deviceIds)].map((id) => ({
+      id,
+      name: names.get(id) ?? `Device ${id.slice(0, 8)}`,
+    })),
+    commands: new Map(),
+    phase: "sending",
+    error: "",
+    readError: "",
+    pollUntil: Date.now() + 60_000,
+  };
+  renderCommandProgress();
+}
+
+function trackCommandAction(actionId) {
+  const progress = state.commandProgress;
+  if (!progress || !actionId) return;
+  progress.actionId = actionId;
+  progress.phase = "tracking";
+  renderCommandProgress();
+  void refreshCommandProgress();
+}
+
+function failCommandProgress(message) {
+  const progress = state.commandProgress;
+  if (!progress) return;
+  progress.phase = "error";
+  progress.error = message;
+  clearTimeout(state.commandProgressTimer);
+  state.commandProgressTimer = null;
+  renderCommandProgress();
+}
+
+function clearCommandProgress() {
+  clearTimeout(state.commandProgressTimer);
+  state.commandProgressTimer = null;
+  state.commandProgress = null;
+  const panel = $("#command-progress");
+  if (panel) panel.hidden = true;
+}
+
+async function refreshCommandProgress() {
+  const progress = state.commandProgress;
+  if (!progress || !progress.actionId || !state.online || !state.session) {
+    renderCommandProgress();
+    return;
+  }
+
+  try {
+    const result = await state.client
+      .from("device_commands")
+      .select("device_id,state,result_code,created_at")
+      .eq("action_id", progress.actionId);
+    if (state.commandProgress !== progress) return;
+    if (result.error) throw new Error(result.error.message);
+    progress.commands = new Map(
+      (result.data ?? []).map((row) => [row.device_id, row]),
+    );
+    progress.readError = "";
+    progress.phase = progress.targets.every((target) => {
+      const command = progress.commands.get(target.id);
+      return command && PROGRESS_TERMINAL_STATES.has(command.state);
+    })
+      ? "done"
+      : "tracking";
+  } catch (error) {
+    if (state.commandProgress !== progress) return;
+    progress.readError = error.message;
+  }
+
+  renderCommandProgress();
+  scheduleCommandProgressPoll();
+}
+
+function scheduleCommandProgressPoll() {
+  clearTimeout(state.commandProgressTimer);
+  state.commandProgressTimer = null;
+  const progress = state.commandProgress;
+  if (
+    !progress ||
+    !progress.actionId ||
+    progress.phase === "done" ||
+    progress.phase === "error" ||
+    Date.now() >= progress.pollUntil
+  ) {
+    return;
+  }
+  state.commandProgressTimer = setTimeout(() => {
+    state.commandProgressTimer = null;
+    void refreshCommandProgress();
+  }, 3000);
+}
+
+function commandProgressSummary(progress) {
+  if (progress.phase === "sending") {
+    return {
+      badge: "Sending",
+      tone: "pending",
+      detail: `Creating the command for ${progress.targets.length} target(s)…`,
+    };
+  }
+  if (progress.phase === "error") {
+    return {
+      badge: "Not sent",
+      tone: "danger",
+      detail: progress.error || "The command could not be created.",
+    };
+  }
+
+  const commands = progress.targets
+    .map((target) => progress.commands.get(target.id))
+    .filter(Boolean);
+  const total = progress.targets.length;
+  const states = commands.map((command) => command.state);
+  const applied = states.filter((state) => state === "applied").length;
+  const reset = states.filter((state) => state === "reset_initiated").length;
+  const blocked = states.filter((state) => state === "debug_blocked").length;
+  const failed = states.filter((state) => ["rejected", "failed", "expired"].includes(state)).length;
+  const done = commands.length === total && commands.every((command) =>
+    PROGRESS_TERMINAL_STATES.has(command.state)
+  );
+
+  if (done && applied === total) {
+    return {
+      badge: "Applied",
+      tone: "success",
+      detail: `Applied on all ${total} target(s).`,
+    };
+  }
+  if (done && reset === total) {
+    return {
+      badge: "Initiated",
+      tone: "warning",
+      detail:
+        "The reset was initiated on every target. Android provides no completion signal after a wipe.",
+    };
+  }
+  if (done) {
+    const parts = [];
+    if (applied) parts.push(`${applied} applied`);
+    if (reset) parts.push(`${reset} initiated`);
+    if (blocked) parts.push(`${blocked} blocked by Debug Mode`);
+    if (failed) parts.push(`${failed} failed`);
+    return {
+      badge: "Finished",
+      tone: failed ? "danger" : "warning",
+      detail: `Command finished: ${parts.join(", ")}.`,
+    };
+  }
+  if (states.some((state) => state === "received" || state === "executing")) {
+    return {
+      badge: "Applying",
+      tone: "pending",
+      detail: "The device received the command; waiting for the final result.",
+    };
+  }
+  if (commands.length === 0) {
+    return {
+      badge: "Waiting",
+      tone: "pending",
+      detail: "Waiting for the command to appear on the device.",
+    };
+  }
+  if (states.every((state) => state === "queued")) {
+    return {
+      badge: "Queued",
+      tone: "queued",
+      detail:
+        "The command is queued. A live device normally receives it within seconds; an offline device waits for its next sync.",
+    };
+  }
+  return {
+    badge: "Waiting",
+    tone: "pending",
+    detail: progress.readError
+      ? `Waiting for device status (${progress.readError}).`
+      : "Waiting for the remaining target(s).",
+  };
+}
+
+function renderCommandProgress() {
+  const panel = $("#command-progress");
+  if (!panel) return;
+  const progress = state.commandProgress;
+  if (!progress) {
+    panel.hidden = true;
+    return;
+  }
+
+  const summary = commandProgressSummary(progress);
+  panel.hidden = false;
+  panel.dataset.tone = summary.tone;
+  $("#command-progress-title").textContent = progress.label;
+  $("#command-progress-detail").textContent = summary.detail;
+  $("#command-progress-status").replaceChildren(
+    statusBadge(summary.badge, summary.tone),
+  );
+
+  const list = $("#command-progress-list");
+  list.replaceChildren();
+  for (const target of progress.targets) {
+    const command = progress.commands.get(target.id);
+    const state = command?.state
+      ?? (progress.phase === "error" ? "not_sent" : progress.phase === "sending" ? "sending" : "waiting");
+    const tone = PROGRESS_STATE_TONES[state] ?? "unknown";
+    const label = PROGRESS_STATE_LABELS[state] ?? state;
+    const result = command?.result_code ? ` (${command.result_code})` : "";
+    const when = command?.created_at ? Date.parse(command.created_at) : NaN;
+    const timestamp = Number.isNaN(when) ? "" : ` · ${formatDateTime(when)}`;
+    list.append(
+      el("li", { className: "command-progress-row" }, [
+        el("span", { className: "command-progress-device", text: target.name }),
+        el("span", { className: "status-line" }, [
+          statusBadge(label, tone),
+          el("span", {
+            className: "muted command-progress-time",
+            text: `${result}${timestamp}`,
+          }),
+        ]),
+      ]),
+    );
+  }
 }
 
 function renderSettings() {
@@ -1072,13 +1350,22 @@ async function toggleDebugMode(deviceId, enabled, input) {
     return;
   }
 
+  const label = enabled ? "Debug Mode ON" : "Debug Mode OFF";
+  beginCommandProgress(label, [deviceId]);
   input.disabled = true;
   try {
-    await setDeviceDebugMode(state.client, deviceId, enabled, newIdempotencyKey());
-    toast(`${enabled ? "Enable" : "Disable"} command queued for 1 device.`);
+    const result = await setDeviceDebugMode(
+      state.client,
+      deviceId,
+      enabled,
+      newIdempotencyKey(),
+    );
+    trackCommandAction(result.action_id);
+    toast(`${label} sent. Waiting for the device.`, "info");
     scheduleRefresh();
   } catch (error) {
     input.checked = !enabled;
+    failCommandProgress(error.message);
     toast(error.message, "error");
   } finally {
     input.disabled = false;
@@ -1402,6 +1689,7 @@ function wireDashboard() {
     });
   }
   wireDeviceSettingsFields();
+  $("#command-progress-dismiss").addEventListener("click", clearCommandProgress);
 
   $("#target-device-list").addEventListener("change", (event) => {
     const select = event.target.closest("input[data-device-select]");
@@ -1630,6 +1918,8 @@ async function sendAction(actionType) {
     : actionType === LOCK_NOW
       ? $("#lock-devices")
       : $("#reset-timer");
+  const label = COMMAND_LABELS[actionType] ?? actionType;
+  beginCommandProgress(label, targetDevices().map((device) => device.id));
   clearMessage("#commands-message");
   setBusy(button, true);
   try {
@@ -1640,9 +1930,11 @@ async function sendAction(actionType) {
       targets.scope,
       targets.deviceIds,
     );
-    toast(`${COMMAND_LABELS[actionType] ?? actionType} queued for ${result.device_count} device(s).`, "success");
+    trackCommandAction(result.action_id);
+    toast(`${label} sent. Waiting for the device.`, "info");
     scheduleRefresh();
   } catch (error) {
+    failCommandProgress(error.message);
     showMessage("#commands-message", error.message, "error");
   } finally {
     setBusy(button, false);

@@ -14,6 +14,7 @@ import io.github.jan.supabase.realtime.realtime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -40,6 +41,8 @@ class RemoteRealtimeClient(
         private const val CHANNEL_TOPIC = "wasted:remote-sync"
         private const val SUBSCRIBE_TIMEOUT_MS = 15_000L
         private const val RECONNECT_DELAY_MS = 5_000L
+        private const val RECONNECT_MAX_DELAY_MS = 60_000L
+        private const val STABLE_CONNECTION_MS = 30_000L
     }
 
     private val mutex = Mutex()
@@ -92,24 +95,38 @@ class RemoteRealtimeClient(
         accountId: String?,
         onSyncRequired: () -> Unit,
     ) {
+        var failures = 0
         while (currentCoroutineContext().isActive) {
             val session = runCatching { client.auth.currentSessionOrNull() }.getOrNull()
             if (session == null || session.expiresAt <= kotlin.time.Clock.System.now()) {
                 Log.w(TAG, "Realtime paused: no valid authenticated session")
-                delay(RECONNECT_DELAY_MS)
+                delay(reconnectDelay(failures++))
                 continue
             }
 
             try {
+                val connectedAt = System.currentTimeMillis()
                 connectOnce(client, deviceId, accountId, onSyncRequired)
+                failures = if (System.currentTimeMillis() - connectedAt >= STABLE_CONNECTION_MS) {
+                    0
+                } else {
+                    failures + 1
+                }
+            } catch (e: TimeoutCancellationException) {
+                Log.w(TAG, "Realtime subscribe timed out; retrying")
+                failures++
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Realtime connection lost; retrying", e)
+                failures++
             }
-            delay(RECONNECT_DELAY_MS)
+            delay(reconnectDelay(failures))
         }
     }
+
+    private fun reconnectDelay(failures: Int): Long =
+        (RECONNECT_DELAY_MS * (1L shl failures.coerceAtMost(4))).coerceAtMost(RECONNECT_MAX_DELAY_MS)
 
     private suspend fun connectOnce(
         client: SupabaseClient,

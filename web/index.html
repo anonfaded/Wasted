@@ -358,6 +358,21 @@
       <p id="account-line" class="account-chip"></p>
     </div>
 
+    <section id="command-progress" class="command-progress" aria-live="polite" hidden>
+      <div class="command-progress-head">
+        <div>
+          <p class="eyebrow">Command activity</p>
+          <h3 id="command-progress-title">Sending command…</h3>
+          <p id="command-progress-detail" class="muted"></p>
+        </div>
+        <div class="command-progress-side">
+          <span id="command-progress-status"></span>
+          <button id="command-progress-dismiss" type="button" class="small quiet">Dismiss</button>
+        </div>
+      </div>
+      <ul id="command-progress-list" class="command-progress-list"></ul>
+    </section>
+
     <div class="dashboard-layout">
       <nav class="dashboard-nav" role="tablist" aria-label="Dashboard sections">
         <button id="tab-devices" type="button" class="dashboard-tab" role="tab"
@@ -535,6 +550,8 @@
                   Choose all enrolled devices or select specific devices in Command targets. Every command is
                   confirmed with the exact target list and applies at the next sync. Repeating the
                   same action keeps only the newest queued copy; different actions stay independent.
+                  Command activity shows each target move from queued to received, executing, and its
+                  final result.
                 </p>
               </div>
             </div>
