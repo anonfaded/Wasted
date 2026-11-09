@@ -199,6 +199,15 @@ class RemoteSyncCoordinatorTest {
     }
 
     @Test
+    fun `successful sync publishes its timestamp`() = runBlocking {
+        api.response = response(emptyList())
+
+        coordinator().syncNow()
+
+        assertEquals(now, RemoteSyncStatus.lastSyncAt.value)
+    }
+
+    @Test
     fun `stale local commands absent from the server are expired before execution`() = runBlocking {
         dao.insertCommand(
             RemoteCommandJournalEntity(

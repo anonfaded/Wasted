@@ -174,6 +174,12 @@ open class MainActivity : AppCompatActivity() {
         binding.drawer.close()
     }
 
+    fun openHomeScreen() {
+        binding.navigation.menu.findItem(R.id.nav_main)?.isChecked = true
+        replaceFragment(MainFragment())
+        binding.drawer.close()
+    }
+
     private fun getFragment(id: Int) = when (id) {
         R.id.nav_main -> MainFragment()
         R.id.nav_trigger_tile -> TileFragment()

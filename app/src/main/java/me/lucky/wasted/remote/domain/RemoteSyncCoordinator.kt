@@ -200,6 +200,7 @@ class RemoteSyncCoordinator(
                 }
                 val syncedAt = clock()
                 credentials.lastSyncAt = syncedAt
+                RemoteSyncStatus.publish(syncedAt)
                 // The server is the durable source of pending commands. Anything already
                 // superseded/expired there must not remain executable in the local journal.
                 dao.expireMissingPending(

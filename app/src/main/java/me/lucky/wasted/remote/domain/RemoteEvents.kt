@@ -2,7 +2,10 @@ package me.lucky.wasted.remote.domain
 
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** A user-facing remote event; notification delivery and gating happen in the Android layer. */
 data class RemoteEvent(
@@ -37,5 +40,15 @@ object RemoteEventBus {
 
     fun publish(event: RemoteEvent) {
         mutableEvents.tryEmit(event)
+    }
+}
+
+/** In-process clock of successful syncs; the persisted value remains in RemoteCredentialStore. */
+object RemoteSyncStatus {
+    private val mutableLastSyncAt = MutableStateFlow(0L)
+    val lastSyncAt: StateFlow<Long> = mutableLastSyncAt.asStateFlow()
+
+    fun publish(lastSyncAt: Long) {
+        mutableLastSyncAt.value = lastSyncAt
     }
 }

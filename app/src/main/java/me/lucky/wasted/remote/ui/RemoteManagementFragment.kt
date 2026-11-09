@@ -9,13 +9,14 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -42,6 +43,7 @@ import me.lucky.wasted.remote.domain.RemoteError
 import me.lucky.wasted.remote.domain.RemoteEvent
 import me.lucky.wasted.remote.domain.RemoteEventBus
 import me.lucky.wasted.remote.domain.RemoteException
+import me.lucky.wasted.remote.domain.RemoteSyncStatus
 import me.lucky.wasted.remote.domain.SyncOutcome
 import me.lucky.wasted.trigger.shared.ForegroundService
 import okhttp3.OkHttpClient
@@ -56,7 +58,6 @@ class RemoteManagementFragment : Fragment() {
     private lateinit var credentials: RemoteCredentialStore
     private lateinit var adminManager: DeviceAdminManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var remoteEventsJob: Job? = null
     private var defaultDashboardStrokeColor = 0
     private var defaultDashboardStatusColor = 0
 
@@ -77,6 +78,27 @@ class RemoteManagementFragment : Fragment() {
         return binding.root
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    RemoteEventBus.events.collect { event ->
+                        if (event.kind == RemoteEvent.Kind.DEBUG_MODE_CHANGED ||
+                            event.kind == RemoteEvent.Kind.SETTINGS_CHANGED ||
+                            event.kind == RemoteEvent.Kind.LOCK_APPLIED
+                        ) {
+                            refreshState()
+                        }
+                    }
+                }
+                launch {
+                    RemoteSyncStatus.lastSyncAt.collect { refreshState() }
+                }
+            }
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         scope.cancel()
@@ -93,27 +115,6 @@ class RemoteManagementFragment : Fragment() {
             publishableKey.editText?.setText(draft.publishableKey)
         }
         refreshState()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        remoteEventsJob?.cancel()
-        remoteEventsJob = viewLifecycleOwner.lifecycleScope.launch {
-            RemoteEventBus.events.collect { event ->
-                if (event.kind == RemoteEvent.Kind.DEBUG_MODE_CHANGED ||
-                    event.kind == RemoteEvent.Kind.SETTINGS_CHANGED ||
-                    event.kind == RemoteEvent.Kind.LOCK_APPLIED
-                ) {
-                    refreshState()
-                }
-            }
-        }
-    }
-
-    override fun onStop() {
-        remoteEventsJob?.cancel()
-        remoteEventsJob = null
-        super.onStop()
     }
 
     override fun onResume() {
@@ -152,7 +153,7 @@ class RemoteManagementFragment : Fragment() {
         openSupabase.setOnClickListener { openUrl("https://supabase.com/dashboard") }
         openWebsite.setOnClickListener { openWebsite() }
         openDeviceOwnerSetup.setOnClickListener {
-            (activity as? me.lucky.wasted.MainActivity)?.openP2pScreen()
+            (activity as? me.lucky.wasted.MainActivity)?.openHomeScreen()
         }
         enrollmentHelp.setOnClickListener { showEnrollmentHelp() }
         openDashboardFromEnrollment.setOnClickListener { openWebsite() }

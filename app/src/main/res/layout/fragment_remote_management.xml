@@ -54,7 +54,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="On Android 14+, full factory reset commands (remote or local) require Wasted to be Device Owner. Open the P2P screen and follow “Set up Device Owner”."
+                        android:text="On Android 14+, full factory reset commands (remote or local) require Wasted to be Device Owner. Go to Home and follow “Set up Device Owner”."
                         android:textAppearance="?attr/textAppearanceBodySmall" />
 
                     <com.google.android.material.button.MaterialButton
@@ -63,7 +63,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Open P2P Device Owner setup" />
+                        android:text="Go to Home setup" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
