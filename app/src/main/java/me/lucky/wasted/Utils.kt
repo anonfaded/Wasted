@@ -13,6 +13,8 @@ import me.lucky.wasted.admin.DeviceAdminManager
 import me.lucky.wasted.admin.ResetExecutor
 import me.lucky.wasted.admin.ResetResult
 import me.lucky.wasted.remote.data.RemoteConfigStore
+import me.lucky.wasted.remote.work.RemoteBootJobService
+import me.lucky.wasted.remote.work.RemoteRecoveryWorker
 import me.lucky.wasted.trigger.notification.NotificationListenerService
 import me.lucky.wasted.trigger.panic.PanicConnectionActivity
 import me.lucky.wasted.trigger.panic.PanicResponderActivity
@@ -104,6 +106,10 @@ class Utils(private val ctx: Context) {
             ForegroundRequirement.isRequired(enabled, triggers, p2pEnabled, remoteEnabled)
         setForegroundEnabled(foregroundEnabled)
         setComponentEnabled(RestartReceiver::class.java, foregroundEnabled)
+        if (remoteEnabled) {
+            RemoteBootJobService.schedule(ctx)
+            RemoteRecoveryWorker.schedulePeriodic(ctx)
+        }
         setComponentEnabled(UsbReceiver::class.java, enabled && isUSB)
         // Stop P2P network when user has disabled P2P
         if (!p2pEnabled) {

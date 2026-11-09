@@ -119,6 +119,7 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        Utils(this).updateForegroundRequiredEnabled()
         prefs.registerListener(prefsListener)
     }
 
