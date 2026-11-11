@@ -28,3 +28,16 @@ test("thresholds use the documented boundaries", () => {
   assert.equal(batteryTone({ battery_percent: 50 }), "medium");
   assert.equal(batteryTone({ battery_percent: 51 }), "healthy");
 });
+
+test("offline battery is labelled as last-known and not charging", () => {
+  const offline = { battery_percent: 10, battery_charging: true };
+  assert.equal(batteryLabel(offline, { fresh: false }), "last known 10%");
+  assert.equal(batteryTone(offline, { fresh: false }), "unknown");
+  assert.equal(isLowBattery(offline), true);
+});
+
+test("fresh battery keeps the current charging label", () => {
+  const device = { battery_percent: 10, battery_charging: true };
+  assert.equal(batteryLabel(device), "10% · charging");
+  assert.equal(batteryTone(device), "low");
+});

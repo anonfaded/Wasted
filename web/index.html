@@ -76,7 +76,23 @@
     <path d="M12 7v5l3 2"/>
   </symbol>
   <symbol id="icon-usb" viewBox="0 0 24 24">
-    <path d="M12 3v13M12 3l-2 2M12 3l2 2M12 16l-4-3M12 16l4-3M8 13a2 2 0 1 0 0 .1M16 13a2 2 0 1 0 0 .1M12 16a2 2 0 1 0 0 .1"/>
+    <path d="M12 4v11"/>
+    <path d="m9 7 3-3 3 3"/>
+    <circle cx="12" cy="17" r="2"/>
+    <path d="M8 13 6 15v2M16 13l2 2v2M6 15H4M18 15h2"/>
+  </symbol>
+  <symbol id="icon-chevron-down" viewBox="0 0 24 24">
+    <path d="m6 9 6 6 6-6"/>
+  </symbol>
+  <symbol id="icon-chevron-right" viewBox="0 0 24 24">
+    <path d="m9 6 6 6-6 6"/>
+  </symbol>
+  <symbol id="icon-eye" viewBox="0 0 24 24">
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </symbol>
+  <symbol id="icon-eye-off" viewBox="0 0 24 24">
+    <path d="m3 3 18 18M10.6 6.2A11 11 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.1 3.7M6.3 6.4C3.6 8.2 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4-.8"/>
   </symbol>
   <symbol id="icon-send" viewBox="0 0 24 24">
     <path d="m3 11 18-8-8 18-2.5-7.5L3 11Z"/>
@@ -636,50 +652,43 @@
                   <label for="limit-enrollment"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-plus"/></svg>Enrollment token lifetime (minutes)</label>
                   <input id="limit-enrollment" name="enrollment" type="number" min="1" max="60"
                          step="1" inputmode="numeric" class="compact-input"
-                         title="1–60 minutes. Applies to tokens created after saving." required>
-                  <p class="hint">Default 10. Existing tokens keep their original expiry.</p>
+                         title="How long a new one-time enrollment token remains valid before it expires." required>
+                  <p class="hint">A new token must be claimed within this many minutes. Existing tokens keep the lifetime they were created with. Default 10 minutes.</p>
                 </div>
                 <div class="field">
-                  <label for="limit-lock"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-lock"/></svg>Lock Devices expiry (minutes)</label>
+                  <label for="limit-lock"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-lock"/></svg>Lock Devices: offline wait time (minutes)</label>
                   <input id="limit-lock" name="lock" type="number" min="1" max="10080"
                          step="1" inputmode="numeric" class="compact-input"
-                         title="1–10080 minutes. An offline device ignores the command after this." required>
-                  <p class="hint">Default 5. Applies to locked-device commands waiting for an offline phone.</p>
+                         title="If a selected phone is offline, how long the Lock Devices command remains ready before it expires." required>
+                  <p class="hint">If a selected phone is offline, keep the Lock Devices command ready for this many minutes. After that it expires and is not applied. Default 5 minutes.</p>
                 </div>
                 <div class="field">
-                  <label for="limit-force-reset"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-warning"/></svg>Force Reset expiry (minutes)</label>
+                  <label for="limit-force-reset"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-warning"/></svg>Force Reset: offline wait time (minutes)</label>
                   <input id="limit-force-reset" name="forceReset" type="number" min="1" max="10080"
                          step="1" inputmode="numeric" class="compact-input"
-                         title="1–10080 minutes. An offline device ignores the reset after this." required>
-                  <p class="hint">Default 10. Longer windows keep a destructive command queued longer.</p>
+                         title="If a selected phone is offline, how long the Force Reset command remains ready before it expires." required>
+                  <p class="hint">If a selected phone is offline, keep the factory-reset request ready for this many minutes. After that it expires and is not applied. A shorter wait is safer. Default 10 minutes.</p>
                 </div>
                 <div class="field">
-                  <label for="limit-reset-timer"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-reset"/></svg>Reset Timer expiry (minutes)</label>
+                  <label for="limit-reset-timer"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-reset"/></svg>Reset Timer: offline wait time (minutes)</label>
                   <input id="limit-reset-timer" name="resetTimer" type="number" min="1" max="10080"
                          step="1" inputmode="numeric" class="compact-input"
-                         title="1–10080 minutes. An offline device ignores Reset Timer after this." required>
-                  <p class="hint">Default 1440 (24 hours).</p>
+                         title="If a selected phone is offline, how long the Reset Timer command remains ready before it expires." required>
+                  <p class="hint">If a selected phone is offline, keep the Reset Timer request ready for this many minutes. After that it expires and is not applied. Default 24 hours.</p>
                 </div>
                 <div class="field">
-                  <label for="limit-debug-on"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-bug"/></svg>Debug Mode ON expiry (minutes)</label>
+                  <label for="limit-debug-on"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-bug"/></svg>Debug Mode ON: offline wait time (minutes)</label>
                   <input id="limit-debug-on" name="debugOn" type="number" min="1" max="10080"
                          step="1" inputmode="numeric" class="compact-input"
-                         title="1–10080 minutes. An offline device ignores the command after this." required>
-                  <p class="hint">Default 1440 (24 hours). Lets an offline device turn protection on later.</p>
+                         title="If a selected phone is offline, how long the Debug Mode ON command remains ready before it expires." required>
+                  <p class="hint">If the phone is offline, keep the request to turn Debug Mode ON ready for this many minutes. After that it expires. Default 24 hours.</p>
                 </div>
                 <div class="field">
-                  <label for="limit-debug-off"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-bug"/></svg>Debug Mode OFF expiry (minutes)</label>
+                  <label for="limit-debug-off"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-bug"/></svg>Debug Mode OFF: offline wait time (minutes)</label>
                   <input id="limit-debug-off" name="debugOff" type="number" min="1" max="10080"
                          step="1" inputmode="numeric" class="compact-input"
-                         title="1–10080 minutes. An offline device ignores the command after this." required>
-                  <p class="hint">Default 10. OFF allows destructive commands, so keep this short if unsure.</p>
-                </div>
-                <div class="field">
-                  <label for="limit-presence"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-activity"/></svg>Device active window (seconds)</label>
-                  <input id="limit-presence" name="presence" type="number" min="30" max="600"
-                         step="1" inputmode="numeric" class="compact-input"
-                         title="30–600 seconds. Only changes when the dashboard labels a device Active." required>
-                  <p class="hint">Default 150. Dashboard display only; it does not change device sync.</p>
+                         title="If a selected phone is offline, how long the Debug Mode OFF command remains ready before it expires." required>
+                  <p class="hint">If the phone is offline, keep the request to turn Debug Mode OFF ready for this many minutes. OFF allows destructive commands, so keep this short. Default 10 minutes.</p>
                 </div>
               </div>
               <div class="actions">
@@ -763,6 +772,7 @@
                 </p>
               </div>
             </div>
+            <p id="command-disabled-hint" class="hint" hidden></p>
             <p id="commands-message" class="message" role="status"></p>
           </section>
         </section>
@@ -781,7 +791,14 @@
             </div>
             <dl class="account-facts">
               <dt title="The owner email used only for this dashboard; devices do not receive it."><svg class="icon field-icon" aria-hidden="true"><use href="#icon-mail"/></svg>Signed-in email</dt>
-              <dd id="account-email">—</dd>
+              <dd class="account-email-row">
+                <span id="account-email">—</span>
+                <button id="account-email-toggle" type="button" class="icon-button"
+                        aria-label="Hide signed-in email" aria-pressed="false"
+                        title="Hide the signed-in email">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-eye"/></svg>
+                </button>
+              </dd>
             </dl>
             <form id="account-form" novalidate>
               <div class="field">
@@ -851,8 +868,8 @@
                 <dt>Connection</dt>
                 <dd>
                   <strong>Active</strong> means the device contacted the server within the last
-                  <span id="help-active-window">150 seconds</span>; <strong>Inactive</strong> means it
-                  has not. The exact last-contact time is shown below. Commands stay queued until it
+                  150 seconds; <strong>Inactive</strong> means it has not. The exact last-contact time
+                  is shown below. Commands stay queued until it
                   reconnects, subject to the configurable limits in Controls
                   (<span id="help-command-expiry">default: Reset Timer 24 hours; Force Reset and
                   Debug Mode OFF 10 minutes; Debug Mode ON 24 hours</span>).
@@ -914,6 +931,12 @@
                   that device only. Check Inherit global to remove an override. Global saves never
                   clear overrides; no other device is affected.
                 </dd>
+                <dt>Device notes</dt>
+                <dd>
+                  Private owner-only notes attached to one device. Use the Notes section on a device
+                  card to add or edit up to 4000 characters. Notes are stored in Supabase and are
+                  never shown in the Wasted app or sent to the phone.
+                </dd>
                 <dt>Command targets</dt>
                 <dd>
                   Choose All enrolled devices or select devices in the Command targets list. The
@@ -924,10 +947,9 @@
                 </dd>
                 <dt>Command &amp; enrollment limits</dt>
                 <dd>
-                  Controls how long commands and enrollment tokens stay valid, plus the active-window
-                  label in this dashboard. Defaults match the standard behavior; changes apply to
-                  new commands and tokens only. Existing queued work keeps the expiry it was created
-                  with.
+                  Controls how long commands and enrollment tokens stay valid. Defaults are the
+                  normal values; changes apply to new commands and tokens only. Existing queued work
+                  keeps the expiry it was created with.
                 </dd>
                 <dt>Debug Mode</dt>
                 <dd>
@@ -1073,6 +1095,31 @@
   </form>
 </dialog>
 
+<dialog id="notes-dialog" aria-labelledby="notes-title">
+  <form method="dialog" id="notes-form">
+    <h2 id="notes-title"><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-pencil"/></svg>Device notes</h2>
+    <p id="notes-device-name" class="muted"></p>
+    <div class="field">
+      <label for="device-notes">Private notes</label>
+      <textarea id="device-notes" rows="6" maxlength="4000"
+                placeholder="Add context, a location, or anything useful about this device."></textarea>
+      <p id="notes-count" class="hint">0 / 4000 characters</p>
+      <p class="hint">Only the dashboard owner can read these notes. They are stored in your Supabase project and are not sent to the device.</p>
+    </div>
+    <p id="notes-message" class="message" role="status"></p>
+    <div class="actions">
+      <button value="cancel" formnovalidate>
+        <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+        <span class="button-label">Cancel</span>
+      </button>
+      <button id="notes-save" value="ok" class="primary">
+        <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>
+        <span class="button-label">Save notes</span>
+      </button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="device-settings-dialog" aria-labelledby="device-settings-title">
   <form method="dialog" id="device-settings-form">
     <h2 id="device-settings-title">Device settings</h2>
@@ -1167,7 +1214,8 @@
 
 <footer>
   <span id="footer-product">Wasted Remote</span>
-  <span id="footer-version" class="muted"></span>
+  <a id="footer-version" class="muted" href="https://github.com/anonfaded/wasted"
+     target="_blank" rel="noopener noreferrer" title="Open the Wasted repository on GitHub"></a>
   <span class="footer-links">
     <a id="footer-privacy" href="#" target="_blank" rel="noopener noreferrer" hidden>Privacy</a>
     <a id="footer-support" href="#" target="_blank" rel="noopener noreferrer" hidden>Support</a>

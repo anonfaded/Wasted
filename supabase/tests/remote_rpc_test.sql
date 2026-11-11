@@ -278,7 +278,7 @@ create temp table pg_temp.t_reconcile as
     select public.device_reconcile(
         (select id from pg_temp.t_claim),
         1, 0, 1440, true, false, 0, false, true, true, true,
-        null::smallint, null::boolean, '2.0.0', 34::smallint, null, null
+        null::smallint, null::boolean, '2.0.0', 34::smallint, '14', null, null
     ) as result;
 
 do $$
@@ -307,7 +307,7 @@ begin
     perform public.device_reconcile(
         (select id from pg_temp.t_claim),
         1, 0, 1440, true, false, 120, true, true, true, true,
-        73::smallint, false, '2.0.0', 34::smallint, null, null
+        73::smallint, false, '2.0.0', 34::smallint, '14', null, null
     );
 end;
 $$;
@@ -733,7 +733,7 @@ begin
     -- reconcile lazily expires the overdue command and stops returning it
     perform public.device_reconcile(
         device_id, 2, 0, 2000, true, false, 0, false, true, true, true,
-        null::smallint, null::boolean, '2.0.0', 34::smallint, null, null);
+        null::smallint, null::boolean, '2.0.0', 34::smallint, '14', null, null);
 end;
 $$;
 
@@ -894,7 +894,7 @@ select set_config('request.jwt.claims',
     '{"sub":"0a1a1a1a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":true}', true);
 
 select pg_temp.expect_error(
-    format($sql$select public.device_reconcile(%L, 2, 0, 2000, true, false, 0, false, true, true, true, null::smallint, null::boolean, '2.0.0', 34::smallint, null, null)$sql$,
+    format($sql$select public.device_reconcile(%L, 2, 0, 2000, true, false, 0, false, true, true, true, null::smallint, null::boolean, '2.0.0', 34::smallint, '14', null, null)$sql$,
            (select id from pg_temp.t_claim)),
     'P0001', 'active device not found'
 );

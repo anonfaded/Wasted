@@ -6,15 +6,17 @@ export function batteryPercent(status) {
   return Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
 }
 
-export function batteryLabel(status) {
+export function batteryLabel(status, { fresh = true } = {}) {
   const percent = batteryPercent(status);
   if (percent === null) return "unknown";
+  if (!fresh) return `last known ${percent}%`;
   return status.battery_charging ? `${percent}% · charging` : `${percent}%`;
 }
 
-export function batteryTone(status) {
+export function batteryTone(status, { fresh = true } = {}) {
   const percent = batteryPercent(status);
   if (percent === null) return "unknown";
+  if (!fresh) return "unknown";
   if (percent <= 20) return "low";
   if (percent <= 50) return "medium";
   return "healthy";

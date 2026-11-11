@@ -24,6 +24,7 @@ data class LocalRemoteStatus(
     val batteryCharging: Boolean?,
     val appVersion: String,
     val androidSdk: Int,
+    val androidRelease: String,
 )
 
 fun interface RemoteStatusProvider {

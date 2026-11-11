@@ -175,7 +175,7 @@ select set_config('request.jwt.claims',
 select public.device_reconcile(
     'ea000000-0000-4000-8000-000000000001',
     1, 0, 1440, true, true, 0, false, true, true, true,
-    0::smallint, false, '3.0.0', 35::smallint, null, null
+    0::smallint, false, '3.0.0', 35::smallint, '15', null, null
 );
 
 reset role;

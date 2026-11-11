@@ -36,6 +36,7 @@ class DirectBootRemoteStatusProvider(
             batteryCharging = batterySnapshot.charging,
             appVersion = RemoteAppInfo.version(ctx),
             androidSdk = android.os.Build.VERSION.SDK_INT,
+            androidRelease = android.os.Build.VERSION.RELEASE,
         )
     }
 }

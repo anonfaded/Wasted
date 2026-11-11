@@ -9,8 +9,7 @@ alter table public.account_settings
     add column force_reset_ttl_minutes integer not null default 10,
     add column reset_timer_ttl_minutes integer not null default 1440,
     add column debug_mode_on_ttl_minutes integer not null default 1440,
-    add column debug_mode_off_ttl_minutes integer not null default 10,
-    add column presence_window_seconds integer not null default 150;
+    add column debug_mode_off_ttl_minutes integer not null default 10;
 
 alter table public.account_settings
     add constraint account_settings_limits_revision_nonnegative
@@ -26,9 +25,7 @@ alter table public.account_settings
     add constraint account_settings_debug_mode_on_ttl_range
         check (debug_mode_on_ttl_minutes between 1 and 10080),
     add constraint account_settings_debug_mode_off_ttl_range
-        check (debug_mode_off_ttl_minutes between 1 and 10080),
-    add constraint account_settings_presence_window_range
-        check (presence_window_seconds between 30 and 600);
+        check (debug_mode_off_ttl_minutes between 1 and 10080);
 
 create function public.update_account_limits(
     p_expected_revision bigint,
@@ -37,8 +34,7 @@ create function public.update_account_limits(
     p_force_reset_ttl_minutes integer,
     p_reset_timer_ttl_minutes integer,
     p_debug_mode_on_ttl_minutes integer,
-    p_debug_mode_off_ttl_minutes integer,
-    p_presence_window_seconds integer
+    p_debug_mode_off_ttl_minutes integer
 )
 returns public.account_settings
 language plpgsql
@@ -82,12 +78,6 @@ begin
         or p_debug_mode_off_ttl_minutes > 10080 then
         raise exception 'debug mode off expiry must be between 1 and 10080 minutes';
     end if;
-    if p_presence_window_seconds is null
-        or p_presence_window_seconds < 30
-        or p_presence_window_seconds > 600 then
-        raise exception 'device active window must be between 30 and 600 seconds';
-    end if;
-
     update public.account_settings s
        set enrollment_token_ttl_minutes = p_enrollment_token_ttl_minutes,
            lock_command_ttl_minutes = p_lock_command_ttl_minutes,
@@ -95,7 +85,6 @@ begin
            reset_timer_ttl_minutes = p_reset_timer_ttl_minutes,
            debug_mode_on_ttl_minutes = p_debug_mode_on_ttl_minutes,
            debug_mode_off_ttl_minutes = p_debug_mode_off_ttl_minutes,
-           presence_window_seconds = p_presence_window_seconds,
            limits_revision = s.limits_revision + 1,
            updated_by = uid,
            updated_at = now()
@@ -111,10 +100,10 @@ end;
 $$;
 
 revoke execute on function public.update_account_limits(
-    bigint, integer, integer, integer, integer, integer, integer, integer
+    bigint, integer, integer, integer, integer, integer, integer
 ) from public, anon, authenticated;
 grant execute on function public.update_account_limits(
-    bigint, integer, integer, integer, integer, integer, integer, integer
+    bigint, integer, integer, integer, integer, integer, integer
 ) to authenticated;
 
 create or replace function public.create_device_enrollment()

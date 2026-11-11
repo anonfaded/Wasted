@@ -264,8 +264,21 @@ input[type="email"], input[type="password"], input[type="text"], input[type="num
   font-family: var(--mono);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
-input:focus { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+input:focus, textarea:focus { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
 input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: var(--ink); }
+textarea {
+  min-height: 7rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
 
 .password-wrap { position: relative; display: flex; min-width: 0; }
 .password-wrap input { width: 100%; min-width: 0; padding-right: 2.9rem; }
@@ -413,12 +426,90 @@ button.small {
   justify-content: space-between;
   gap: 0.6rem;
 }
+.device-card-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.45rem;
+}
+.device-card-title .icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--muted);
+}
 .device-card h3 {
+  min-width: 0;
   margin: 0;
   font-size: 1rem;
   letter-spacing: 0.05em;
+  overflow-wrap: anywhere;
 }
 .device-card h3::before { display: none; }
+.device-card-head-actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 0.35rem;
+}
+.card-toggle,
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+}
+.card-toggle:hover,
+.icon-button:hover {
+  border-color: var(--ink);
+  color: var(--text);
+  transform: none;
+}
+.card-toggle .icon,
+.icon-button .icon { width: 0.95rem; height: 0.95rem; margin: 0; }
+.device-card.collapsed .device-card-body { display: none; }
+.device-card.collapsed { padding-bottom: 0.75rem; }
+.device-notes {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface-raised);
+}
+.device-notes-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.device-notes-head .icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--muted);
+}
+.device-notes-head h4 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.device-notes-head button { margin-left: auto; }
+.device-notes-text {
+  margin: 0.5rem 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.device-notes-text.empty {
+  color: var(--muted);
+  font-style: italic;
+}
 
 .battery-pill {
   display: inline-flex;
@@ -527,13 +618,22 @@ button.small {
 .timer-inactive { color: var(--muted); }
 .status-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
 
-.device-card .device-id {
+.device-id-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0;
   font-family: var(--mono);
   font-size: 0.7rem;
   color: var(--muted);
-  word-break: break-all;
-  margin: 0.2rem 0 0;
 }
+.device-id-label { flex: none; text-transform: uppercase; }
+.device-id-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.device-id-row .icon-button { margin-left: 0.1rem; }
 .device-card dl {
   display: grid;
   grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
@@ -545,12 +645,21 @@ button.small {
   font-variant-numeric: tabular-nums;
 }
 .device-card dt {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   font-family: var(--mono);
   font-size: 0.67rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--muted);
   padding-top: 0.16rem;
+}
+.device-card dt .icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: none;
+  color: var(--muted);
 }
 .heading-icon {
   width: 1.05rem;
@@ -608,6 +717,7 @@ button.small {
 .account-facts {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
   gap: 0.35rem 0.9rem;
   margin: 0.85rem 0 1.1rem;
   padding: 0.7rem 0.85rem;
@@ -616,6 +726,9 @@ button.small {
   font-size: 0.86rem;
 }
 .account-facts dt {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   font-family: var(--mono);
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -627,6 +740,17 @@ button.small {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.account-email-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.45rem;
+}
+.account-email-row .icon-button {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+.account-email-row .icon-button .icon { width: 0.85rem; height: 0.85rem; }
 @media (max-width: 520px) {
   .account-facts { grid-template-columns: 1fr; gap: 0.15rem; }
 }

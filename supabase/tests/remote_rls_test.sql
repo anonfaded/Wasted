@@ -115,7 +115,7 @@ begin
         perform pg_temp.assert_true(r.relforcerowsecurity, 'RLS not forced on ' || r.relname);
     end loop;
 
-    perform pg_temp.assert_true(public_tables = 9, 'expected exactly 9 public tables, found ' || public_tables);
+    perform pg_temp.assert_true(public_tables = 10, 'expected exactly 10 public tables, found ' || public_tables);
 
     perform pg_temp.assert_true(
         not has_schema_privilege('authenticated', 'private', 'usage'),
@@ -167,7 +167,7 @@ declare
 begin
     foreach table_name in array array[
         'accounts', 'devices', 'account_settings', 'device_status',
-        'device_settings', 'account_actions', 'account_action_targets',
+        'device_settings', 'device_notes', 'account_actions', 'account_action_targets',
         'device_commands', 'command_events'
     ] loop
         perform pg_temp.assert_true(
@@ -196,11 +196,12 @@ begin
         'public.create_account_action(text,uuid,text,uuid[])',
         'public.expire_account_commands()',
         'public.claim_device_enrollment(text,uuid,text,integer,boolean,boolean)',
-        'public.device_reconcile(uuid,bigint,bigint,integer,boolean,boolean,bigint,boolean,boolean,boolean,boolean,smallint,boolean,text,smallint,text,text)',
+        'public.device_reconcile(uuid,bigint,bigint,integer,boolean,boolean,bigint,boolean,boolean,boolean,boolean,smallint,boolean,text,smallint,text,text,text)',
         'public.device_transition_command(uuid,uuid,text,text,text,text)',
         'public.set_device_debug_mode(uuid,boolean,uuid)',
         'public.list_device_effective_settings()',
-        'public.update_device_settings(uuid,bigint,jsonb)'
+        'public.update_device_settings(uuid,bigint,jsonb)',
+        'public.update_device_notes(uuid,text)'
     ] loop
         proc_oid := signature::regprocedure;
         perform pg_temp.assert_true(

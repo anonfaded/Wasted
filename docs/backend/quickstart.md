@@ -34,7 +34,7 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    until the app is opened. Reboot without opening Wasted to verify the dashboard last-contact time
    updates.
 
-   Command expiry, enrollment-token lifetime, and the active-window label can be changed later in
+   Command expiry and enrollment-token lifetime can be changed later in
    **Controls → Command & enrollment limits**; the defaults are shown there.
 
 If you are upgrading, save the cumulative bundle whose name matches your installed version

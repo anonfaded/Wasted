@@ -20,7 +20,7 @@ The device sends (all `p_` prefixed):
 | `p_reset_supported` | Device Admin/reset support |
 | `p_remote_enabled` | Remote Management enabled locally |
 | `p_battery_percent` / `p_battery_charging` | Reported battery; null means unknown, `0` is real |
-| `p_app_version` / `p_android_sdk` | Build info |
+| `p_app_version` / `p_android_sdk` / `p_android_release` | Build info; `p_android_release` is `Build.VERSION.RELEASE` from the phone |
 | `p_last_error_code` / `p_last_error_message` | Sanitized last error (nullable) |
 
 Response:
@@ -75,7 +75,8 @@ defaults; `update_account_limits` stores the values and `create_account_action` 
 | `debug_mode_off` | One selected device | 10 min | `applied`, `rejected`, `failed`, `expired` |
 
 Enrollment tokens use the account's `enrollment_token_ttl_minutes` (default 10 min). The dashboard
-active/inactive label uses `presence_window_seconds` (default 150 s); it is display-only.
+active/inactive label uses the fixed 150-second connection window; it is display-only and is not a
+device setting.
 
 States: `queued → received → executing → applied` plus terminal `debug_blocked`, `rejected`,
 `failed`, `expired`, and the Force Reset terminal `reset_initiated`.
@@ -182,8 +183,8 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 
 - Online: Realtime event invalidates and triggers a reconcile.
 - Offline: next 60 s heartbeat or recovery run; commands/settings apply subject to expiry.
-- Freshness in the dashboard: “Active” = last contact within the configured active window (default
-  150 s); otherwise “Inactive”, with the exact last contact shown and commands remaining queued.
+- Freshness in the dashboard: “Active” = last contact within 150 s; otherwise “Inactive”, with the
+  exact last contact shown and commands remaining queued.
 - Timer display extrapolates locally from `timer_sampled_at` + `timer_remaining_seconds` while
   running.
 

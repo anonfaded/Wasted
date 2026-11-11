@@ -6,7 +6,6 @@ export const LIMIT_DEFAULTS = Object.freeze({
   reset_timer_ttl_minutes: 1440,
   debug_mode_on_ttl_minutes: 1440,
   debug_mode_off_ttl_minutes: 10,
-  presence_window_seconds: 150,
 });
 
 export const LIMIT_FIELDS = Object.freeze([
@@ -46,12 +45,6 @@ export const LIMIT_FIELDS = Object.freeze([
     min: 1,
     max: 10080,
   },
-  {
-    key: "presence_window_seconds",
-    inputId: "limit-presence",
-    min: 30,
-    max: 600,
-  },
 ]);
 
 /** Read the account's current limits. The settings row always has every field. */
@@ -61,15 +54,6 @@ export function limitsFromSettings(settings) {
     limits[field.key] = Number(settings[field.key]);
   }
   return limits;
-}
-
-export function presenceWindowMs(settings) {
-  return limitsFromSettings(settings).presence_window_seconds * 1000;
-}
-
-export function presenceWindowLabel(settings) {
-  const seconds = limitsFromSettings(settings).presence_window_seconds;
-  return `${seconds} second${seconds === 1 ? "" : "s"}`;
 }
 
 export function commandExpirySummary(settings) {
@@ -96,17 +80,3 @@ export function formatLimitMinutes(minutes) {
   return parts.join(" ");
 }
 
-export function formatLimitSeconds(seconds) {
-  const value = Math.max(0, Math.floor(Number(seconds) || 0));
-  if (value === 0) return "0 seconds";
-  const days = Math.floor(value / 86400);
-  const hours = Math.floor((value % 86400) / 3600);
-  const minutes = Math.floor((value % 3600) / 60);
-  const secs = value % 60;
-  const parts = [];
-  if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`);
-  if (hours > 0) parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
-  if (minutes > 0) parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
-  if (secs > 0) parts.push(`${secs} second${secs === 1 ? "" : "s"}`);
-  return parts.join(" ");
-}

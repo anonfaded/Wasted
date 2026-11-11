@@ -64,7 +64,6 @@ test("saveAccountLimits sends the current revision and every limit", async () =>
     reset_timer_ttl_minutes: 2880,
     debug_mode_on_ttl_minutes: 1440,
     debug_mode_off_ttl_minutes: 6,
-    presence_window_seconds: 90,
   };
 
   const result = await saveAccountLimits(client, 4, limits);
@@ -78,7 +77,6 @@ test("saveAccountLimits sends the current revision and every limit", async () =>
     p_reset_timer_ttl_minutes: 2880,
     p_debug_mode_on_ttl_minutes: 1440,
     p_debug_mode_off_ttl_minutes: 6,
-    p_presence_window_seconds: 90,
   });
   assert.equal(result.limits_revision, 5);
 });

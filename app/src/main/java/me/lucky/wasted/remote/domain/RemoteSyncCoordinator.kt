@@ -182,6 +182,7 @@ class RemoteSyncCoordinator(
             batteryCharging = status.batteryCharging,
             appVersion = status.appVersion,
             androidSdk = status.androidSdk,
+            androidRelease = status.androidRelease,
             lastErrorCode = null,
             lastErrorMessage = null,
         )

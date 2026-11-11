@@ -128,7 +128,6 @@ export type Database = {
           lock_command_ttl_minutes: number
           lock_timer_minutes: number
           lock_trigger_enabled: boolean
-          presence_window_seconds: number
           reset_timer_ttl_minutes: number
           revision: number
           updated_at: string
@@ -146,7 +145,6 @@ export type Database = {
           lock_command_ttl_minutes?: number
           lock_timer_minutes?: number
           lock_trigger_enabled?: boolean
-          presence_window_seconds?: number
           reset_timer_ttl_minutes?: number
           revision?: number
           updated_at?: string
@@ -164,7 +162,6 @@ export type Database = {
           lock_command_ttl_minutes?: number
           lock_timer_minutes?: number
           lock_trigger_enabled?: boolean
-          presence_window_seconds?: number
           reset_timer_ttl_minutes?: number
           revision?: number
           updated_at?: string
@@ -300,6 +297,38 @@ export type Database = {
           },
         ]
       }
+      device_notes: {
+        Row: {
+          account_id: string
+          device_id: string
+          notes: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          device_id: string
+          notes?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          device_id?: string
+          notes?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_notes_device_account_fk"
+            columns: ["device_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id", "account_id"]
+          },
+        ]
+      }
       device_settings: {
         Row: {
           account_id: string
@@ -347,6 +376,7 @@ export type Database = {
           actual_lock_timer_minutes: number
           actual_lock_trigger_enabled: boolean | null
           actual_usb_trigger_enabled: boolean
+          android_release: string
           android_sdk: number
           app_version: string
           applied_device_settings_revision: number
@@ -372,6 +402,7 @@ export type Database = {
           actual_lock_timer_minutes: number
           actual_lock_trigger_enabled?: boolean | null
           actual_usb_trigger_enabled: boolean
+          android_release: string
           android_sdk: number
           app_version: string
           applied_device_settings_revision?: number
@@ -397,6 +428,7 @@ export type Database = {
           actual_lock_timer_minutes?: number
           actual_lock_trigger_enabled?: boolean | null
           actual_usb_trigger_enabled?: boolean
+          android_release?: string
           android_sdk?: number
           app_version?: string
           applied_device_settings_revision?: number
@@ -525,6 +557,7 @@ export type Database = {
           p_actual_lock_timer_minutes: number
           p_actual_lock_trigger_enabled: boolean
           p_actual_usb_trigger_enabled: boolean
+          p_android_release: string
           p_android_sdk: number
           p_app_version: string
           p_applied_device_settings_revision: number
@@ -657,7 +690,6 @@ export type Database = {
           p_expected_revision: number
           p_force_reset_ttl_minutes: number
           p_lock_command_ttl_minutes: number
-          p_presence_window_seconds: number
           p_reset_timer_ttl_minutes: number
         }
         Returns: {
@@ -671,7 +703,6 @@ export type Database = {
           lock_command_ttl_minutes: number
           lock_timer_minutes: number
           lock_trigger_enabled: boolean
-          presence_window_seconds: number
           reset_timer_ttl_minutes: number
           revision: number
           updated_at: string
@@ -703,7 +734,6 @@ export type Database = {
           lock_command_ttl_minutes: number
           lock_timer_minutes: number
           lock_trigger_enabled: boolean
-          presence_window_seconds: number
           reset_timer_ttl_minutes: number
           revision: number
           updated_at: string
@@ -713,6 +743,22 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "account_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_device_notes: {
+        Args: { p_device_id: string; p_notes: string }
+        Returns: {
+          account_id: string
+          device_id: string
+          notes: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "device_notes"
           isOneToOne: true
           isSetofReturn: false
         }

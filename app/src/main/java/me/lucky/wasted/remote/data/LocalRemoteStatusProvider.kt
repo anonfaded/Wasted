@@ -38,6 +38,7 @@ class LocalRemoteStatusProvider(
             batteryCharging = batterySnapshot.charging,
             appVersion = RemoteAppInfo.version(ctx),
             androidSdk = Build.VERSION.SDK_INT,
+            androidRelease = Build.VERSION.RELEASE,
         )
     }
 }

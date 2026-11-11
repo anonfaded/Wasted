@@ -3,7 +3,7 @@
   "releases": [
     {
       "appVersion": "3.0.0",
-      "schemaVersion": 13,
+      "schemaVersion": 15,
       "migrations": [
         "20261018125854_remote_schema.sql",
         "20261018133312_remote_rpcs.sql",
@@ -42,7 +42,11 @@
         "20261109120100_remote_schema_marker_12.sql",
         "20261111130000_remote_configurable_limits.sql",
         "20261111130100_remote_schema_marker_13.sql",
-        "20261111131000_remote_limits_current_only.sql"
+        "20261111131000_remote_limits_current_only.sql",
+        "20261111150000_remote_android_release.sql",
+        "20261111150100_remote_schema_marker_14.sql",
+        "20261111160000_remote_device_notes.sql",
+        "20261111160100_remote_schema_marker_15.sql"
       ]
     }
   ]

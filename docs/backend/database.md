@@ -10,9 +10,10 @@ Self-sufficient reference for the Supabase backend. Generated install/update SQL
 | --- | --- | --- |
 | `accounts` | Owner profile | `id` = auth user id; unique display name (case-insensitive), 1–32 chars; spaces and normal punctuation allowed |
 | `devices` | Enrolled devices | `account_id` FK; unique `installation_id`; `auth_user_id` (anonymous); `revoked_at`; unique `(id, account_id)` |
-| `account_settings` | Global default state and account limits | `revision` (monotonic trigger revision), `limits_revision` (monotonic limits revision), `lock_trigger_enabled`, `lock_timer_minutes` (1–525600), `usb_trigger_enabled`, `initialized_at`; command TTLs, enrollment lifetime, and active window |
+| `account_settings` | Global default state and account limits | `revision` (monotonic trigger revision), `limits_revision` (monotonic limits revision), `lock_trigger_enabled`, `lock_timer_minutes` (1–525600), `usb_trigger_enabled`, `initialized_at`; command TTLs and enrollment lifetime |
 | `device_settings` | Per-device overrides | One row per device when overridden; nullable fields inherit the global value; independent `revision` |
-| `device_status` | Last reported device state | One row per device: applied global/device revisions, actual Lock trigger/delay/USB, timer, Debug Mode, reset support, remote enabled, battery/charging, `settings_applied_at`, app version, Android SDK, last error, timer sample, last seen |
+| `device_notes` | Private owner notes | One row per device; owner-only SELECT policy (devices cannot read it); 0–4000 characters; updated through `update_device_notes`; cascades when the device is deleted |
+| `device_status` | Last reported device state | One row per device: applied global/device revisions, actual Lock trigger/delay/USB, timer, Debug Mode, reset support, remote enabled, battery/charging, `settings_applied_at`, app version, Android SDK and the device-reported `Build.VERSION.RELEASE`, last error, timer sample, last seen |
 | `account_action_targets` | Explicit command targets | One row per action/device; `target_scope` on the action is `all` or `selected`; no implicit fan-out |
 | `account_actions` | Command batches | `action_type`, `idempotency_key` unique per account, `target_scope` (`all`/`selected`), `expires_at`; targets are rows in `account_action_targets` |
 | `device_commands` | Durable commands | One row per device/action; `command_type`, `state`, timestamps, `result_code`; unique `(action_id, device_id)` |
@@ -69,9 +70,10 @@ from all roles.
 | `rename_device(p_device_id, p_name)` | Rename an owned active device |
 | `revoke_device(p_device_id)` | Revokes device; queued/received commands become `rejected`/`device_revoked`; `executing` commands become `failed`/`device_revoked_during_execution` (outcome unknown); terminal rows are preserved |
 | `update_account_settings(p_expected_revision, p_lock_timer_minutes, p_usb_trigger_enabled, p_lock_trigger_enabled)` | Revision-protected global trigger settings update |
-| `update_account_limits(p_expected_revision, p_enrollment_token_ttl_minutes, p_lock_command_ttl_minutes, p_force_reset_ttl_minutes, p_reset_timer_ttl_minutes, p_debug_mode_on_ttl_minutes, p_debug_mode_off_ttl_minutes, p_presence_window_seconds)` | Revision-protected account limits update; independent of trigger revisions |
+| `update_account_limits(p_expected_revision, p_enrollment_token_ttl_minutes, p_lock_command_ttl_minutes, p_force_reset_ttl_minutes, p_reset_timer_ttl_minutes, p_debug_mode_on_ttl_minutes, p_debug_mode_off_ttl_minutes)` | Revision-protected account limits update; independent of trigger revisions |
 | `list_device_effective_settings()` | Owner-only effective settings per active device, including override flags and applied revisions |
 | `update_device_settings(p_device_id, p_expected_revision, p_patch)` | Revision-protected owner override patch; JSON `null` clears a field to inherit |
+| `update_device_notes(p_device_id, p_notes)` | Owner-only private notes for an active device; rejects text over 4000 characters |
 | `create_account_action(p_action_type, p_idempotency_key, p_target_scope, p_device_ids)` | Explicit `all` or `selected` action; targets validated and stored before commands |
 | `set_device_debug_mode(p_device_id, p_debug_mode, p_idempotency_key)` | Per-device debug command, one explicit target, owner-only |
 | `expire_account_commands()` | Owner-triggered expiry of overdue queued/received commands |

@@ -185,11 +185,11 @@ select set_config('request.jwt.claims',
 create temp table pg_temp.t_rec_1 as
     select public.device_reconcile(
         (select id from pg_temp.t_claim_1), 2, 0, 2000, true, false, 0, false, true, true, true,
-        null::smallint, null::boolean, '2.0.0', 34::smallint, null, null) as result;
+        null::smallint, null::boolean, '2.0.0', 34::smallint, '14', null, null) as result;
 create temp table pg_temp.t_rec_2 as
     select public.device_reconcile(
         (select id from pg_temp.t_claim_1), 2, 0, 2000, true, false, 0, false, true, true, true,
-        null::smallint, null::boolean, '2.0.0', 34::smallint, null, null) as result;
+        null::smallint, null::boolean, '2.0.0', 34::smallint, '14', null, null) as result;
 
 do $$
 declare

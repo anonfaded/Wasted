@@ -34,7 +34,6 @@ export async function saveAccountLimits(client, expectedRevision, limits) {
     p_reset_timer_ttl_minutes: limits.reset_timer_ttl_minutes,
     p_debug_mode_on_ttl_minutes: limits.debug_mode_on_ttl_minutes,
     p_debug_mode_off_ttl_minutes: limits.debug_mode_off_ttl_minutes,
-    p_presence_window_seconds: limits.presence_window_seconds,
   });
 
   if (error) {

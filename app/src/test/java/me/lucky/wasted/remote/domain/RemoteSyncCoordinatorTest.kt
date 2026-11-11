@@ -110,6 +110,7 @@ class RemoteSyncCoordinatorTest {
                 batteryCharging = false,
                 appVersion = "2.0.0",
                 androidSdk = 34,
+                androidRelease = "14",
             )
         },
         isRemoteAvailable = { available },

@@ -224,6 +224,7 @@ data class ReconcileParams(
     @SerialName("p_battery_charging") val batteryCharging: Boolean?,
     @SerialName("p_app_version") val appVersion: String,
     @SerialName("p_android_sdk") val androidSdk: Int,
+    @SerialName("p_android_release") val androidRelease: String,
     @SerialName("p_last_error_code") val lastErrorCode: String?,
     @SerialName("p_last_error_message") val lastErrorMessage: String?,
 )

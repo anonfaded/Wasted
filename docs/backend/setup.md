@@ -94,8 +94,7 @@ single-owner bootstrap.
 
 ## 5. Post-setup checks
 
-- Dashboard shows the device as “Active” (contact within the configured active window; default
-  150 s) or “Inactive”.
+- Dashboard shows the device as “Active” (contact within 150 s) or “Inactive”.
 - Debug Mode shows ON.
 - Settings changes apply on the device at the next sync.
 - Force Reset is blocked with Debug Mode ON.

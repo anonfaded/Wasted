@@ -16,7 +16,7 @@ create temp table pg_temp.verify_results as
 with expected_tables(name) as (
     values ('accounts'), ('devices'), ('account_settings'), ('device_status'),
            ('account_actions'), ('account_action_targets'), ('device_settings'),
-           ('device_commands'), ('command_events')
+           ('device_commands'), ('command_events'), ('device_notes')
 ),
 expected_policies(tablename, policyname, cmd, roles, permissive, qual, with_check) as (
     values
@@ -50,6 +50,9 @@ expected_policies(tablename, policyname, cmd, roles, permissive, qual, with_chec
          null::text),
         ('account_action_targets', 'account_action_targets_select_owner', 'SELECT',
          array['authenticated']::name[], 'PERMISSIVE',
+         '(account_id = ( SELECT auth.uid() AS uid))', null::text),
+        ('device_notes', 'device_notes_select_owner', 'SELECT',
+         array['authenticated']::name[], 'PERMISSIVE',
          '(account_id = ( SELECT auth.uid() AS uid))', null::text)
 ),
 actual_policies as (
@@ -66,34 +69,35 @@ expected_rpcs(signature) as (
            ('public.rename_device(uuid,text)'),
            ('public.revoke_device(uuid)'),
            ('public.update_account_settings(bigint,integer,boolean,boolean)'),
-           ('public.update_account_limits(bigint,integer,integer,integer,integer,integer,integer,integer)'),
+           ('public.update_account_limits(bigint,integer,integer,integer,integer,integer,integer)'),
+           ('public.update_device_notes(uuid,text)'),
            ('public.create_account_action(text,uuid,text,uuid[])'),
            ('public.expire_account_commands()'),
            ('public.claim_device_enrollment(text,uuid,text,integer,boolean,boolean)'),
-           ('public.device_reconcile(uuid,bigint,bigint,integer,boolean,boolean,bigint,boolean,boolean,boolean,boolean,smallint,boolean,text,smallint,text,text)'),
+           ('public.device_reconcile(uuid,bigint,bigint,integer,boolean,boolean,bigint,boolean,boolean,boolean,boolean,smallint,boolean,text,smallint,text,text,text)'),
            ('public.device_transition_command(uuid,uuid,text,text,text,text)'),
            ('public.set_device_debug_mode(uuid,boolean,uuid)'),
            ('public.list_device_effective_settings()'),
            ('public.update_device_settings(uuid,bigint,jsonb)')
 ),
 checks as (
-    select 'public tables' as check_name, count(*) as found, 9 as expected
+    select 'public tables' as check_name, count(*) as found, 10 as expected
       from expected_tables
      where to_regclass('public.' || name) is not null
     union all
-    select 'RLS enabled', count(*), 9
+    select 'RLS enabled', count(*), 10
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relname in (select name from expected_tables)
        and c.relrowsecurity
     union all
-    select 'RLS forced', count(*), 9
+    select 'RLS forced', count(*), 10
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relname in (select name from expected_tables)
        and c.relrowsecurity and c.relforcerowsecurity
     union all
-    select 'SELECT-only policies', count(*), 9
+    select 'SELECT-only policies', count(*), 10
       from expected_policies
     union all
     select 'policy set exact', count(*), 0
@@ -121,7 +125,7 @@ checks as (
      where schemaname = 'public' and tablename in (select name from expected_tables)
        and cmd <> 'SELECT'
     union all
-    select 'authenticated select-only grants', count(*), 9
+    select 'authenticated select-only grants', count(*), 10
       from expected_tables
      where has_table_privilege('authenticated', format('public.%I', name), 'SELECT')
        and not has_table_privilege('authenticated', format('public.%I', name), 'INSERT')
@@ -206,7 +210,7 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:13'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:15'
     union all
     select 'single-owner hook present', count(*), 1
       from pg_proc

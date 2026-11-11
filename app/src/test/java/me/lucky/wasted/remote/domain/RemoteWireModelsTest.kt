@@ -95,6 +95,7 @@ class RemoteWireModelsTest {
             batteryCharging = false,
             appVersion = "3.0.0",
             androidSdk = 35,
+            androidRelease = "15",
             lastErrorCode = null,
             lastErrorMessage = null,
         )
@@ -104,6 +105,7 @@ class RemoteWireModelsTest {
         assertTrue(encoded.contains("\"p_applied_device_settings_revision\":3"))
         assertTrue(encoded.contains("\"p_battery_percent\":0"))
         assertTrue(encoded.contains("\"p_battery_charging\":false"))
+        assertTrue(encoded.contains("\"p_android_release\":\"15\""))
     }
 
     @Test

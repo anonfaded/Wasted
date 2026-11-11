@@ -6,6 +6,7 @@ import {
   latestCommandByDevice,
   renameDevice,
   revokeDevice,
+  updateDeviceNotes,
 } from "../src/devices.js";
 
 test("revoked devices are excluded from the actionable list", () => {
@@ -84,6 +85,14 @@ test("dashboard data uses the bounded latest-command and effective-settings RPCs
       if (table === "account_settings") {
         return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
       }
+      if (table === "device_notes") {
+        return {
+          select: async () => ({
+            data: [{ device_id: "device-1", notes: "Desk drawer", updated_at: "2026-11-11T08:00:00Z" }],
+            error: null,
+          }),
+        };
+      }
       if (table === "device_commands") commandTableRead = true;
       throw new Error(`unexpected table ${table}`);
     },
@@ -96,6 +105,7 @@ test("dashboard data uses the bounded latest-command and effective-settings RPCs
   assert.equal(data.latestCommand.get("device-1").id, "cmd-2");
   assert.equal(data.devices.length, 1);
   assert.equal(data.effectiveSettingsByDevice.get("device-1").device_revision, 2);
+  assert.equal(data.notesByDevice.get("device-1").notes, "Desk drawer");
 });
 
 test("rename sends a trimmed name through the RPC", async () => {
@@ -110,6 +120,34 @@ test("rename sends a trimmed name through the RPC", async () => {
   assert.deepEqual(calls, [
     { name: "rename_device", args: { p_device_id: "device-1", p_name: "Office phone" } },
   ]);
+});
+
+test("device notes are trimmed and sent through the RPC", async () => {
+  const calls = [];
+  const client = {
+    rpc: async (name, args) => {
+      calls.push({ name, args });
+      return { data: { device_id: "device-1", notes: "Second floor" }, error: null };
+    },
+  };
+
+  const result = await updateDeviceNotes(client, "device-1", "  Second floor  ");
+
+  assert.deepEqual(calls, [{
+    name: "update_device_notes",
+    args: { p_device_id: "device-1", p_notes: "Second floor" },
+  }]);
+  assert.equal(result.notes, "Second floor");
+});
+
+test("device notes reject oversized text before calling Supabase", async () => {
+  let called = false;
+  const client = { rpc: async () => { called = true; } };
+  await assert.rejects(
+    () => updateDeviceNotes(client, "device-1", "x".repeat(4001)),
+    /4000/,
+  );
+  assert.equal(called, false);
 });
 
 test("rename rejects empty and oversized names before calling Supabase", async () => {

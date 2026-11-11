@@ -1,18 +1,32 @@
 /** Data access + pure helpers for the device grid. */
 
 export async function fetchDashboardData(client) {
-  const [devicesResult, statusResult, commandsResult, settingsResult, effectiveResult] =
-    await Promise.all([
-      client.from("devices")
-        .select("id, account_id, name, installation_id, enrolled_at, revoked_at")
-        .order("created_at", { ascending: true }),
-      client.from("device_status").select("*"),
-      client.rpc("list_latest_device_commands"),
-      client.from("account_settings").select("*").maybeSingle(),
-      client.rpc("list_device_effective_settings"),
-    ]);
+  const [
+    devicesResult,
+    statusResult,
+    commandsResult,
+    settingsResult,
+    effectiveResult,
+    notesResult,
+  ] = await Promise.all([
+    client.from("devices")
+      .select("id, account_id, name, installation_id, enrolled_at, revoked_at")
+      .order("created_at", { ascending: true }),
+    client.from("device_status").select("*"),
+    client.rpc("list_latest_device_commands"),
+    client.from("account_settings").select("*").maybeSingle(),
+    client.rpc("list_device_effective_settings"),
+    client.from("device_notes").select("device_id, notes, updated_at"),
+  ]);
 
-  for (const result of [devicesResult, statusResult, commandsResult, settingsResult, effectiveResult]) {
+  for (const result of [
+    devicesResult,
+    statusResult,
+    commandsResult,
+    settingsResult,
+    effectiveResult,
+    notesResult,
+  ]) {
     if (result.error) throw new Error(result.error.message);
   }
 
@@ -22,12 +36,16 @@ export async function fetchDashboardData(client) {
   const effectiveSettingsByDevice = new Map(
     (effectiveResult.data ?? []).map((settings) => [settings.device_id, settings]),
   );
+  const notesByDevice = new Map(
+    (notesResult.data ?? []).map((note) => [note.device_id, note]),
+  );
 
   return {
     devices,
     statusByDevice,
     latestCommand,
     effectiveSettingsByDevice,
+    notesByDevice,
     settings: settingsResult.data ?? null,
   };
 }
@@ -62,4 +80,15 @@ export async function renameDevice(client, deviceId, name) {
 export async function revokeDevice(client, deviceId) {
   const { error } = await client.rpc("revoke_device", { p_device_id: deviceId });
   if (error) throw new Error(error.message);
+}
+
+export async function updateDeviceNotes(client, deviceId, notes) {
+  const value = String(notes ?? "").trim();
+  if (value.length > 4000) throw new Error("Notes must be 4000 characters or fewer.");
+  const { data, error } = await client.rpc("update_device_notes", {
+    p_device_id: deviceId,
+    p_notes: value,
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }
