@@ -53,6 +53,55 @@
   }
 }
 
+/* Explicit choices override the system preference. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eeece6;
+  --bg-glow: #f8f6f1;
+  --surface: #fbfaf7;
+  --surface-raised: #ffffff;
+  --text: #131312;
+  --muted: #615f58;
+  --border: #cdc9bd;
+  --rule: #a6a195;
+  --ink: #141413;
+  --ink-inverse: #fbfaf7;
+  --focus: #141413;
+  --shadow: rgb(20 20 19 / 0.08);
+  --danger: #9d2525;
+  --danger-bg: #f8e9e7;
+  --success: #17623c;
+  --success-bg: #e7f3eb;
+  --warning: #8a6418;
+  --warning-bg: #f7efdd;
+  --info: #28527f;
+  --info-bg: #e8eff8;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #09090a;
+  --bg-glow: #151517;
+  --surface: #111113;
+  --surface-raised: #17171a;
+  --text: #f2f1ed;
+  --muted: #9b9992;
+  --border: #2a2a2d;
+  --rule: #3f3f43;
+  --ink: #f2f1ed;
+  --ink-inverse: #0a0a0b;
+  --focus: #f2f1ed;
+  --shadow: rgb(0 0 0 / 0.5);
+  --danger: #ff9b9b;
+  --danger-bg: #2b1414;
+  --success: #8de0b0;
+  --success-bg: #10261a;
+  --warning: #f0c674;
+  --warning-bg: #2a2110;
+  --info: #9dc6ff;
+  --info-bg: #122034;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -995,6 +1044,46 @@ footer a:hover { border-bottom-color: var(--ink); }
   line-height: 0;
 }
 .menu-toggle .icon { width: 20px; height: 20px; margin: 0; }
+.menu-theme {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.35rem 0.45rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+.header-actions .theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.45rem 0.2rem;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  white-space: normal;
+}
+.header-actions .theme-option:hover {
+  border-color: var(--ink);
+  color: var(--text);
+  transform: none;
+}
+.header-actions .theme-option[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--ink);
+}
+.theme-option .icon { width: 1rem; height: 1rem; margin: 0; }
 .menu-connection {
   display: flex;
   flex-direction: column;

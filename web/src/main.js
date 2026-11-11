@@ -117,6 +117,9 @@ const state = {
 
 const CACHE_PREFIX = "wasted_dashboard_cache_v4_";
 const ACTIVE_WINDOW_LABEL = `${FRESHNESS_WINDOW_MS / 1000} seconds`;
+const THEME_KEY = "wasted_dashboard_theme";
+const VALID_THEMES = new Set(["system", "light", "dark"]);
+const THEME_COLORS = { light: "#eeece6", dark: "#111113" };
 
 const config = readConfig();
 if (!config) {
@@ -132,6 +135,7 @@ if (!config) {
 
 async function boot(cfg) {
   applyFooter(cfg);
+  wireThemePicker();
   applyConnectionInfo(cfg);
   applySetupLinks(cfg);
   applyOptionalLink("#footer-privacy", cfg.privacyUrl);
@@ -229,6 +233,55 @@ function applyConnectionInfo(cfg) {
       }
     });
   }
+}
+
+function storedTheme() {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return VALID_THEMES.has(value) ? value : "system";
+  } catch {
+    return "system";
+  }
+}
+
+function resolvedTheme(theme) {
+  if (theme === "light" || theme === "dark") return theme;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function updateThemeColor(theme) {
+  const meta = $("#theme-color-meta");
+  if (meta) meta.content = THEME_COLORS[resolvedTheme(theme)];
+}
+
+function applyTheme(theme, { persist = true } = {}) {
+  const selected = VALID_THEMES.has(theme) ? theme : "system";
+  if (selected === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.dataset.theme = selected;
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_KEY, selected);
+    } catch {
+      // The theme still applies for this page when storage is unavailable.
+    }
+  }
+  for (const button of document.querySelectorAll("[data-theme-option]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.themeOption === selected));
+  }
+  updateThemeColor(selected);
+}
+
+function wireThemePicker() {
+  const buttons = [...document.querySelectorAll("[data-theme-option]")];
+  if (!buttons.length) return;
+  applyTheme(storedTheme(), { persist: false });
+  for (const button of buttons) {
+    button.addEventListener("click", () => applyTheme(button.dataset.themeOption));
+  }
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", () => {
+    if (storedTheme() === "system") updateThemeColor("system");
+  });
 }
 
 function renderAccountEmail() {
