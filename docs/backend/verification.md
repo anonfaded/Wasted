@@ -119,6 +119,7 @@ Expected: only validator/test constants in source; no real key/URL in the APK.
 - Remote disabled/unconfigured/offline: zero network work and unchanged local behavior.
 - Remote/P2P independent toggling.
 - Revocation during executing; idempotency-key reuse across types; future-function PUBLIC denial.
+- Limits: save each configurable TTL, confirm new actions/tokens use the saved value, confirm existing rows keep their original expiry, and verify `limits_revision` conflicts are rejected.
 
 ## Open gates
 

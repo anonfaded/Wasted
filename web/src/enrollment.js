@@ -1,4 +1,4 @@
-/** Creates a 10-minute one-time enrollment token via the owner RPC. */
+/** Creates a one-time enrollment token using the account's saved lifetime. */
 export async function createEnrollmentToken(client) {
   const { data, error } = await client.rpc("create_device_enrollment");
   if (error) throw new Error(error.message);

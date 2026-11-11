@@ -86,14 +86,16 @@ single-owner bootstrap.
 2. The Before User Created hook rejects every later email/password account. Use the owner account.
    Account-name changes are in the dashboard; password/account recovery is handled from the
    Supabase dashboard.
-3. In the dashboard, **Enroll a device → Create enrollment token** (valid 10 minutes).
+3. In the dashboard, **Enroll a device → Create enrollment token** (valid for the configured
+   enrollment lifetime; default 10 minutes).
 4. In the app: paste the **Dashboard website URL**, Save.
 5. Enable **Remote Management** (forces Debug Mode ON) → paste the token → **Claim**.
 6. Wait for the device card to appear, then send **Reset Timer** and confirm the timer updates.
 
 ## 5. Post-setup checks
 
-- Dashboard shows the device as “Active” (contact within 150 s) or “Inactive”.
+- Dashboard shows the device as “Active” (contact within the configured active window; default
+  150 s) or “Inactive”.
 - Debug Mode shows ON.
 - Settings changes apply on the device at the next sync.
 - Force Reset is blocked with Debug Mode ON.
@@ -106,7 +108,8 @@ Backend setup is **once per Supabase project/account**, not per device.
 - **Additional devices:** do not run `setup.sql`, do not change Auth settings, and do not generate
   another dashboard. In the app, enter the same Project URL, publishable key, and dashboard URL,
   enable Remote Management, then create a new enrollment token in the dashboard and claim it.
-- Create one token per device; tokens are independent and each expires in 10 minutes.
+- Create one token per device; tokens are independent and each expires after the configured
+  enrollment lifetime (default 10 minutes).
 - Settings have global defaults plus optional per-device overrides; a device override wins until
   cleared. Debug Mode is per device. Commands require choosing all enrolled devices or a specific
   selection; there is no implicit fan-out.
@@ -117,7 +120,7 @@ The dashboard never adds a device by itself. The token is a one-time pairing cod
 
 1. Signed in on the dashboard, click **Create enrollment token**. The browser calls
    `create_device_enrollment`; Supabase generates a random token, stores only its hash, and returns
-   the plaintext once. It expires after 10 minutes.
+   the plaintext once. It expires after the configured enrollment lifetime (default 10 minutes).
 2. Copy that token into the **Wasted app on the device** (Remote Management → token → Claim).
 3. The app calls `claim_device_enrollment` with the token. Supabase hashes it, verifies it is unused
    and unexpired, binds that device's anonymous identity/installation to your account, and consumes

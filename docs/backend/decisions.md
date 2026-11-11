@@ -161,7 +161,8 @@ authentication/authorization credential, without exposing the owner password to 
 also allows automatic account creation only “if technically feasible”; explicit owner accounts are
 kept for safety (ADR-08).
 **Decision:** The owner signs in with email/password on the dashboard. Each installation signs in
-anonymously and is bound to the owner by a single-use, hashed, 10-minute enrollment token. RPCs
+anonymously and is bound to the owner by a single-use, hashed enrollment token with a configurable
+lifetime (default 10 minutes). RPCs
 distinguish owner and anonymous sessions; RLS scopes all data to the account.
 **Consequences:** Anonymous sign-ins must be enabled for Remote Management, but not for the rest of
 the app. Disabling them still allows owner sign-in/dashboard use; devices cannot enroll or sync.

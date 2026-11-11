@@ -7,7 +7,7 @@ import {
 } from "./account.js";
 import { fetchDashboardData, renameDevice, revokeDevice } from "./devices.js";
 import { createEnrollmentToken, tokenExpiryLabel } from "./enrollment.js";
-import { saveAccountSettings, saveDeviceSettings } from "./settings.js";
+import { saveAccountSettings, saveAccountLimits, saveDeviceSettings } from "./settings.js";
 import { createAction, setDeviceDebugMode, newIdempotencyKey, RESET_TIMER, FORCE_RESET, LOCK_NOW } from "./commands.js";
 import { batteryLabel, batteryPercent, batteryTone, isLowBattery } from "./battery.js";
 import {
@@ -18,6 +18,16 @@ import {
   formatDateTime,
   formatMinutes,
 } from "./timers.js";
+import {
+  LIMIT_DEFAULTS,
+  LIMIT_FIELDS,
+  commandExpirySummary,
+  formatLimitMinutes,
+  formatLimitSeconds,
+  limitsFromSettings,
+  presenceWindowLabel,
+  presenceWindowMs,
+} from "./limits.js";
 import {
   $,
   toast,
@@ -64,7 +74,7 @@ const state = {
   },
 };
 
-const CACHE_PREFIX = "wasted_dashboard_cache_v2_";
+const CACHE_PREFIX = "wasted_dashboard_cache_v3_";
 
 const config = readConfig();
 if (!config) {
@@ -475,6 +485,8 @@ function setDashboardOnline(online, reason = state.connectionReason ?? "offline"
   const selectors = [
     "#create-token",
     "#settings-form button[type=submit]",
+    "#limits-form button[type=submit]",
+    "#limits-reset",
     "#account-form button[type=submit]",
     "#target-all",
     "#target-selected",
@@ -537,8 +549,10 @@ function renderDevices() {
   state.liveTimers = [];
 
   const { devices, statusByDevice, latestCommand, effectiveSettingsByDevice } = state.data;
+  const activeWindow = presenceWindowMs(state.data.settings);
+  const activeWindowLabel = presenceWindowLabel(state.data.settings);
   pruneSelectedDevices(devices);
-  renderDeviceSummary(devices, statusByDevice, now);
+  renderDeviceSummary(devices, statusByDevice, now, activeWindow, activeWindowLabel);
   const unavailableWithoutCache = !state.online && !state.dataLoaded;
   const unavailablePrefix =
     state.connectionReason === "offline" ? "Offline" : "Can't reach Supabase";
@@ -570,7 +584,7 @@ function renderDevices() {
     const status = statusByDevice.get(device.id) ?? null;
     const effective = effectiveSettingsByDevice.get(device.id) ?? null;
     const command = latestCommand.get(device.id) ?? null;
-    const fresh = isRecentlyConnected(status, now);
+    const fresh = isRecentlyConnected(status, now, activeWindow);
     const timerSpan = el("span", {
       className: status?.timer_running ? "timer-live" : "timer-inactive",
       text: timerText(status, now),
@@ -629,12 +643,12 @@ function renderDevices() {
       el("dl", {}, [
         fieldTerm(
           "Connection",
-          "Active means a status update arrived within the last 150 seconds; the device normally reports about once a minute. Inactive means no contact in that window. Colour key: 🟢 Active · 🔴 Inactive.",
+          `Active means a status update arrived within the last ${activeWindowLabel}; the device normally reports about once a minute. Inactive means no contact in that window. Colour key: 🟢 Active · 🔴 Inactive.`,
         ),
         el("dd", {}, [
           statusBadge(fresh ? "Active" : "Inactive", fresh ? "active" : "inactive", fresh
-            ? "Contacted the server within the last 150 seconds."
-            : "No contact in the last 150 seconds. The exact time is shown below."),
+            ? `Contacted the server within the last ${activeWindowLabel}.`
+            : `No contact in the last ${activeWindowLabel}. The exact time is shown below.`),
         ]),
         fieldTerm(
           "Last contact",
@@ -732,7 +746,7 @@ function renderDevices() {
   renderCommandScope(devices);
 }
 
-function renderDeviceSummary(devices, statusByDevice, now) {
+function renderDeviceSummary(devices, statusByDevice, now, activeWindow, activeWindowLabel) {
   const container = $("#device-summary");
   if (!container) return;
   if (!state.dataLoaded && !state.online) {
@@ -740,15 +754,27 @@ function renderDeviceSummary(devices, statusByDevice, now) {
     return;
   }
   const active = devices.filter((device) =>
-    isRecentlyConnected(statusByDevice.get(device.id), now),
+    isRecentlyConnected(statusByDevice.get(device.id), now, activeWindow),
   ).length;
   const debug = devices.filter((device) => statusByDevice.get(device.id)?.debug_mode).length;
   const lowBattery = devices.filter((device) => isLowBattery(statusByDevice.get(device.id))).length;
   container.replaceChildren(
-    summaryCard("Devices", devices.length, "enrolled"),
-    summaryCard("Active", active, "within 150 s", active ? "success" : "muted"),
-    summaryCard("Debug Mode", debug, "wipes blocked", debug ? "success" : "muted"),
-    summaryCard("Low battery", lowBattery, "20% or less", lowBattery ? "danger" : "muted"),
+    summaryCard("Devices", devices.length, "enrolled", "", {
+      icon: "devices",
+      info: "Every device currently enrolled in this account, including offline devices. Revoked devices are removed from this list.",
+    }),
+    summaryCard("Active", active, `within ${activeWindowLabel}`, active ? "success" : "muted", {
+      icon: "activity",
+      info: `Devices that contacted the server within the last ${activeWindowLabel}. The device normally reports about once a minute. Change this window under Command & enrollment limits.`,
+    }),
+    summaryCard("Debug Mode", debug, "wipes blocked", debug ? "success" : "muted", {
+      icon: "bug",
+      info: "Devices with Debug Mode ON. They receive commands and sync settings, but Force Reset is blocked and reported instead of wiping.",
+    }),
+    summaryCard("Low battery", lowBattery, "20% or less", lowBattery ? "danger" : "muted", {
+      icon: "battery",
+      info: "Devices whose last reported battery level was 20% or less. Unknown battery levels are not counted as low.",
+    }),
   );
 }
 
@@ -783,9 +809,10 @@ function renderTargetDeviceList(devices) {
   }
 
   const now = Date.now();
+  const activeWindow = presenceWindowMs(state.data.settings);
   for (const device of devices) {
     const status = state.data.statusByDevice.get(device.id);
-    const fresh = isRecentlyConnected(status, now);
+    const fresh = isRecentlyConnected(status, now, activeWindow);
     const input = el("input", {
       attrs: {
         type: "checkbox",
@@ -909,10 +936,25 @@ function desiredVsActualNode(desired, actual, formatValue) {
   ]);
 }
 
-function summaryCard(label, value, detail, tone = "") {
-  return el("div", { className: "stat" }, [
-    el("span", { className: `stat-value ${tone}`.trim(), text: String(value) }),
+function summaryCard(label, value, detail, tone = "", { icon, info } = {}) {
+  const head = el("span", { className: "stat-head" }, [
+    icon ? iconNode(icon) : null,
     el("span", { className: "stat-label", text: label }),
+    info
+      ? el("button", {
+          className: "info-button",
+          attrs: {
+            type: "button",
+            "data-info": info,
+            "aria-label": `About ${label}`,
+            title: info,
+          },
+        }, [el("span", { text: "?" })])
+      : null,
+  ].filter(Boolean));
+  return el("div", { className: "stat" }, [
+    head,
+    el("span", { className: `stat-value ${tone}`.trim(), text: String(value) }),
     el("span", { className: "stat-detail", text: detail }),
   ]);
 }
@@ -1281,6 +1323,70 @@ function renderSettings() {
   revision.title =
     "The global version increases each time global settings are saved. Devices with overrides still apply the newest global values for fields they inherit.";
   form.dataset.revision = String(settings.revision);
+  renderLimits();
+}
+
+function renderLimits() {
+  const settings = state.data.settings;
+  const revision = $("#limits-revision");
+  if (!settings) {
+    if (revision) {
+      revision.textContent = state.online
+        ? "limits unavailable"
+        : state.connectionReason === "offline"
+          ? "offline — reconnect to load limits"
+          : "Supabase unreachable — retrying";
+    }
+    return;
+  }
+  const limits = limitsFromSettings(settings);
+  for (const field of LIMIT_FIELDS) {
+    const input = $(`#${field.inputId}`);
+    if (input) input.value = String(limits[field.key]);
+  }
+  if (revision) {
+    revision.textContent = `Limits version ${settings.limits_revision}`;
+    revision.title =
+      "Limits are saved separately from trigger settings. Changing them does not make devices reapply trigger values.";
+  }
+  const enrollment = $("#enroll-token-validity");
+  if (enrollment) {
+    enrollment.textContent =
+      `Valid for ${formatLimitMinutes(limits.enrollment_token_ttl_minutes)} and usable once.`;
+  }
+  const activeWindow = $("#help-active-window");
+  if (activeWindow) activeWindow.textContent = presenceWindowLabel(settings);
+  const expiry = $("#help-command-expiry");
+  if (expiry) expiry.textContent = commandExpirySummary(settings);
+}
+
+function readLimitForm() {
+  const limits = {};
+  for (const field of LIMIT_FIELDS) {
+    const input = $(`#${field.inputId}`);
+    const value = Number(input?.value);
+    if (!Number.isInteger(value) || value < field.min || value > field.max) {
+      const label = input?.closest(".field")?.querySelector("label")?.textContent ?? "This limit";
+      showMessage(
+        "#limits-message",
+        `${label.trim()} must be between ${field.min} and ${field.max}.`,
+        "error",
+      );
+      input?.focus();
+      return null;
+    }
+    limits[field.key] = value;
+  }
+  return limits;
+}
+
+function applyLimitDefaults() {
+  for (const field of LIMIT_FIELDS) {
+    const input = $(`#${field.inputId}`);
+    if (input) input.value = String(LIMIT_DEFAULTS[field.key]);
+  }
+  clearMessage("#limits-message");
+  toast("Default limits filled in. Review them, then save.", "info");
 }
 
 function tickTimers() {
@@ -1395,10 +1501,7 @@ function openDeviceSettingsDialog(deviceId) {
   $("#ds-lock-trigger").checked = Boolean(effective.lock_trigger_enabled);
   $("#ds-usb-trigger").checked = Boolean(effective.usb_trigger_enabled);
   $("#ds-lock-minutes").value = String(effective.lock_timer_minutes);
-  const globalSettings = state.data.settings;
-  $("#ds-lock-minutes-global").textContent = globalSettings
-    ? `Global: ${formatMinutes(globalSettings.lock_timer_minutes)}`
-    : "Global value unavailable.";
+  renderDeviceSettingsGlobalCopy();
 
   dialog.returnValue = "";
   dialog.showModal();
@@ -1452,19 +1555,37 @@ function setOverrideField(valueId, inheritId, overridden) {
   value.disabled = !overridden;
 }
 
+function renderDeviceSettingsGlobalCopy() {
+  const settings = state.data.settings;
+  if (!settings) {
+    for (const id of ["ds-lock-trigger-global", "ds-lock-minutes-global", "ds-usb-trigger-global"]) {
+      const element = $(`#${id}`);
+      if (element) element.textContent = "Global value unavailable.";
+    }
+    return;
+  }
+  const triggerInherited = $("#ds-lock-trigger-inherit")?.checked;
+  const minutesInherited = $("#ds-lock-minutes-inherit")?.checked;
+  const usbInherited = $("#ds-usb-trigger-inherit")?.checked;
+  $("#ds-lock-trigger-global").textContent =
+    `Global: ${settings.lock_trigger_enabled ? "ON" : "OFF"}${triggerInherited ? " · using global" : " · override saved"}.`;
+  $("#ds-lock-minutes-global").textContent =
+    `Global: ${formatMinutes(settings.lock_timer_minutes)}${minutesInherited ? " · using global" : " · override saved"}.`;
+  $("#ds-usb-trigger-global").textContent =
+    `Global: ${settings.usb_trigger_enabled ? "ON" : "OFF"}${usbInherited ? " · using global" : " · override saved"}.`;
+}
+
 function wireDeviceSettingsFields() {
-  for (const [valueId, inheritId, fallbackId] of [
-    ["ds-lock-trigger", "ds-lock-trigger-inherit", null],
-    ["ds-lock-minutes", "ds-lock-minutes-inherit", "ds-lock-minutes-global"],
-    ["ds-usb-trigger", "ds-usb-trigger-inherit", null],
+  for (const [valueId, inheritId] of [
+    ["ds-lock-trigger", "ds-lock-trigger-inherit"],
+    ["ds-lock-minutes", "ds-lock-minutes-inherit"],
+    ["ds-usb-trigger", "ds-usb-trigger-inherit"],
   ]) {
     const inherit = $(`#${inheritId}`);
     inherit?.addEventListener("change", () => {
       const value = $(`#${valueId}`);
       value.disabled = inherit.checked;
-      if (fallbackId && inherit.checked) {
-        $("#" + fallbackId).textContent = "Using the global value.";
-      }
+      renderDeviceSettingsGlobalCopy();
     });
   }
 }
@@ -1642,6 +1763,66 @@ function wireDashboard() {
     );
   });
 
+  $("#limits-info").addEventListener("click", () => {
+    toast(
+      "These limits are stored with your account and enforced by Supabase when commands or enrollment tokens are created. Existing queued commands and tokens keep their original expiry. Device active window only changes the dashboard status label.",
+      "info",
+    );
+  });
+  $("#limits-reset").addEventListener("click", applyLimitDefaults);
+  $("#limits-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!requireOnline("#limits-message")) return;
+    const settings = state.data.settings;
+    if (!settings) {
+      showMessage("#limits-message", "Account limits are not available.", "error");
+      return;
+    }
+    const form = event.target;
+    if (!form.reportValidity()) return;
+    const limits = readLimitForm();
+    if (!limits) return;
+    const confirmed = await confirmAction({
+      title: "Save command limits?",
+      message:
+        `Enrollment token: ${formatLimitMinutes(limits.enrollment_token_ttl_minutes)}. ` +
+        `Lock Devices: ${formatLimitMinutes(limits.lock_command_ttl_minutes)}. ` +
+        `Force Reset: ${formatLimitMinutes(limits.force_reset_ttl_minutes)}. ` +
+        `Reset Timer: ${formatLimitMinutes(limits.reset_timer_ttl_minutes)}. ` +
+        `Debug Mode ON: ${formatLimitMinutes(limits.debug_mode_on_ttl_minutes)}. ` +
+        `Debug Mode OFF: ${formatLimitMinutes(limits.debug_mode_off_ttl_minutes)}. ` +
+        `Active window: ${formatLimitSeconds(limits.presence_window_seconds)}. ` +
+        "Only new commands and tokens use these values.",
+      confirmLabel: "Save limits",
+      danger: false,
+    });
+    if (!confirmed) return;
+    const button = form.querySelector("button[type=submit]");
+    clearMessage("#limits-message");
+    setBusy(button, true);
+    try {
+      const updated = await saveAccountLimits(
+        state.client,
+        settings.limits_revision,
+        limits,
+      );
+      state.data.settings = updated;
+      renderSettings();
+      renderDevices();
+      toast("Command and enrollment limits saved.", "success");
+    } catch (error) {
+      if (error.code === "REVISION_CONFLICT") scheduleRefresh();
+      showMessage("#limits-message", error.message, "error");
+    } finally {
+      setBusy(button, false);
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    const info = event.target.closest("button[data-info]");
+    if (info) toast(info.dataset.info, "info");
+  });
+
   $("#account-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!requireOnline("#account-message")) return;
@@ -1706,11 +1887,6 @@ function wireDashboard() {
   });
 
   $("#devices").addEventListener("click", (event) => {
-    const info = event.target.closest("button[data-info]");
-    if (info) {
-      toast(info.dataset.info, "info");
-      return;
-    }
     const settingsButton = event.target.closest("button[data-device-settings]");
     if (settingsButton) {
       openDeviceSettingsDialog(settingsButton.dataset.deviceSettings);
@@ -1851,11 +2027,12 @@ function wireDashboard() {
       toast(actionUnavailableMessage(state.connectionReason), "error");
       return;
     }
+    const tokenMinutes = limitsFromSettings(state.data.settings).enrollment_token_ttl_minutes;
     const confirmed = await confirmAction({
       title: "Create enrollment token?",
       message:
-        "This creates a single-use code valid for 10 minutes. Anyone with the code can add a " +
-        "device to this account, so share it only with your own device.",
+        `This creates a single-use code valid for ${formatLimitMinutes(tokenMinutes)}. Anyone ` +
+        "with the code can add a device to this account, so share it only with your own device.",
       confirmLabel: "Create token",
       danger: false,
     });

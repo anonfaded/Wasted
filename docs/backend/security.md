@@ -9,7 +9,7 @@
 | Stolen/revoked device | `revoke_device` rejects pending commands, terminalizes `executing` with an unknown-outcome result, and blocks reconciliation |
 | Replay/duplicate command | Per-submission idempotency keys bound to action type/scope; server compare-and-set state transitions; local journal |
 | Remote wipe bypass | Debug Mode re-read by `ResetExecutor`; remote Force Reset blocked while ON; only reset boundary |
-| Someone learns an enrollment token | Token is single-use, expires after 10 minutes, and is hashed at rest; there is no manual token-revocation endpoint, so treat it as a secret and let it expire if unused |
+| Someone learns an enrollment token | Token is single-use, expires after the configured enrollment lifetime (default 10 minutes), and is hashed at rest; there is no manual token-revocation endpoint, so treat it as a secret and let it expire if unused |
 | Direct table tampering | No write policies/grants; writes only through SECURITY DEFINER RPCs |
 | Secret key leakage | Secret/service-role keys are rejected by validation and never shipped; docs forbid them |
 | Hosted dashboard contains secrets | False: the generated package contains only URL + publishable key |
@@ -56,7 +56,7 @@ product/security decision and a separate threat-model review.
 | **Secret/service-role** key | Never in app/dashboard/repo | Full data access, bypasses RLS; used only in trusted server-side tooling if ever needed |
 | Supabase account password | User's account | Never stored by the app or dashboard |
 | Database password | Supabase dashboard only | Never committed or embedded |
-| Enrollment token | Generated in dashboard, pasted in app | Single-use, 10-minute expiry, hashed at rest |
+| Enrollment token | Generated in dashboard, pasted in app | Single-use, account-configured lifetime (default 10 minutes), hashed at rest |
 | Android signing material | Local keystore (gitignored) | Never committed |
 
 Validation rejects `sb_secret_...` and legacy `service_role` JWTs. The dashboard contains only the

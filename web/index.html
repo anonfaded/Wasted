@@ -59,6 +59,56 @@
     <path d="M9.2 9a3 3 0 1 1 4.5 2.6c-.9.5-1.7 1.1-1.7 2.4"/>
     <path d="M12 17h.01"/>
   </symbol>
+  <symbol id="icon-activity" viewBox="0 0 24 24">
+    <path d="M3 12h4l2.2-7 4.1 14 2.2-7H21"/>
+  </symbol>
+  <symbol id="icon-battery" viewBox="0 0 24 24">
+    <rect x="2.5" y="7" width="17" height="10" rx="2"/>
+    <path d="M22 10v4M6 10v4M10 10v4"/>
+  </symbol>
+  <symbol id="icon-bug" viewBox="0 0 24 24">
+    <path d="M8 9V7a4 4 0 0 1 8 0v2M6 13H3M21 13h-3M7 18l-2 2M17 18l2 2M7 8l-2-2M17 8l2-2"/>
+    <rect x="6" y="9" width="12" height="10" rx="4"/>
+    <path d="M12 10v6"/>
+  </symbol>
+  <symbol id="icon-clock" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M12 7v5l3 2"/>
+  </symbol>
+  <symbol id="icon-usb" viewBox="0 0 24 24">
+    <path d="M12 3v13M12 3l-2 2M12 3l2 2M12 16l-4-3M12 16l4-3M8 13a2 2 0 1 0 0 .1M16 13a2 2 0 1 0 0 .1M12 16a2 2 0 1 0 0 .1"/>
+  </symbol>
+  <symbol id="icon-send" viewBox="0 0 24 24">
+    <path d="m3 11 18-8-8 18-2.5-7.5L3 11Z"/>
+    <path d="m10.5 13.5 4-4"/>
+  </symbol>
+  <symbol id="icon-list" viewBox="0 0 24 24">
+    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+  </symbol>
+  <symbol id="icon-mail" viewBox="0 0 24 24">
+    <rect x="3" y="5" width="18" height="14" rx="2"/>
+    <path d="m3 7 9 6 9-6"/>
+  </symbol>
+  <symbol id="icon-target" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9"/>
+    <circle cx="12" cy="12" r="5"/>
+    <circle cx="12" cy="12" r="1"/>
+  </symbol>
+  <symbol id="icon-login" viewBox="0 0 24 24">
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+    <path d="m10 17 5-5-5-5M15 12H3"/>
+  </symbol>
+  <symbol id="icon-check" viewBox="0 0 24 24">
+    <path d="m4 12 5 5L20 6"/>
+  </symbol>
+  <symbol id="icon-close" viewBox="0 0 24 24">
+    <path d="m6 6 12 12M18 6 6 18"/>
+  </symbol>
+  <symbol id="icon-server" viewBox="0 0 24 24">
+    <rect x="3" y="4" width="18" height="6" rx="2"/>
+    <rect x="3" y="14" width="18" height="6" rx="2"/>
+    <path d="M7 7h.01M7 17h.01"/>
+  </symbol>
   <symbol id="icon-signout" viewBox="0 0 24 24">
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
     <path d="m16 17 5-5-5-5"/>
@@ -185,13 +235,13 @@
 
     <form id="sign-in-form" novalidate>
       <div class="field">
-        <label for="sign-in-email">Email</label>
+        <label for="sign-in-email" title="The owner email for this self-hosted dashboard. Devices never receive this email.">Email</label>
         <input id="sign-in-email" name="email" type="email" autocomplete="username"
                autocapitalize="none" spellcheck="false"
                maxlength="254" placeholder="you@example.com" required>
       </div>
       <div class="field">
-        <label for="sign-in-password">Password</label>
+        <label for="sign-in-password" title="Your dashboard password. It is never stored on enrolled devices.">Password</label>
         <div class="password-wrap">
           <input id="sign-in-password" name="password" type="password" autocomplete="current-password"
                  placeholder="Your password" required>
@@ -207,7 +257,10 @@
         </div>
       </div>
       <div class="actions">
-        <button id="sign-in" type="submit" class="primary">Sign In</button>
+        <button id="sign-in" type="submit" class="primary">
+          <svg class="icon" aria-hidden="true"><use href="#icon-login"/></svg>
+          <span class="button-label">Sign In</span>
+        </button>
       </div>
     </form>
 
@@ -260,7 +313,10 @@
         <p class="hint">Shown in the dashboard. 1–32 characters; spaces are allowed.</p>
       </div>
       <div class="actions">
-        <button id="create-account" type="submit" class="primary">Create Account</button>
+        <button id="create-account" type="submit" class="primary">
+          <svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>
+          <span class="button-label">Create Account</span>
+        </button>
       </div>
     </form>
 
@@ -278,7 +334,7 @@
     <p id="auth-message" class="message" role="status"></p>
 
     <details class="help">
-      <summary>Setup guide</summary>
+      <summary><svg class="icon summary-icon" aria-hidden="true"><use href="#icon-help"/></svg>Setup guide</summary>
       <div class="help-body">
         <ol>
           <li><strong>Create a free Supabase project</strong> at
@@ -348,7 +404,7 @@
     <div class="dashboard-header">
       <div>
         <p class="eyebrow">Control panel</p>
-        <h2 id="dashboard-title">Remote dashboard</h2>
+        <h2 id="dashboard-title"><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-shield"/></svg>Remote dashboard</h2>
         <p class="section-desc">
           Monitor enrolled devices, set global defaults or per-device overrides, and send commands to
           all devices or only the ones you select. Values are reported by the device; commands apply
@@ -367,7 +423,11 @@
         </div>
         <div class="command-progress-side">
           <span id="command-progress-status"></span>
-          <button id="command-progress-dismiss" type="button" class="small quiet">Dismiss</button>
+          <button id="command-progress-dismiss" type="button" class="small quiet"
+                  title="Dismiss the live command activity panel; this does not cancel the command">
+            <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+            <span class="button-label">Dismiss</span>
+          </button>
         </div>
       </div>
       <ul id="command-progress-list" class="command-progress-list"></ul>
@@ -377,25 +437,25 @@
       <nav class="dashboard-nav" role="tablist" aria-label="Dashboard sections">
         <button id="tab-devices" type="button" class="dashboard-tab" role="tab"
                 aria-selected="true" aria-controls="panel-devices" tabindex="0"
-                data-dashboard-tab="devices">
+                data-dashboard-tab="devices" title="Devices: fleet summary, device cards, and enrollment">
           <svg class="icon" aria-hidden="true"><use href="#icon-devices"/></svg>
           <span>Devices</span>
         </button>
         <button id="tab-controls" type="button" class="dashboard-tab" role="tab"
                 aria-selected="false" aria-controls="panel-controls" tabindex="-1"
-                data-dashboard-tab="controls">
+                data-dashboard-tab="controls" title="Controls: global defaults, limits, and targeted commands">
           <svg class="icon" aria-hidden="true"><use href="#icon-controls"/></svg>
           <span>Controls</span>
         </button>
         <button id="tab-account" type="button" class="dashboard-tab" role="tab"
                 aria-selected="false" aria-controls="panel-account" tabindex="-1"
-                data-dashboard-tab="account">
+                data-dashboard-tab="account" title="Account: signed-in email and display name">
           <svg class="icon" aria-hidden="true"><use href="#icon-account"/></svg>
           <span>Account</span>
         </button>
         <button id="tab-help" type="button" class="dashboard-tab" role="tab"
                 aria-selected="false" aria-controls="panel-help" tabindex="-1"
-                data-dashboard-tab="help">
+                data-dashboard-tab="help" title="Help: setup, field definitions, safe testing, and safety notes">
           <svg class="icon" aria-hidden="true"><use href="#icon-help"/></svg>
           <span>Help</span>
         </button>
@@ -407,7 +467,7 @@
           <div class="section-head">
             <div>
               <p class="eyebrow">Fleet</p>
-              <h3>Enrolled devices</h3>
+              <h3><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-devices"/></svg>Enrolled devices</h3>
               <p class="section-desc">
                 Each card is a device enrolled from the Wasted app. Debug Mode blocks destructive
                 commands; settings and timers still sync.
@@ -422,7 +482,7 @@
             <div class="section-head">
               <div>
                 <p class="eyebrow">New device</p>
-                <h3 id="enroll-title">Enroll a device</h3>
+                <h3 id="enroll-title"><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-plus"/></svg>Enroll a device</h3>
                 <p class="section-desc">
                   Create a single-use token, then enter it in the app:
                   <strong>Remote Management → Enrollment token → Claim</strong>. The token is
@@ -431,7 +491,7 @@
               </div>
             </div>
             <ul class="hint-list">
-              <li>Valid for 10 minutes and usable once.</li>
+              <li id="enroll-token-validity">Valid for the configured lifetime and usable once.</li>
               <li>Each device needs its own token.</li>
               <li>Tokens are independent; you can create several while setting up devices.</li>
               <li>The token links the device's private identity to this account; your email/password is never stored on the device.</li>
@@ -440,7 +500,7 @@
             </ul>
             <div class="actions">
               <button id="create-token" type="button"
-                      title="Create a 10-minute single-use enrollment token">
+                      title="Create a single-use enrollment token using the saved lifetime">
                 <svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>
                 <span class="button-label">Create enrollment token</span>
               </button>
@@ -472,7 +532,7 @@
             <div class="section-head">
               <div>
                 <p class="eyebrow">Global defaults</p>
-                <h3 id="settings-title">Global trigger settings</h3>
+                <h3 id="settings-title"><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-controls"/></svg>Global trigger settings</h3>
                 <p class="section-desc">
                   These values apply to every device that has not overridden the field. Lock trigger
                   arms the lock workflow; Lock delay sets how long it waits after screen-off/lock;
@@ -485,14 +545,20 @@
             <form id="settings-form" novalidate>
               <div class="setting-row">
                 <div class="setting-copy">
-                  <span id="lock-trigger-title" class="setting-title">Lock trigger</span>
+                  <span id="lock-trigger-title" class="setting-title">
+                    <svg class="icon field-icon" aria-hidden="true"><use href="#icon-lock"/></svg>Lock trigger
+                    <button type="button" class="info-button"
+                            data-info="Global default for the lock workflow. It arms the countdown; it does not wipe data by itself. A device override wins until cleared."
+                            aria-label="About the global Lock trigger" title="Global default for the lock workflow. It arms the countdown; it does not wipe data by itself. A device override wins until cleared.">?</button>
+                  </span>
                   <p id="lock-trigger-hint" class="hint">
                     Global default for the lock workflow. Devices with a Lock trigger override use
                     their own value. When the countdown finishes, Wasted locks the phone; if Wipe data
                     is on, the reset starts (Debug Mode blocks the wipe).
                   </p>
                 </div>
-                <label class="switch" aria-label="Lock trigger enabled">
+                <label class="switch" aria-label="Lock trigger enabled"
+                       title="Turn the global Lock trigger ON to arm the lock countdown for devices that inherit this value.">
                   <input id="lock-trigger" name="lockTrigger" type="checkbox"
                          aria-labelledby="lock-trigger-title" aria-describedby="lock-trigger-hint">
                   <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -500,12 +566,17 @@
               </div>
               <div class="setting-row">
                 <div class="setting-copy">
-                  <label for="lock-minutes">Lock delay setting (minutes, not countdown)</label>
+                  <span class="setting-title">
+                    <svg class="icon field-icon" aria-hidden="true"><use href="#icon-clock"/></svg>
+                    <label for="lock-minutes">Lock delay setting (minutes, not countdown)</label>
+                    <button type="button" class="info-button"
+                            data-info="This is the wait after the phone locks or its screen turns off, not the live countdown. It runs only when the Lock trigger is ON. Enter whole minutes; devices with an override use their own value."
+                            aria-label="About the global lock delay" title="This is the wait after the phone locks or its screen turns off, not the live countdown. It runs only when the Lock trigger is ON. Enter whole minutes; devices with an override use their own value.">?</button>
+                  </span>
                   <p id="lock-hint" class="hint">
                     How long the phone waits after it locks or its screen turns off before firing
-                    the Lock trigger. It runs only when the Lock trigger is ON. Examples:
-                    10080 = 7 days 0 hours 0 minutes 0 seconds; 1440 = 1 day 0 hours 0 minutes
-                    0 seconds; 60 = 0 days 1 hour 0 minutes 0 seconds.
+                    the Lock trigger. It runs only when the Lock trigger is ON. Enter whole minutes:
+                    10080 = 7 days, 1440 = 1 day, 90 = 1 hour 30 minutes, 60 = 1 hour.
                   </p>
                   <p id="lock-human" class="hint"></p>
                 </div>
@@ -515,13 +586,19 @@
               </div>
               <div class="setting-row">
                 <div class="setting-copy">
-                  <span id="usb-title" class="setting-title">USB trigger enabled</span>
+                  <span id="usb-title" class="setting-title">
+                    <svg class="icon field-icon" aria-hidden="true"><use href="#icon-usb"/></svg>USB trigger enabled
+                    <button type="button" class="info-button"
+                            data-info="Global default for the USB trigger. When ON, connecting USB data while the phone is locked can fire it. It is independent of the Lock trigger and delay."
+                            aria-label="About the global USB trigger" title="Global default for the USB trigger. When ON, connecting USB data while the phone is locked can fire it. It is independent of the Lock trigger and delay.">?</button>
+                  </span>
                   <p id="usb-hint" class="hint">
                     When enabled, connecting USB data while the device is locked can fire the
                     USB trigger. This is independent of the Lock trigger and delay.
                   </p>
                 </div>
-                <label class="switch" aria-label="USB trigger enabled">
+                <label class="switch" aria-label="USB trigger enabled"
+                       title="Turn the global USB trigger ON to let USB data fire the trigger on locked devices that inherit this value.">
                   <input id="usb-trigger" name="usbTrigger" type="checkbox"
                          aria-labelledby="usb-title" aria-describedby="usb-hint">
                   <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -541,11 +618,95 @@
             </form>
           </section>
 
+          <section class="panel" aria-labelledby="limits-title">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Custom limits</p>
+                <h3 id="limits-title"><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-clock"/></svg>Command &amp; enrollment limits</h3>
+                <p class="section-desc">
+                  These defaults are enforced by the backend when a command or enrollment token is
+                  created. Shorten them to avoid stale actions; lengthen them to give offline devices
+                  more time. Changing a limit affects new commands only.
+                </p>
+              </div>
+            </div>
+            <form id="limits-form" novalidate>
+              <div class="limit-grid">
+                <div class="field">
+                  <label for="limit-enrollment"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-plus"/></svg>Enrollment token lifetime (minutes)</label>
+                  <input id="limit-enrollment" name="enrollment" type="number" min="1" max="60"
+                         step="1" inputmode="numeric" class="compact-input"
+                         title="1–60 minutes. Applies to tokens created after saving." required>
+                  <p class="hint">Default 10. Existing tokens keep their original expiry.</p>
+                </div>
+                <div class="field">
+                  <label for="limit-lock"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-lock"/></svg>Lock Devices expiry (minutes)</label>
+                  <input id="limit-lock" name="lock" type="number" min="1" max="10080"
+                         step="1" inputmode="numeric" class="compact-input"
+                         title="1–10080 minutes. An offline device ignores the command after this." required>
+                  <p class="hint">Default 5. Applies to locked-device commands waiting for an offline phone.</p>
+                </div>
+                <div class="field">
+                  <label for="limit-force-reset"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-warning"/></svg>Force Reset expiry (minutes)</label>
+                  <input id="limit-force-reset" name="forceReset" type="number" min="1" max="10080"
+                         step="1" inputmode="numeric" class="compact-input"
+                         title="1–10080 minutes. An offline device ignores the reset after this." required>
+                  <p class="hint">Default 10. Longer windows keep a destructive command queued longer.</p>
+                </div>
+                <div class="field">
+                  <label for="limit-reset-timer"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-reset"/></svg>Reset Timer expiry (minutes)</label>
+                  <input id="limit-reset-timer" name="resetTimer" type="number" min="1" max="10080"
+                         step="1" inputmode="numeric" class="compact-input"
+                         title="1–10080 minutes. An offline device ignores Reset Timer after this." required>
+                  <p class="hint">Default 1440 (24 hours).</p>
+                </div>
+                <div class="field">
+                  <label for="limit-debug-on"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-bug"/></svg>Debug Mode ON expiry (minutes)</label>
+                  <input id="limit-debug-on" name="debugOn" type="number" min="1" max="10080"
+                         step="1" inputmode="numeric" class="compact-input"
+                         title="1–10080 minutes. An offline device ignores the command after this." required>
+                  <p class="hint">Default 1440 (24 hours). Lets an offline device turn protection on later.</p>
+                </div>
+                <div class="field">
+                  <label for="limit-debug-off"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-bug"/></svg>Debug Mode OFF expiry (minutes)</label>
+                  <input id="limit-debug-off" name="debugOff" type="number" min="1" max="10080"
+                         step="1" inputmode="numeric" class="compact-input"
+                         title="1–10080 minutes. An offline device ignores the command after this." required>
+                  <p class="hint">Default 10. OFF allows destructive commands, so keep this short if unsure.</p>
+                </div>
+                <div class="field">
+                  <label for="limit-presence"><svg class="icon field-icon" aria-hidden="true"><use href="#icon-activity"/></svg>Device active window (seconds)</label>
+                  <input id="limit-presence" name="presence" type="number" min="30" max="600"
+                         step="1" inputmode="numeric" class="compact-input"
+                         title="30–600 seconds. Only changes when the dashboard labels a device Active." required>
+                  <p class="hint">Default 150. Dashboard display only; it does not change device sync.</p>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="submit" class="primary"
+                        title="Save the limits used for newly created commands and tokens">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>
+                  <span class="button-label">Save limits</span>
+                </button>
+                <button id="limits-reset" type="button" class="quiet"
+                        title="Fill the fields with the documented defaults; review and save">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-reset"/></svg>
+                  <span class="button-label">Restore defaults</span>
+                </button>
+                <span id="limits-revision" class="muted"></span>
+                <button id="limits-info" type="button" class="info-button"
+                        aria-label="About command and enrollment limits"
+                        title="Limits are stored with your account and applied server-side. Changing them does not alter commands or tokens that already exist.">?</button>
+              </div>
+              <p id="limits-message" class="message" role="status"></p>
+            </form>
+          </section>
+
           <section class="panel" aria-labelledby="commands-title">
             <div class="section-head">
               <div>
                 <p class="eyebrow">Remote commands</p>
-                <h3 id="commands-title">Targeted actions</h3>
+                <h3 id="commands-title"><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-send"/></svg>Targeted actions</h3>
                 <p class="section-desc">
                   Choose all enrolled devices or select specific devices in Command targets. Every command is
                   confirmed with the exact target list and applies at the next sync. Repeating the
@@ -556,9 +717,9 @@
               </div>
             </div>
             <fieldset class="target-picker">
-              <legend>Command targets</legend>
-              <label><input id="target-all" type="radio" name="command-target" value="all"> All enrolled devices</label>
-              <label><input id="target-selected" type="radio" name="command-target" value="selected" checked> Selected devices</label>
+              <legend><svg class="icon field-icon" aria-hidden="true"><use href="#icon-target"/></svg>Command targets</legend>
+              <label title="Send the command to every enrolled device, including devices that are currently offline. Offline devices receive it on reconnect, subject to the command expiry."><input id="target-all" type="radio" name="command-target" value="all"> All enrolled devices</label>
+              <label title="Send the command only to the devices checked below. At least one device must be selected."><input id="target-selected" type="radio" name="command-target" value="selected" checked> Selected devices</label>
               <span id="target-summary" class="muted">0 selected</span>
               <div id="target-device-list" class="target-device-list" aria-live="polite"></div>
             </fieldset>
@@ -612,14 +773,14 @@
             <div class="section-head">
               <div>
                 <p class="eyebrow">Owner profile</p>
-                <h3 id="account-title">Account</h3>
+                <h3 id="account-title"><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-account"/></svg>Account</h3>
                 <p class="section-desc">
                   This name is saved to your Supabase account and shown in every browser where you sign in.
                 </p>
               </div>
             </div>
             <dl class="account-facts">
-              <dt>Signed-in email</dt>
+              <dt title="The owner email used only for this dashboard; devices do not receive it."><svg class="icon field-icon" aria-hidden="true"><use href="#icon-mail"/></svg>Signed-in email</dt>
               <dd id="account-email">—</dd>
             </dl>
             <form id="account-form" novalidate>
@@ -627,7 +788,7 @@
                 <label for="account-handle">Account name</label>
                 <input id="account-handle" name="accountHandle" type="text" autocomplete="off"
                        maxlength="32" placeholder="John Cockpit" required
-                       title="1–32 characters; spaces and normal punctuation are allowed">
+                       title="1–32 characters. This display name is shown in every signed-in browser; it does not affect devices.">
                 <p class="hint">Shown in the dashboard. 1–32 characters; spaces are allowed.</p>
               </div>
               <div class="actions">
@@ -644,7 +805,7 @@
         <section id="panel-help" class="tab-panel" role="tabpanel"
                  aria-labelledby="tab-help" data-dashboard-panel="help" hidden>
           <details class="help" id="how-it-works" open>
-            <summary>How this works</summary>
+            <summary><svg class="icon summary-icon" aria-hidden="true"><use href="#icon-shield"/></svg>How this works</summary>
             <div class="help-body">
               <p>
                 This page was generated by the Wasted app and hosted by you. It connects directly
@@ -684,16 +845,17 @@
           </details>
 
           <details class="help">
-            <summary>What each device field means</summary>
+            <summary><svg class="icon summary-icon" aria-hidden="true"><use href="#icon-list"/></svg>What each device field means</summary>
             <div class="help-body">
               <dl>
                 <dt>Connection</dt>
                 <dd>
                   <strong>Active</strong> means the device contacted the server within the last
-                  150 seconds; <strong>Inactive</strong> means it has not. The exact last-contact time
-                  is shown below. Commands stay queued until it reconnects, subject to their expiry
-                  (Reset Timer 24 hours; Force Reset and Debug Mode OFF 10 minutes; Debug Mode ON
-                  24 hours).
+                  <span id="help-active-window">150 seconds</span>; <strong>Inactive</strong> means it
+                  has not. The exact last-contact time is shown below. Commands stay queued until it
+                  reconnects, subject to the configurable limits in Controls
+                  (<span id="help-command-expiry">default: Reset Timer 24 hours; Force Reset and
+                  Debug Mode OFF 10 minutes; Debug Mode ON 24 hours</span>).
                 </dd>
                 <dt>Live countdown</dt>
                 <dd>
@@ -760,6 +922,13 @@
                   queued. A newer copy of the same action replaces older queued copies for that
                   device; other actions remain queued independently.
                 </dd>
+                <dt>Command &amp; enrollment limits</dt>
+                <dd>
+                  Controls how long commands and enrollment tokens stay valid, plus the active-window
+                  label in this dashboard. Defaults match the standard behavior; changes apply to
+                  new commands and tokens only. Existing queued work keeps the expiry it was created
+                  with.
+                </dd>
                 <dt>Debug Mode</dt>
                 <dd>
                   Green ON blocks destructive remote commands (Force Reset); red OFF allows them.
@@ -782,7 +951,7 @@
           </details>
 
           <details class="help">
-            <summary>Install this dashboard</summary>
+            <summary><svg class="icon summary-icon" aria-hidden="true"><use href="#icon-download"/></svg>Install this dashboard</summary>
             <div class="help-body">
               <p>
                 On Chrome or Edge, use the browser install icon or the <strong>Install app</strong>
@@ -798,7 +967,7 @@
           </details>
 
           <details class="help" id="help-testing">
-            <summary>How to test safely</summary>
+            <summary><svg class="icon summary-icon" aria-hidden="true"><use href="#icon-target"/></svg>How to test safely</summary>
             <div class="help-body">
               <ol>
                 <li>In the app, open Remote Management and confirm it is enabled and enrolled.</li>
@@ -827,7 +996,7 @@
           </details>
 
           <details class="help">
-            <summary>Safety notes</summary>
+            <summary><svg class="icon summary-icon" aria-hidden="true"><use href="#icon-warning"/></svg>Safety notes</summary>
             <div class="help-body">
               <p>
                 Force Reset is destructive and cannot be undone. It is blocked when Debug Mode is ON
@@ -837,8 +1006,8 @@
               </p>
               <p>
                 <strong>Lock Devices</strong> only locks the screen on the selected targets; it never
-                wipes or changes settings. It asks twice, and an offline device ignores it after
-                5 minutes.
+                wipes or changes settings. It asks twice, and an offline device ignores it after the
+                configured Lock Devices expiry (default 5 minutes).
               </p>
               <p>
                 Revoking a device stops remote commands but does not wipe it. Reset enrollment in the
@@ -860,7 +1029,10 @@
     <h2 id="install-title">Install this app</h2>
     <p id="install-message"></p>
     <div class="actions">
-      <button value="close" class="primary">Close</button>
+      <button value="close" class="primary">
+        <svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg>
+        <span class="button-label">Close</span>
+      </button>
     </div>
   </form>
 </dialog>
@@ -889,8 +1061,14 @@
       <p class="hint">1–80 characters. This name is only shown in the dashboard.</p>
     </div>
     <div class="actions">
-      <button value="cancel" formnovalidate>Cancel</button>
-      <button value="ok" class="primary">Save name</button>
+      <button value="cancel" formnovalidate>
+        <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+        <span class="button-label">Cancel</span>
+      </button>
+      <button value="ok" class="primary">
+        <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>
+        <span class="button-label">Save name</span>
+      </button>
     </div>
   </form>
 </dialog>
@@ -899,37 +1077,73 @@
   <form method="dialog" id="device-settings-form">
     <h2 id="device-settings-title">Device settings</h2>
     <p id="device-settings-name" class="muted"></p>
-    <p class="hint">
-      Check “Inherit global” to remove the override. A saved override applies only to this device.
+    <p class="hint" id="ds-intro">
+      Each option is either inherited from the account-wide global defaults or overridden for this
+      device. Check <strong>Inherit global</strong> to remove this device's saved override and use the
+      current global value. A saved override applies only to this device and takes effect at its next
+      sync.
     </p>
     <div class="setting-row">
       <div class="setting-copy">
-        <span class="setting-title">Lock trigger</span>
-        <p class="hint">Arm the lock workflow for this device only.</p>
-        <label class="inherit-label"><input id="ds-lock-trigger-inherit" type="checkbox"> Inherit global</label>
+        <span id="ds-lock-trigger-title" class="setting-title">
+          <svg class="icon field-icon" aria-hidden="true"><use href="#icon-lock"/></svg>Lock trigger
+        </span>
+        <p class="hint" id="ds-lock-trigger-hint">
+          Arms the lock workflow on this device. When ON, locking the phone starts the delay; when
+          the delay finishes Wasted locks the phone and, if Wipe data is ON, starts the reset. It does
+          not wipe data by itself.
+        </p>
+        <p class="hint" id="ds-lock-trigger-global"></p>
+        <label class="inherit-label"
+               title="Use the account-wide Lock trigger. This removes the device override.">
+          <input id="ds-lock-trigger-inherit" type="checkbox"
+                 aria-describedby="ds-lock-trigger-hint ds-lock-trigger-global"> Inherit global
+        </label>
       </div>
       <label class="switch" aria-label="Device Lock trigger override">
-        <input id="ds-lock-trigger" type="checkbox">
+        <input id="ds-lock-trigger" type="checkbox" aria-describedby="ds-lock-trigger-hint ds-lock-trigger-global">
         <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
       </label>
     </div>
     <div class="setting-row">
       <div class="setting-copy">
-        <label for="ds-lock-minutes">Lock delay setting (minutes)</label>
+        <label for="ds-lock-minutes">
+          <svg class="icon field-icon" aria-hidden="true"><use href="#icon-clock"/></svg>Lock delay setting (minutes)
+        </label>
+        <p class="hint" id="ds-lock-minutes-hint">
+          Wait after this device locks or its screen turns off before the Lock trigger fires. This is
+          a setting, not the live countdown. Enter whole minutes; 10080 = 7 days. It only runs while
+          the Lock trigger is ON.
+        </p>
         <p class="hint" id="ds-lock-minutes-global"></p>
-        <label class="inherit-label"><input id="ds-lock-minutes-inherit" type="checkbox"> Inherit global</label>
+        <label class="inherit-label"
+               title="Use the account-wide Lock delay. This removes the device override.">
+          <input id="ds-lock-minutes-inherit" type="checkbox"
+                 aria-describedby="ds-lock-minutes-hint ds-lock-minutes-global"> Inherit global
+        </label>
       </div>
       <input id="ds-lock-minutes" type="number" min="1" max="525600" step="1"
-             inputmode="numeric" class="compact-input">
+             inputmode="numeric" class="compact-input"
+             aria-describedby="ds-lock-minutes-hint ds-lock-minutes-global">
     </div>
     <div class="setting-row">
       <div class="setting-copy">
-        <span class="setting-title">USB trigger</span>
-        <p class="hint">Arm the USB trigger for this device only.</p>
-        <label class="inherit-label"><input id="ds-usb-trigger-inherit" type="checkbox"> Inherit global</label>
+        <span id="ds-usb-trigger-title" class="setting-title">
+          <svg class="icon field-icon" aria-hidden="true"><use href="#icon-usb"/></svg>USB trigger
+        </span>
+        <p class="hint" id="ds-usb-trigger-hint">
+          When ON, connecting USB data while this device is locked can fire the USB trigger. It is
+          independent of the Lock trigger and does not change the lock delay.
+        </p>
+        <p class="hint" id="ds-usb-trigger-global"></p>
+        <label class="inherit-label"
+               title="Use the account-wide USB trigger. This removes the device override.">
+          <input id="ds-usb-trigger-inherit" type="checkbox"
+                 aria-describedby="ds-usb-trigger-hint ds-usb-trigger-global"> Inherit global
+        </label>
       </div>
       <label class="switch" aria-label="Device USB trigger override">
-        <input id="ds-usb-trigger" type="checkbox">
+        <input id="ds-usb-trigger" type="checkbox" aria-describedby="ds-usb-trigger-hint ds-usb-trigger-global">
         <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
       </label>
     </div>
@@ -937,8 +1151,14 @@
     <input id="device-settings-device-id" type="hidden">
     <p id="device-settings-message" class="message" role="status"></p>
     <div class="actions">
-      <button value="cancel" formnovalidate>Cancel</button>
-      <button id="device-settings-save" value="ok" class="primary">Save device settings</button>
+      <button value="cancel" formnovalidate>
+        <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+        <span class="button-label">Cancel</span>
+      </button>
+      <button id="device-settings-save" value="ok" class="primary">
+        <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>
+        <span class="button-label">Save device settings</span>
+      </button>
     </div>
   </form>
 </dialog>

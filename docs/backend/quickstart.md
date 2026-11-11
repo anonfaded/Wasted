@@ -34,6 +34,9 @@ Six steps, no CLI or Docker. Details are linked at the bottom.
    until the app is opened. Reboot without opening Wasted to verify the dashboard last-contact time
    updates.
 
+   Command expiry, enrollment-token lifetime, and the active-window label can be changed later in
+   **Controls → Command & enrollment limits**; the defaults are shown there.
+
 If you are upgrading, save the cumulative bundle whose name matches your installed version
 (`update-from-<your version>-to-<current>.sql`); one file covers the jump. Never re-run `setup.sql`
 on an existing project. If no generated bundle covers your version, restore or start fresh.
@@ -46,7 +49,8 @@ on an existing project. If no generated bundle covers your version, restore or s
 | Additional device on an existing deployment | **Do not** run SQL, change Auth settings, or generate another dashboard. In Remote Management enter the same Project URL, publishable key, and dashboard URL; Enable; create a new token in the dashboard; claim it. |
 | Existing installation after an app update | Install the new APK and run only the update bundle matching your installed version; never run `setup.sql`. |
 
-Create one token per device; tokens are independent and each expires in 10 minutes.
+Create one token per device; tokens are independent and each expires after the configured enrollment
+lifetime (default 10 minutes).
 
 **How the token works:** the dashboard asks Supabase for a one-time code (stored hashed), shows it to
 you, and you paste it into the app on that device. The app sends it to Supabase, which binds that

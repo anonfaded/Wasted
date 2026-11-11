@@ -56,6 +56,8 @@ test("freshness window is exactly 150 seconds", () => {
     isRecentlyConnected({ last_seen_at: new Date(now).toISOString() }, now),
     true,
   );
+  assert.equal(isRecentlyConnected(fresh, now, 90_000), false);
+  assert.equal(isRecentlyConnected(stale, now, 180_000), true);
 });
 
 test("last contact is never hidden", () => {

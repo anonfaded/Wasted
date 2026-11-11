@@ -20,7 +20,8 @@ No automatic update check. Release notes name the exact SQL file; the APK bundle
 
 ## Enrollment tokens and multiple devices
 
-- Each device needs its own single-use token; tokens are independent and expire after 10 minutes.
+- Each device needs its own single-use token; tokens are independent and expire after the configured
+  enrollment lifetime (default 10 minutes).
 - Additional devices never re-run `setup.sql` or change Auth settings; they only need the same
   Project URL/key, the dashboard URL, and a new token.
 
@@ -85,7 +86,8 @@ device locally and never retry a wipe blindly.
 - **Supabase account password:** rotate in Supabase Auth; the app/dashboard never store it.
 - **Secret/service-role key:** never in the app/dashboard; rotate it only for server-side tooling.
 - **Enrollment token:** issue a new token and claim again on the device if needed. Unused tokens
-  expire after 10 minutes; treat them as secrets and do not share them.
+  expire after the configured enrollment lifetime (default 10 minutes); treat them as secrets and do
+  not share them.
 
 ## Rollback
 

@@ -119,9 +119,17 @@ export type Database = {
       account_settings: {
         Row: {
           account_id: string
+          debug_mode_off_ttl_minutes: number
+          debug_mode_on_ttl_minutes: number
+          enrollment_token_ttl_minutes: number
+          force_reset_ttl_minutes: number
           initialized_at: string | null
+          limits_revision: number
+          lock_command_ttl_minutes: number
           lock_timer_minutes: number
           lock_trigger_enabled: boolean
+          presence_window_seconds: number
+          reset_timer_ttl_minutes: number
           revision: number
           updated_at: string
           updated_by: string | null
@@ -129,9 +137,17 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          debug_mode_off_ttl_minutes?: number
+          debug_mode_on_ttl_minutes?: number
+          enrollment_token_ttl_minutes?: number
+          force_reset_ttl_minutes?: number
           initialized_at?: string | null
+          limits_revision?: number
+          lock_command_ttl_minutes?: number
           lock_timer_minutes?: number
           lock_trigger_enabled?: boolean
+          presence_window_seconds?: number
+          reset_timer_ttl_minutes?: number
           revision?: number
           updated_at?: string
           updated_by?: string | null
@@ -139,9 +155,17 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          debug_mode_off_ttl_minutes?: number
+          debug_mode_on_ttl_minutes?: number
+          enrollment_token_ttl_minutes?: number
+          force_reset_ttl_minutes?: number
           initialized_at?: string | null
+          limits_revision?: number
+          lock_command_ttl_minutes?: number
           lock_timer_minutes?: number
           lock_trigger_enabled?: boolean
+          presence_window_seconds?: number
+          reset_timer_ttl_minutes?: number
           revision?: number
           updated_at?: string
           updated_by?: string | null
@@ -625,6 +649,42 @@ export type Database = {
         }
         Returns: Json
       }
+      update_account_limits: {
+        Args: {
+          p_debug_mode_off_ttl_minutes: number
+          p_debug_mode_on_ttl_minutes: number
+          p_enrollment_token_ttl_minutes: number
+          p_expected_revision: number
+          p_force_reset_ttl_minutes: number
+          p_lock_command_ttl_minutes: number
+          p_presence_window_seconds: number
+          p_reset_timer_ttl_minutes: number
+        }
+        Returns: {
+          account_id: string
+          debug_mode_off_ttl_minutes: number
+          debug_mode_on_ttl_minutes: number
+          enrollment_token_ttl_minutes: number
+          force_reset_ttl_minutes: number
+          initialized_at: string | null
+          limits_revision: number
+          lock_command_ttl_minutes: number
+          lock_timer_minutes: number
+          lock_trigger_enabled: boolean
+          presence_window_seconds: number
+          reset_timer_ttl_minutes: number
+          revision: number
+          updated_at: string
+          updated_by: string | null
+          usb_trigger_enabled: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "account_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       update_account_settings: {
         Args: {
           p_expected_revision: number
@@ -634,9 +694,17 @@ export type Database = {
         }
         Returns: {
           account_id: string
+          debug_mode_off_ttl_minutes: number
+          debug_mode_on_ttl_minutes: number
+          enrollment_token_ttl_minutes: number
+          force_reset_ttl_minutes: number
           initialized_at: string | null
+          limits_revision: number
+          lock_command_ttl_minutes: number
           lock_timer_minutes: number
           lock_trigger_enabled: boolean
+          presence_window_seconds: number
+          reset_timer_ttl_minutes: number
           revision: number
           updated_at: string
           updated_by: string | null

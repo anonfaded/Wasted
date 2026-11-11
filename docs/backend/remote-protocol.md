@@ -62,13 +62,20 @@ Devices still receive only their own commands and can never target another devic
 
 ## Command types and TTLs
 
-| Type | Target | TTL | Terminal outcomes |
+TTLs are account-configurable in **Controls → Command & enrollment limits**. The table shows the
+defaults; `update_account_limits` stores the values and `create_account_action` /
+`set_device_debug_mode` apply them when a command is created.
+
+| Type | Target | Default TTL | Terminal outcomes |
 | --- | --- | --- | --- |
 | `reset_timer` | Selected targets or all enrolled devices | 24 h | `applied`, `rejected`, `failed`, `expired` |
 | `force_reset` | Selected targets or all enrolled devices | 10 min | `reset_initiated`, `debug_blocked`, `rejected`, `failed`, `expired` |
 | `lock_now` | Selected targets or all enrolled devices | 5 min | `applied`, `failed`, `expired` |
 | `debug_mode_on` | One selected device | 24 h | `applied`, `rejected`, `failed`, `expired` |
 | `debug_mode_off` | One selected device | 10 min | `applied`, `rejected`, `failed`, `expired` |
+
+Enrollment tokens use the account's `enrollment_token_ttl_minutes` (default 10 min). The dashboard
+active/inactive label uses `presence_window_seconds` (default 150 s); it is display-only.
 
 States: `queued → received → executing → applied` plus terminal `debug_blocked`, `rejected`,
 `failed`, `expired`, and the Force Reset terminal `reset_initiated`.
@@ -175,8 +182,8 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 
 - Online: Realtime event invalidates and triggers a reconcile.
 - Offline: next 60 s heartbeat or recovery run; commands/settings apply subject to expiry.
-- Freshness in the dashboard: “Active” = last contact ≤ 150 s; otherwise “Inactive” with the exact last
-  contact is shown and commands remain queued.
+- Freshness in the dashboard: “Active” = last contact within the configured active window (default
+  150 s); otherwise “Inactive”, with the exact last contact shown and commands remaining queued.
 - Timer display extrapolates locally from `timer_sampled_at` + `timer_remaining_seconds` while
   running.
 

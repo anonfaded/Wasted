@@ -10,14 +10,14 @@ Self-sufficient reference for the Supabase backend. Generated install/update SQL
 | --- | --- | --- |
 | `accounts` | Owner profile | `id` = auth user id; unique display name (case-insensitive), 1–32 chars; spaces and normal punctuation allowed |
 | `devices` | Enrolled devices | `account_id` FK; unique `installation_id`; `auth_user_id` (anonymous); `revoked_at`; unique `(id, account_id)` |
-| `account_settings` | Global default state | `revision` (monotonic), `lock_trigger_enabled`, `lock_timer_minutes` (1–525600), `usb_trigger_enabled`, `initialized_at` |
+| `account_settings` | Global default state and account limits | `revision` (monotonic trigger revision), `limits_revision` (monotonic limits revision), `lock_trigger_enabled`, `lock_timer_minutes` (1–525600), `usb_trigger_enabled`, `initialized_at`; command TTLs, enrollment lifetime, and active window |
 | `device_settings` | Per-device overrides | One row per device when overridden; nullable fields inherit the global value; independent `revision` |
 | `device_status` | Last reported device state | One row per device: applied global/device revisions, actual Lock trigger/delay/USB, timer, Debug Mode, reset support, remote enabled, battery/charging, `settings_applied_at`, app version, Android SDK, last error, timer sample, last seen |
 | `account_action_targets` | Explicit command targets | One row per action/device; `target_scope` on the action is `all` or `selected`; no implicit fan-out |
 | `account_actions` | Command batches | `action_type`, `idempotency_key` unique per account, `target_scope` (`all`/`selected`), `expires_at`; targets are rows in `account_action_targets` |
 | `device_commands` | Durable commands | One row per device/action; `command_type`, `state`, timestamps, `result_code`; unique `(action_id, device_id)` |
 | `command_events` | Append-only audit | One event per state per command; `event_type`, `result_code`, `detail` |
-| `private.device_enrollments` | Enrollment tokens | SHA-256 token hash, 10-minute expiry, consumed/revoked timestamps; consumed device FK cascades on device deletion; deny-all RLS (RPC access only) |
+| `private.device_enrollments` | Enrollment tokens | SHA-256 token hash, account-configured lifetime (default 10 minutes), consumed/revoked timestamps; consumed device FK cascades on device deletion; deny-all RLS (RPC access only) |
 
 Relationships: accounts → devices/global settings/actions; devices → device overrides/status/
 commands; actions → targets/commands; events reference `(command_id, account_id, device_id)`.
@@ -65,10 +65,11 @@ from all roles.
 | `initialize_owner_account(p_handle)` | Creates the account + settings row; idempotent per auth user |
 | `update_owner_handle(p_handle)` | Changes the signed-in owner's account name; validates the handle and enforces the case-insensitive unique index |
 | `hook_single_owner_signup(event)` | Auth Hook: allows anonymous devices, rejects every later non-anonymous Auth signup once an owner exists; executable only by `supabase_auth_admin` |
-| `create_device_enrollment()` | Issues a 64-hex single-use token, 10-minute expiry; tokens are independent per device |
+| `create_device_enrollment()` | Issues a 64-hex single-use token using the account enrollment lifetime (default 10 minutes); tokens are independent per device |
 | `rename_device(p_device_id, p_name)` | Rename an owned active device |
 | `revoke_device(p_device_id)` | Revokes device; queued/received commands become `rejected`/`device_revoked`; `executing` commands become `failed`/`device_revoked_during_execution` (outcome unknown); terminal rows are preserved |
-| `update_account_settings(p_expected_revision, p_lock_timer_minutes, p_usb_trigger_enabled, p_lock_trigger_enabled)` | Revision-protected global settings update |
+| `update_account_settings(p_expected_revision, p_lock_timer_minutes, p_usb_trigger_enabled, p_lock_trigger_enabled)` | Revision-protected global trigger settings update |
+| `update_account_limits(p_expected_revision, p_enrollment_token_ttl_minutes, p_lock_command_ttl_minutes, p_force_reset_ttl_minutes, p_reset_timer_ttl_minutes, p_debug_mode_on_ttl_minutes, p_debug_mode_off_ttl_minutes, p_presence_window_seconds)` | Revision-protected account limits update; independent of trigger revisions |
 | `list_device_effective_settings()` | Owner-only effective settings per active device, including override flags and applied revisions |
 | `update_device_settings(p_device_id, p_expected_revision, p_patch)` | Revision-protected owner override patch; JSON `null` clears a field to inherit |
 | `create_account_action(p_action_type, p_idempotency_key, p_target_scope, p_device_ids)` | Explicit `all` or `selected` action; targets validated and stored before commands |

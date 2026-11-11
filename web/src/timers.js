@@ -26,12 +26,12 @@ export function extrapolatedRemaining(status, nowMs) {
   return Math.max(0, base - elapsed);
 }
 
-/** A device is "recently connected" when its last contact is within the plan's 150s window. */
-export function isRecentlyConnected(status, nowMs) {
+/** A device is "recently connected" when its last contact is within the configured window. */
+export function isRecentlyConnected(status, nowMs, windowMs = FRESHNESS_WINDOW_MS) {
   if (!status || !status.last_seen_at) return false;
   const seen = Date.parse(status.last_seen_at);
   if (Number.isNaN(seen)) return false;
-  return nowMs - seen <= FRESHNESS_WINDOW_MS;
+  return nowMs - seen <= windowMs;
 }
 
 export function relativeTime(timestamp, nowMs = Date.now()) {
