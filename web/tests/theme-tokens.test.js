@@ -41,9 +41,9 @@ test("shadcn-compatible tokens and theme scopes are present", () => {
   assert.match(css, /:root\[data-theme="dark"\]/);
 });
 
-test("legacy muted text cannot accidentally resolve to the muted surface", () => {
-  assert.doesNotMatch(css, /var\(--muted\)/);
-  assert.match(css, /--muted-foreground:/);
+test("canonical muted surface and muted text tokens are separate", () => {
+  assert.match(css, /--muted:\s*var\(--(light|dark)-muted\)/);
+  assert.match(css, /--muted-foreground:\s*var\(--(light|dark)-muted-foreground\)/);
 });
 
 test("palette values live once and compatibility aliases are gone", () => {

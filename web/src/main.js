@@ -111,6 +111,8 @@ const state = {
   online: navigator.onLine !== false,
   connectionReason: null,
   dataLoaded: false,
+  loading: false,
+  loadError: "",
   cacheSavedAt: 0,
   channel: null,
   realtimeAccountId: null,
@@ -153,6 +155,7 @@ if (!config) {
     "This dashboard is not configured: set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in .env " +
     "with your Supabase URL and publishable key.";
   banner.hidden = false;
+  $("#boot-loading").hidden = true;
   $("#auth-section").hidden = true;
 } else {
   boot(config);
@@ -206,8 +209,11 @@ async function boot(cfg) {
     clearTimeout(state.retryTimer);
     state.retryTimer = null;
     offlineTimer = setTimeout(() => {
-      loadCachedDashboard();
+      const cached = loadCachedDashboard();
       setDashboardOnline(false, "offline");
+      setDashboardLoadState(cached
+        ? {}
+        : { error: "You're offline and no cached devices are available. Reconnect, then retry." });
       renderSettings();
       renderDevices();
     }, 400);
@@ -388,13 +394,75 @@ function applyOptionalLink(selector, url) {
   link.hidden = false;
 }
 
+function setDashboardLoadState({ loading = false, error = "" } = {}) {
+  state.loading = loading;
+  state.loadError = error;
+  const panel = $("#dashboard-loading");
+  const title = $("#dashboard-loading-title");
+  const detail = $("#dashboard-loading-detail");
+  const retry = $("#dashboard-retry");
+  const dashboard = $("#dashboard");
+  if (dashboard) dashboard.setAttribute("aria-busy", String(loading));
+  if (!panel) return;
+  panel.hidden = !loading && !error;
+  panel.dataset.state = error ? "error" : "loading";
+  if (title) title.textContent = error ? "Couldn't load dashboard" : "Loading dashboard…";
+  if (detail) {
+    detail.textContent = error || "Fetching your devices and settings.";
+  }
+  if (retry) retry.hidden = !error;
+}
+
+function setDeviceChromeVisible(visible) {
+  const summary = $("#device-summary");
+  const toolbar = document.querySelector(".device-toolbar");
+  if (summary) summary.hidden = !visible;
+  if (toolbar) toolbar.hidden = !visible;
+}
+
+function renderDeviceSkeleton() {
+  const summary = $("#device-summary");
+  const devices = $("#devices");
+  if (summary) {
+    summary.className = "stat-grid skeleton-grid";
+    summary.hidden = false;
+    summary.replaceChildren(
+      ...Array.from({ length: 4 }, () => el("div", { className: "skeleton-card" }, [
+        el("div", { className: "skeleton-line short" }),
+        el("div", { className: "skeleton-line tall" }),
+        el("div", { className: "skeleton-line medium" }),
+      ])),
+    );
+  }
+  if (devices) {
+    devices.className = "device-grid skeleton-devices";
+    devices.hidden = false;
+    devices.setAttribute("aria-busy", "true");
+    devices.replaceChildren(
+      ...Array.from({ length: 2 }, () => el("div", { className: "skeleton-card" }, [
+        el("div", { className: "skeleton-line medium" }),
+        el("div", { className: "skeleton-line short" }),
+        el("div", { className: "skeleton-line" }),
+        el("div", { className: "skeleton-line medium" }),
+      ])),
+    );
+  }
+  const toolbar = document.querySelector(".device-toolbar");
+  if (toolbar) toolbar.hidden = true;
+}
+
 function renderAuthState() {
   const signedIn = Boolean(state.session);
+  $("#boot-loading").hidden = true;
   $("#auth-section").hidden = signedIn;
   $("#dashboard").hidden = !signedIn;
   $("#sign-out").hidden = !signedIn;
 
   if (signedIn) {
+    if (!state.dataLoaded) {
+      setDashboardLoadState({ loading: true });
+      renderDeviceSkeleton();
+    }
     refreshDashboard();
   } else {
     teardownRealtime();
@@ -402,10 +470,14 @@ function renderAuthState() {
     state.handle = "";
     state.handleLoaded = false;
     state.dataLoaded = false;
+    state.loading = false;
+    state.loadError = "";
     state.cacheSavedAt = 0;
     state.refreshFailures = 0;
     state.lastDeviceCount = null;
     clearCommandProgress();
+    setDashboardLoadState();
+    setDeviceChromeVisible(false);
     state.data = {
       devices: [],
       statusByDevice: new Map(),
@@ -428,13 +500,21 @@ function renderAuthState() {
 async function refreshDashboard() {
   if (!state.session || state.refreshInFlight) return;
   state.refreshInFlight = true;
-  const loading = $("#loading");
-  loading.hidden = false;
+  if (!state.dataLoaded) {
+    setDashboardLoadState({ loading: true });
+    renderDeviceSkeleton();
+  } else {
+    setDashboardLoadState();
+  }
 
   try {
     if (!navigator.onLine) {
       loadCachedDashboard();
       setDashboardOnline(false, "offline");
+      state.loading = false;
+      setDashboardLoadState(state.dataLoaded
+        ? {}
+        : { error: "You're offline and no cached devices are available. Reconnect, then retry." });
       renderSettings();
       renderDevices();
       return;
@@ -457,6 +537,9 @@ async function refreshDashboard() {
 
       state.data = await fetchDashboardData(state.client);
       state.dataLoaded = true;
+      state.loading = false;
+      state.loadError = "";
+      setDashboardLoadState();
       state.refreshFailures = 0;
       clearTimeout(state.retryTimer);
       state.retryTimer = null;
@@ -471,6 +554,7 @@ async function refreshDashboard() {
       state.lastDeviceCount = state.data.devices.length;
       saveDashboardCache();
       setDashboardOnline(true);
+      setDeviceChromeVisible(true);
       renderSettings();
       renderDevices();
       if (state.commandProgress) void refreshCommandProgress();
@@ -484,31 +568,40 @@ async function refreshDashboard() {
       }
       loadCachedDashboard();
       state.refreshFailures += 1;
+      state.loading = false;
 
       if (!navigator.onLine) {
         setDashboardOnline(false, "offline");
+        setDashboardLoadState(state.dataLoaded
+          ? {}
+          : { error: "You're offline and no cached devices are available. Reconnect, then retry." });
         renderSettings();
         renderDevices();
         return;
       }
 
       if (isReachabilityError(error)) {
+        setDashboardOnline(false, "unreachable");
+        setDashboardLoadState(state.dataLoaded
+          ? {}
+          : { error: "Could not reach Supabase. Check your connection and project URL, then retry." });
+        renderSettings();
+        renderDevices();
         if (state.refreshFailures >= 2 || !state.dataLoaded) {
-          setDashboardOnline(false, "unreachable");
-          renderSettings();
-          renderDevices();
           toast("Could not reach Supabase. Showing cached data; retrying.", "error");
         } else {
           toast("Could not refresh from Supabase. Retrying.", "error");
         }
         scheduleDashboardRetry();
       } else {
+        setDashboardLoadState({ error: `Could not load dashboard: ${error.message}` });
+        renderSettings();
+        renderDevices();
         toast(`Refresh failed: ${error.message}`, "error");
       }
     }
   } finally {
     state.refreshInFlight = false;
-    loading.hidden = true;
   }
 }
 
@@ -696,7 +789,30 @@ function renderDevices() {
   const now = Date.now();
   const container = $("#devices");
   container.replaceChildren();
+  container.removeAttribute("aria-busy");
   state.liveTimers = [];
+
+  if (state.loading && !state.dataLoaded) {
+    renderDeviceSkeleton();
+    return;
+  }
+
+  if (!state.dataLoaded) {
+    setDeviceChromeVisible(false);
+    container.className = "device-grid";
+    container.append(
+      el("div", { className: "empty-state" }, [
+        el("p", { text: state.loadError || "Devices haven't loaded yet." }),
+        el("button", {
+          className: "small",
+          text: "Retry",
+          icon: "refresh",
+          attrs: { type: "button", "data-dashboard-retry": "" },
+        }),
+      ]),
+    );
+    return;
+  }
 
   const { devices, statusByDevice, latestCommand, effectiveSettingsByDevice, notesByDevice } = state.data;
   const activeWindow = FRESHNESS_WINDOW_MS;
@@ -717,6 +833,7 @@ function renderDevices() {
     activeWindow,
   );
   container.className = `device-grid layout-${state.deviceView.layout}`;
+  setDeviceChromeVisible(true);
   pruneSelectedDevices(devices);
   renderDeviceSummary(devices, statusByDevice, now, activeWindow, activeWindowLabel);
   renderDeviceToolbar(devices, statusByDevice, notesByDevice, now, filteredDevices.length);
@@ -1026,6 +1143,7 @@ function renderDevices() {
 function renderDeviceSummary(devices, statusByDevice, now, activeWindow, activeWindowLabel) {
   const container = $("#device-summary");
   if (!container) return;
+  container.className = "stat-grid";
   if (!state.dataLoaded && !state.online) {
     container.replaceChildren();
     return;
@@ -1683,11 +1801,13 @@ function renderSettings() {
   const settings = state.data.settings;
   const form = $("#settings-form");
   if (!settings) {
-    $("#settings-revision").textContent = state.online
-      ? "settings unavailable"
-      : state.connectionReason === "offline"
-        ? "offline — reconnect to load settings"
-        : "Supabase unreachable — retrying";
+    $("#settings-revision").textContent = state.loading
+      ? "Loading settings…"
+      : state.online
+        ? "settings unavailable"
+        : state.connectionReason === "offline"
+          ? "offline — reconnect to load settings"
+          : "Supabase unreachable — retrying";
     return;
   }
   $("#lock-trigger").checked = Boolean(settings.lock_trigger_enabled);
@@ -2339,6 +2459,12 @@ function wireDashboard() {
     const debug = event.target.closest("input[data-debug-device]");
     if (!debug) return;
     toggleDebugMode(debug.dataset.debugDevice, debug.checked, debug);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("#dashboard-retry, [data-dashboard-retry]")) {
+      refreshDashboard();
+    }
   });
 
   $("#devices").addEventListener("click", (event) => {

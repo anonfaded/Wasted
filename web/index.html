@@ -290,7 +290,15 @@
     connection returns. Cached data may be shown where available.
   </p>
 
-  <section id="auth-section" aria-labelledby="auth-title" class="panel narrow">
+  <section id="boot-loading" class="panel narrow dashboard-loading" role="status" aria-live="polite">
+    <span class="loading-spinner" aria-hidden="true"></span>
+    <div>
+      <strong>Starting dashboard…</strong>
+      <p class="muted">Checking your session.</p>
+    </div>
+  </section>
+
+  <section id="auth-section" aria-labelledby="auth-title" class="panel narrow" hidden>
     <div class="auth-brand">
       <span class="auth-mark" aria-hidden="true">
         <svg class="icon"><use href="#icon-shield"/></svg>
@@ -482,6 +490,18 @@
       </div>
       <p id="account-line" class="account-chip"></p>
     </div>
+
+    <section id="dashboard-loading" class="dashboard-loading" role="status" aria-live="polite" hidden>
+      <span class="loading-spinner" aria-hidden="true"></span>
+      <div>
+        <strong id="dashboard-loading-title">Loading dashboard…</strong>
+        <p id="dashboard-loading-detail" class="muted">Fetching your devices and settings.</p>
+      </div>
+      <button id="dashboard-retry" type="button" class="small" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#icon-refresh"/></svg>
+        <span class="button-label">Retry</span>
+      </button>
+    </section>
 
     <section id="command-progress" class="command-progress" aria-live="polite" hidden>
       <div class="command-progress-head">
@@ -1159,7 +1179,6 @@
     </div>
   </section>
 
-  <p id="loading" class="muted" hidden>Loading…</p>
 </main>
 
 <dialog id="install-dialog" aria-labelledby="install-title">
