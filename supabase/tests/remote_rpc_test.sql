@@ -958,14 +958,23 @@ $$;
 
 -- ─── Device: session recovery (no new enrollment token) ─────────────────────
 
+-- Capture the target id as superuser: the replacement identity cannot read the row
+-- before recovery, which is exactly what recovery is meant to fix.
+reset role;
+select set_config(
+    'test.recovery_device_id',
+    (select id::text from public.devices
+      where installation_id = '1d000000-0000-4000-8000-0000000000f9'),
+    false
+);
+
 set local role authenticated;
 select set_config('request.jwt.claims',
     '{"sub":"0c0c0c0c-0000-4000-8000-0000000000c1","role":"authenticated","is_anonymous":true}', true);
 
 create temp table pg_temp.t_recovery as
     select d.* from public.recover_device_session(
-        (select id from public.devices
-          where installation_id = '1d000000-0000-4000-8000-0000000000f9'),
+        current_setting('test.recovery_device_id')::uuid,
         '1d000000-0000-4000-8000-0000000000f9'
     ) d;
 
@@ -976,9 +985,7 @@ begin
         'recovery must rebind the same device to the new anonymous identity'
     );
     perform pg_temp.assert_true(
-        (select id = (select id from public.devices
-                       where installation_id = '1d000000-0000-4000-8000-0000000000f9')
-           from pg_temp.t_recovery),
+        (select id::text = current_setting('test.recovery_device_id') from pg_temp.t_recovery),
         'recovery must keep the original device row'
     );
 end;

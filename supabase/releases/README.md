@@ -5,4 +5,4 @@ migrations. Do not edit by hand; run `node supabase/build-setup-sql.mjs`.
 
 | Release | Schema | Folder |
 | --- | --- | --- |
-| 3.0.0 | 16 | [`3.0.0/`](./3.0.0/) |
+| 3.0.0 | 1 | [`3.0.0/`](./3.0.0/) |

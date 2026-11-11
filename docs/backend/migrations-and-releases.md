@@ -88,6 +88,30 @@ For every release folder:
 Generate with `node supabase/build-setup-sql.mjs`, or automatically via Gradle before asset merging.
 Gradle fails the build if the manifest does not cover the migrations.
 
+## Baseline history
+
+Migration history was reset before the public release. `supabase/migrations/` contains a single
+baseline, `20261111200000_remote_baseline.sql` (schema version 1), generated from the live project
+with the official CLI:
+
+```bash
+supabase db dump --linked --keep-comments -f /tmp/schema.sql
+```
+
+`pg_dump` does not capture everything, so the baseline additionally contains three things the dump
+cannot produce. Keep all three when regenerating it:
+
+1. **pg_cron jobs** — they are rows in `cron.job`, not schema. The dump omits them.
+2. **Default-privilege revokes** — the dump records default ACL *grants* but not the matching
+   `REVOKE ... FROM anon, authenticated`, so platform defaults would re-expose new objects.
+3. **`notify pgrst, 'reload schema'`** so the new RPCs are visible to PostgREST immediately.
+
+The 44 pre-baseline migrations are kept locally in `supabase/archive/migrations/`, which is
+gitignored. They are historical only; a fresh project starts from the baseline.
+
+Docker is only required for `db dump`, `db pull`, `db diff`, `db reset`, and `migration squash`.
+`db push`, `db query`, `migration list`/`repair`, and `gen types` talk to the target directly.
+
 ## Adding a migration
 
 1. Create a new timestamped file in `supabase/migrations/` (never edit an applied file).

@@ -32,6 +32,9 @@ Do not run `setup.sql` twice, and do not mix it with `supabase db push` on the s
   `verify.sql` and `remote_maintenance_test.sql` only.
 - Regenerate `web/src/database.types.ts` when the schema changes.
 - Review advisors with MCP `get_advisors`.
+- The setup file is generated from a single baseline migration (`supabase/migrations/`), not from
+  the CLI at install time. It already contains the schema, RLS, RPCs, grants, Realtime publication,
+  and the two pg_cron maintenance jobs; only the Auth toggles in the setup wizard remain manual.
 - Docker is only for local development (`supabase start` / `supabase db reset`). It is not
   required for hosted projects and is not a deployment path.
 

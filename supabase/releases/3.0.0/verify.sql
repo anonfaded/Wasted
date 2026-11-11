@@ -144,26 +144,26 @@ checks as (
      where has_schema_privilege(role_name, 'private', 'USAGE')
         or has_table_privilege(role_name, 'private.device_enrollments', 'SELECT')
     union all
-    select 'public RPCs present', count(*), 14
+    select 'public RPCs present', count(*), 16
       from expected_rpcs
      where to_regprocedure(signature) is not null
     union all
-    select 'RPC security definer', count(*), 14
+    select 'RPC security definer', count(*), 16
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where p.prosecdef
     union all
-    select 'RPC owned by postgres', count(*), 14
+    select 'RPC owned by postgres', count(*), 16
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where pg_get_userbyid(p.proowner) = 'postgres'
     union all
-    select 'RPC empty search_path', count(*), 14
+    select 'RPC empty search_path', count(*), 16
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where 'search_path=""' = any(p.proconfig)
     union all
-    select 'RPC authenticated-only execute', count(*), 14
+    select 'RPC authenticated-only execute', count(*), 16
       from expected_rpcs e
       join pg_proc p on p.oid = to_regprocedure(e.signature)
      where has_function_privilege('authenticated', p.oid, 'EXECUTE')
@@ -210,7 +210,7 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:16'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:1'
     union all
     select 'device session recovery rpc', count(*), 1
       from pg_proc
