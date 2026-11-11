@@ -77,6 +77,9 @@ The app and dashboard store only the project URL and a publishable key. Never us
 
 If Wasted is not the Device Owner on Android 14+, Remote Management shows a **Device Owner setup required** card. Full factory reset commands (remote or local) need that role; tap **Go to Home setup** and follow **Set up Device Owner** there.
 
+> [!IMPORTANT]
+> Making Wasted Device Owner is final for that installation. Android blocks uninstalling the app while it owns the device, and Device Owner cannot be removed from Settings. The normal way to remove ownership or uninstall Wasted is a factory reset.
+
 ### Keep remote management working after reboot
 
 Wasted registers a boot receiver, a foreground service, a persisted JobScheduler job, and a WorkManager recovery path. Many Android manufacturers still block background auto-start until the user allows the app once. This is enforced by the phone's vendor power manager, not by Wasted.

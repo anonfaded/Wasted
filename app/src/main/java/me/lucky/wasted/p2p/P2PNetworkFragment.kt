@@ -1137,13 +1137,13 @@ class P2PNetworkFragment : Fragment() {
             if (isDeviceOwner || isOrgOwned) {
                 binding.p2pSetupCard.visibility = View.VISIBLE
                 binding.p2pSetupTitle.text = "✓ Device Owner Active"
-                binding.p2pSetupBody.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone and all paired peers.\n\nShizuku is no longer needed — Wasted will work reliably with factory reset capability enabled."
+                binding.p2pSetupBody.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone and all paired peers.\n\nAndroid blocks uninstalling Wasted while it owns this device. A factory reset is required to remove ownership.\n\nShizuku is no longer needed — Wasted will work reliably with factory reset capability enabled."
                 binding.p2pSetupAction.text = "Device Owner Active"
                 binding.p2pSetupAction.isEnabled = false
             } else {
                 binding.p2pSetupCard.visibility = View.VISIBLE
                 binding.p2pSetupTitle.text = "⚠️ Device Owner setup required"
-                binding.p2pSetupBody.text = "Tap 'Set up Device Owner' to complete setup steps.\n\nThis enables full factory reset capability."
+                binding.p2pSetupBody.text = "Tap 'Set up Device Owner' to complete setup steps.\n\nThis enables full factory reset capability.\n\n⚠️ This is final: while Wasted is Device Owner, Android blocks uninstalling it, and a factory reset is required to remove ownership."
                 binding.p2pSetupAction.apply {
                     text = "Set up Device Owner"
                     isEnabled = true
@@ -1201,7 +1201,7 @@ class P2PNetworkFragment : Fragment() {
         when {
             admin.isDeviceOwner() || admin.isOrgOwnedProfileOwner() -> {
                 title.text = "✓ Device Owner Active"
-                body.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone.\n\nShizuku is no longer needed."
+                body.text = "Wasted is now set up as Device Owner.\nFull factory reset is armed for this phone.\n\nAndroid blocks uninstalling Wasted while it owns this device. A factory reset is required to remove ownership.\n\nShizuku is no longer needed."
                 button.visibility = View.GONE
                 bottomSheet.setOnDismissListener { 
                     refreshP2pSetupCard()
@@ -1300,7 +1300,8 @@ class P2PNetworkFragment : Fragment() {
                 body.text = "Remove all linked accounts first from your phone, else we cannot set Wasted as Device Owner:\n" +
                     "Settings → Accounts → remove each one (Gmail etc.)\n" +
                     "Then tap 'Set up Device Owner'.\n" +
-                    "Reboot phone (only if 'Set up Device Owner' option doesn't work)\n\n"
+                    "Reboot phone (only if 'Set up Device Owner' option doesn't work).\n\n" +
+                    "⚠️ THIS IS FINAL: while Wasted is Device Owner, Android blocks uninstalling it. You cannot remove ownership from Settings; the normal way to remove it is a factory reset.\n\n"
                 button.apply {
                     text = "Check Accounts First"
                     setOnClickListener { 
@@ -1360,15 +1361,16 @@ class P2PNetworkFragment : Fragment() {
 
     private fun showDeviceOwnerConfirmDialog(shizuku: ShizukuManager) {
         AlertDialog.Builder(requireContext())
-            .setTitle("Set up Device Owner — Full Factory Reset")
+            .setTitle("⚠️ Make Wasted Device Owner — This Is Final")
             .setMessage(
+                "⚠️ THIS IS FINAL FOR THIS PHONE.\n\n" +
+                "While Wasted is Device Owner, Android blocks uninstalling it. You cannot remove Device Owner from Settings, and the app cannot be uninstalled. The only normal way to remove ownership or uninstall Wasted is a factory reset.\n\n" +
                 "✓ This enables FULL data destruction capability.\n" +
                 "✓ This phone will format on trigger.\n\n" +
                 "Wasted will execute:\n" +
-                "  dpm set-device-owner me.lucky.wasted/.admin.DeviceAdminReceiver\n\n" +
-                "To undo later: disable Device Admin in Wasted settings."
+                "  dpm set-device-owner me.lucky.wasted/.admin.DeviceAdminReceiver"
             )
-            .setPositiveButton("Set up Device Owner") { _, _ -> doBecomeDeviceOwner(shizuku) }
+            .setPositiveButton("I understand — continue") { _, _ -> doBecomeDeviceOwner(shizuku) }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }

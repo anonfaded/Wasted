@@ -222,7 +222,8 @@ class MainFragment : Fragment() {
                 binding.setupTitle.text = "✓ Device Owner Active"
                 binding.setupBody.text =
                     "Wasted is enrolled as Device Owner.\n" +
-                    "A full factory reset will fire on trigger."
+                    "A full factory reset will fire on trigger.\n\n" +
+                    "Android blocks uninstalling Wasted while it owns this device. A factory reset is required to remove ownership."
                 binding.setupAction.visibility = View.GONE
                 binding.filesAccessDivider.visibility = View.GONE
                 binding.filesAccessRow.visibility = View.GONE
@@ -292,6 +293,8 @@ class MainFragment : Fragment() {
                     "For FULL factory-reset capability, make Wasted the Device Owner:\n\n" +
                     "✓ Full data destruction guaranteed\n" +
                     "✓ Most reliable wipe on Android 14+\n\n" +
+                    "⚠️ THIS IS FINAL:\n" +
+                    "While Wasted is Device Owner, Android blocks uninstalling it. You cannot remove ownership from Settings. The normal way to remove Wasted or its ownership is a factory reset.\n\n" +
                     "Prerequisites — BEFORE tapping the button:\n" +
                     "1. Settings → Accounts → remove every account\n" +
                     "2. Settings → Apps → open Gmail, Samsung Account, Google → remove accounts\n" +
@@ -320,8 +323,10 @@ class MainFragment : Fragment() {
 
     private fun showDeviceOwnerConfirmDialog() {
         AlertDialog.Builder(ctx)
-            .setTitle("Set up Device Owner — Full Factory Reset")
+            .setTitle("⚠️ Make Wasted Device Owner — This Is Final")
             .setMessage(
+                "⚠️ THIS IS FINAL FOR THIS PHONE.\n\n" +
+                "While Wasted is Device Owner, Android blocks uninstalling it. You cannot remove Device Owner from Settings, and the app cannot be uninstalled. The only normal way to remove ownership or uninstall Wasted is a factory reset.\n\n" +
                 "✓ This enables FULL data destruction capability.\n" +
                 "✓ Wasted will format the device on trigger.\n\n" +
                 "Prerequisites (MUST be done first):\n\n" +
@@ -331,11 +336,10 @@ class MainFragment : Fragment() {
                 "• Reboot the phone\n\n" +
                 "Not sure if accounts are hidden? Use 'Check Accounts' to verify.\n\n" +
                 "Then Wasted will execute:\n" +
-                "  dpm set-device-owner me.lucky.wasted/.admin.DeviceAdminReceiver\n\n" +
-                "To undo later: disable Device Admin in Wasted settings."
+                "  dpm set-device-owner me.lucky.wasted/.admin.DeviceAdminReceiver"
             )
             .setNeutralButton("Check Accounts") { _, _ -> showCheckAccountsDialog() }
-            .setPositiveButton("Set up Device Owner") { _, _ -> doBecomeDeviceOwner() }
+            .setPositiveButton("I understand — continue") { _, _ -> doBecomeDeviceOwner() }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
