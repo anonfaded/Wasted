@@ -25,6 +25,8 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
         private const val KEY_APPLIED_GLOBAL_REVISION = "applied_global_settings_revision"
         private const val KEY_APPLIED_DEVICE_REVISION = "applied_device_settings_revision"
         private const val KEY_LAST_SYNC_AT = "last_sync_at"
+        private const val KEY_RECOVERY_PENDING = "session_recovery_pending"
+        private const val KEY_RECOVERY_BLOCKED = "session_recovery_blocked"
         private const val PASSPHRASE_BYTES = 32
 
         fun new(ctx: Context): RemoteCredentialStore = RemoteCredentialStore(
@@ -102,6 +104,16 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
             runCatching { prefs.edit().putLong(KEY_LAST_SYNC_AT, value).commit() }
         }
 
+    /** True while a replacement anonymous session still needs to be rebound to this device. */
+    var recoveryPending: Boolean
+        get() = readBoolean(KEY_RECOVERY_PENDING)
+        set(value) = writeBoolean(KEY_RECOVERY_PENDING, value)
+
+    /** Set only when the server confirms this device can no longer be recovered. */
+    var recoveryBlocked: Boolean
+        get() = readBoolean(KEY_RECOVERY_BLOCKED)
+        set(value) = writeBoolean(KEY_RECOVERY_BLOCKED, value)
+
     /**
      * Reset Remote Enrollment: clears session and account binding.
      * The caller separately clears the encrypted remote journal/outbox.
@@ -116,6 +128,8 @@ class RemoteCredentialStore(private val prefs: SharedPreferences) {
                 .remove(KEY_LAST_SYNC_AT)
                 .remove(KEY_APPLIED_GLOBAL_REVISION)
                 .remove(KEY_APPLIED_DEVICE_REVISION)
+                .remove(KEY_RECOVERY_PENDING)
+                .remove(KEY_RECOVERY_BLOCKED)
                 .commit()
         }
     }

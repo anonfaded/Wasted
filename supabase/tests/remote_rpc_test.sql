@@ -956,6 +956,59 @@ begin
 end;
 $$;
 
+-- ─── Device: session recovery (no new enrollment token) ─────────────────────
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+    '{"sub":"0c0c0c0c-0000-4000-8000-0000000000c1","role":"authenticated","is_anonymous":true}', true);
+
+create temp table pg_temp.t_recovery as
+    select d.* from public.recover_device_session(
+        (select id from public.devices
+          where installation_id = '1d000000-0000-4000-8000-0000000000f9'),
+        '1d000000-0000-4000-8000-0000000000f9'
+    ) d;
+
+do $$
+begin
+    perform pg_temp.assert_true(
+        (select auth_user_id = '0c0c0c0c-0000-4000-8000-0000000000c1' from pg_temp.t_recovery),
+        'recovery must rebind the same device to the new anonymous identity'
+    );
+    perform pg_temp.assert_true(
+        (select id = (select id from public.devices
+                       where installation_id = '1d000000-0000-4000-8000-0000000000f9')
+           from pg_temp.t_recovery),
+        'recovery must keep the original device row'
+    );
+end;
+$$;
+
+select pg_temp.expect_error(
+    $$select public.recover_device_session(
+        (select id from pg_temp.t_recovery),
+        '1d000000-0000-4000-8000-0000000000ff')$$,
+    'P0001', 'device not found'
+);
+
+select set_config('request.jwt.claims',
+    '{"sub":"0a0a0a0a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":false}', true);
+select pg_temp.expect_error(
+    $$select public.recover_device_session(
+        (select id from pg_temp.t_recovery),
+        '1d000000-0000-4000-8000-0000000000f9')$$,
+    'P0001', 'anonymous device identity'
+);
+
+select set_config('request.jwt.claims',
+    '{"sub":"0a1a1a1a-0000-4000-8000-0000000000a1","role":"authenticated","is_anonymous":true}', true);
+select pg_temp.expect_error(
+    $$select public.recover_device_session(
+        (select id from pg_temp.t_claim),
+        '1a000000-0000-4000-8000-0000000000f1')$$,
+    'P0001', 'device revoked'
+);
+
 -- legacy repair terminalizes executing commands on already-revoked devices, idempotently
 reset role;
 insert into public.devices (id, account_id, installation_id, name, revoked_at)

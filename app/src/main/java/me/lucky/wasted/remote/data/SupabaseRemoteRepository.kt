@@ -5,6 +5,7 @@ import java.io.IOException
 import android.util.Log
 
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.createSupabaseClient
@@ -21,8 +22,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -45,6 +48,7 @@ import me.lucky.wasted.remote.domain.TransitionCommandParams
  * the fail-closed configuration boundary is open; a fresh or unconfigured install performs
  * zero network work. SDK failures are converted to sanitized [RemoteException]s at this boundary.
  */
+@OptIn(SupabaseExperimental::class)
 class SupabaseRemoteRepository(
     private val configStore: RemoteConfigStore,
     private val credentialStore: RemoteCredentialStore,
@@ -52,6 +56,9 @@ class SupabaseRemoteRepository(
     companion object {
         private const val TAG = "SupabaseRemote"
         private val json = Json { encodeDefaults = true }
+        // Shared across repository instances: REMOTE_RUNTIME.reset() can briefly leave an old
+        // client reachable from the service while the new engine starts.
+        private val authMutex = Mutex()
     }
 
     val credentials: RemoteCredentialStore
@@ -59,7 +66,6 @@ class SupabaseRemoteRepository(
 
     @Volatile
     private var client: SupabaseClient? = null
-    private val authMutex = Mutex()
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
@@ -77,31 +83,84 @@ class SupabaseRemoteRepository(
             // autoLoadFromStorage is asynchronous; without this wait a fresh client can race the
             // stored session and create a new anonymous identity for an already-enrolled device.
             supabase.auth.awaitInitialization()
+            // Refresh tokens are single-use. A background auto-refresh racing this explicit
+            // refresh consumes the token twice; the losing request then clears the session.
+            supabase.auth.stopAutoRefreshForCurrentSession()
+            if (credentialStore.recoveryBlocked) {
+                throw RemoteException(RemoteError.Authentication)
+            }
             val session = supabase.auth.currentSessionOrNull()
+            if (credentialStore.recoveryPending) {
+                if (recoverEnrolledSession(supabase) != null) return@withLock
+                throw RemoteException(RemoteError.Authentication)
+            }
             if (session == null) {
                 if (credentialStore.enrolled) {
-                    // Never mint a new anonymous identity for an already-bound device: the new
-                    // user is not the identity referenced by public.devices and RLS rejects it.
+                    if (recoverEnrolledSession(supabase) != null) return@withLock
                     throw RemoteException(RemoteError.Authentication)
                 }
                 supabase.auth.signInAnonymously()
+                supabase.auth.stopAutoRefreshForCurrentSession()
                 Log.i(TAG, "Anonymous device session established")
                 return@withLock
             }
 
             if (session.expiresAt <= kotlin.time.Clock.System.now()) {
                 val refreshed = runCatching { supabase.auth.refreshCurrentSession() }
+                supabase.auth.stopAutoRefreshForCurrentSession()
                 if (refreshed.isFailure) {
-                    if (credentialStore.enrolled) {
-                        throw RemoteException(RemoteError.Authentication)
+                    val failure = refreshed.exceptionOrNull()
+                    if (credentialStore.enrolled && isInvalidRefreshToken(failure)) {
+                        if (recoverEnrolledSession(supabase) != null) return@withLock
+                        throw RemoteException(RemoteError.Authentication, failure)
                     }
-                    // A brand-new enrollment with an unusable anonymous session starts cleanly.
-                    supabase.auth.signOut()
-                    supabase.auth.signInAnonymously()
+                    // Transient refresh failures stay retryable; only a rejected token triggers
+                    // the stored-device recovery path above.
+                    throw RemoteException(mapError(failure ?: IllegalStateException("refresh failed")), failure)
                 }
             }
         }
     }
+
+    /**
+     * A lost anonymous Auth session must not require another enrollment token. The encrypted
+     * installation id is the device's proof of ownership; the backend re-binds the same device
+     * row to the new anonymous identity and keeps all settings, notes, and command history.
+     */
+    private suspend fun recoverEnrolledSession(supabase: SupabaseClient): RemoteDeviceDto? =
+        RemoteSessionRecovery(
+            credentials = credentialStore,
+            auth = object : RemoteSessionRecovery.AuthPort {
+                override suspend fun hasValidSession(): Boolean {
+                    val session = supabase.auth.currentSessionOrNull() ?: return false
+                    return session.expiresAt > kotlin.time.Clock.System.now()
+                }
+
+                override suspend fun replaceAnonymousSession() {
+                    supabase.auth.clearSession()
+                    supabase.auth.signInAnonymously()
+                    supabase.auth.stopAutoRefreshForCurrentSession()
+                }
+
+                override suspend fun bindDevice(
+                    deviceId: String,
+                    installationId: String,
+                ): RemoteDeviceDto {
+                    val body = buildJsonObject {
+                        put("p_device_id", deviceId)
+                        put("p_installation_id", installationId)
+                    }
+                    return supabase.postgrest.rpc("recover_device_session", body)
+                        .decodeAs<RemoteDeviceDto>()
+                }
+            },
+            classifyError = ::mapError,
+        ).run().also { device ->
+            if (device != null) Log.i(TAG, "Recovered enrolled device session")
+        }
+
+    private fun isInvalidRefreshToken(error: Throwable?): Boolean =
+        error is RestException && (error.statusCode == 400 || error.statusCode == 401)
 
     /**
      * Explicit user-triggered, read-only connectivity check. Reads the public Auth settings to
@@ -147,8 +206,11 @@ class SupabaseRemoteRepository(
     override suspend fun claimEnrollment(params: ClaimEnrollmentParams): RemoteDeviceDto = guarded {
         Log.d(TAG, "claim_device_enrollment")
         val body = json.encodeToJsonElement(ClaimEnrollmentParams.serializer(), params).jsonObject
-        requireClient().postgrest.rpc("claim_device_enrollment", body)
+        val device = requireClient().postgrest.rpc("claim_device_enrollment", body)
             .decodeAs<RemoteDeviceDto>()
+        credentialStore.recoveryPending = false
+        credentialStore.recoveryBlocked = false
+        device
     }
 
     override suspend fun reconcile(params: ReconcileParams): RemoteReconcileResponse = guarded {
@@ -158,6 +220,7 @@ class SupabaseRemoteRepository(
     }
 
     override suspend fun transitionCommand(params: TransitionCommandParams): RemoteCommandDto = guarded {
+        ensureAnonymousSession()
         Log.d(
             TAG,
             "device_transition_command ${params.commandId} ${params.expectedState} -> ${params.newState}",
@@ -174,6 +237,7 @@ class SupabaseRemoteRepository(
 
     fun close() {
         synchronized(this) {
+            client?.auth?.stopAutoRefreshForCurrentSession()
             client = null
         }
     }
@@ -196,6 +260,11 @@ class SupabaseRemoteRepository(
                     // Settings, which throws in Direct Boot. Anonymous auth does not use PKCE.
                     codeVerifierCache = io.github.jan.supabase.auth.MemoryCodeVerifierCache()
                     autoLoadFromStorage = true
+                    // Refresh tokens rotate on every use. Auth refresh is serialized by
+                    // ensureAnonymousSession instead of the SDK lifecycle and request hook.
+                    alwaysAutoRefresh = false
+                    enableLifecycleCallbacks = false
+                    checkSessionOnRequest = false
                 }
                 install(Postgrest)
                 install(Realtime)
@@ -206,6 +275,8 @@ class SupabaseRemoteRepository(
     private suspend fun <T> guarded(block: suspend () -> T): T = try {
         block()
     } catch (e: CancellationException) {
+        throw e
+    } catch (e: RemoteException) {
         throw e
     } catch (e: Throwable) {
         throw RemoteException(mapError(e), e)

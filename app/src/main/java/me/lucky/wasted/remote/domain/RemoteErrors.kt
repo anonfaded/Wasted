@@ -44,6 +44,7 @@ object RemoteErrors {
                 text.contains("expired", ignoreCase = true) -> RemoteError.Conflict
                 text.contains("not supported", ignoreCase = true) -> RemoteError.Validation
                 text.contains("not found", ignoreCase = true) -> RemoteError.Validation
+                text.contains("device revoked", ignoreCase = true) -> RemoteError.Authentication
                 text.contains("authentication required", ignoreCase = true) -> RemoteError.Authentication
                 text.isBlank() -> RemoteError.Unknown(null)
                 else -> RemoteError.Validation

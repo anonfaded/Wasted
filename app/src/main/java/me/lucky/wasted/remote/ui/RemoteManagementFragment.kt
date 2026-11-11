@@ -628,8 +628,11 @@ class RemoteManagementFragment : Fragment() {
                     try {
                         when (val outcome = engine.runSync()) {
                             is SyncOutcome.Success -> "Sync complete."
-                            is SyncOutcome.Failed -> if (outcome.reason == "access denied") {
-                                "Sync failed: this enrollment is stale. Tap Reset enrollment, then claim a new token."
+                            is SyncOutcome.Failed -> if (
+                                outcome.reason == "access denied" ||
+                                outcome.reason == "authentication failed"
+                            ) {
+                                "Sync failed: this device could not restore its session. Check that it is still active in the dashboard."
                             } else {
                                 "Sync failed: ${outcome.reason}"
                             }

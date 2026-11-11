@@ -69,9 +69,13 @@ class RemoteCredentialStoreTest {
         store.lastSyncAt = 123L
         store.appliedGlobalSettingsRevision = 9L
         store.appliedDeviceSettingsRevision = 4L
+        store.recoveryPending = true
+        store.recoveryBlocked = true
         val installationId = store.installationId
         store.clearSession()
         assertFalse(store.enrolled)
+        assertFalse(store.recoveryPending)
+        assertFalse(store.recoveryBlocked)
         assertNull(store.deviceId)
         assertNull(store.accountId)
         assertNull(store.session)

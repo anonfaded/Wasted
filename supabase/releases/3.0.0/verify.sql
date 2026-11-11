@@ -210,7 +210,13 @@ checks as (
     select 'schema version marker', count(*), 1
       from pg_namespace
      where nspname = 'public'
-       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:15'
+       and obj_description(oid, 'pg_namespace') = 'wasted-remote-schema:16'
+    union all
+    select 'device session recovery rpc', count(*), 1
+      from pg_proc
+     where oid = to_regprocedure('public.recover_device_session(uuid, uuid)')
+       and has_function_privilege('authenticated', oid, 'EXECUTE')
+       and not has_function_privilege('anon', oid, 'EXECUTE')
     union all
     select 'single-owner hook present', count(*), 1
       from pg_proc

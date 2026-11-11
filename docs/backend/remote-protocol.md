@@ -204,4 +204,7 @@ be erased; the dashboard labels it “reset initiated — no completion signal a
 - Owner RPCs require a non-anonymous auth user with an `accounts` row.
 - Device RPCs require the device's `auth_user_id` to match the JWT and `revoked_at is null`.
 - Enrollment requires an anonymous auth user and a valid, unexpired, unused token.
+- `recover_device_session(device_id, installation_id)` requires a new anonymous auth user plus the
+  encrypted installation id; it rebinds only an active device, preserves its row/history, and never
+  consumes a new enrollment token.
 - RLS additionally limits reads; direct table writes are denied for both roles.

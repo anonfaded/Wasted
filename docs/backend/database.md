@@ -84,6 +84,7 @@ from all roles.
 | RPC | Purpose / authorization |
 | --- | --- |
 | `claim_device_enrollment(p_token, p_installation_id, p_device_name, p_local_lock_timer_minutes, p_local_usb_trigger_enabled, p_local_lock_trigger_enabled)` | Anonymous identity claims a token; binds device; seeds global settings on first claim; replay-safe per installation |
+| `recover_device_session(p_device_id, p_installation_id)` | Anonymous-only, active-device recovery: rebinds the same device row to a replacement anonymous identity without another enrollment token; requires the encrypted installation id |
 | `device_reconcile(p_device_id, ...)` | Upserts status/battery, lazily expires overdue commands, returns server time, device, effective settings with both revisions, pending commands |
 | `device_transition_command(p_device_id, p_command_id, p_expected_state, p_new_state, p_result_code, p_detail)` | Compare-and-set state transition with legal matrix, expiry gate, audit event |
 
