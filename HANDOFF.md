@@ -302,7 +302,7 @@ per-user update management, but it changes the current "everyone self-hosts" req
 
 ### 6.5a User update runbook
 
-1. Read release notes; export a database backup (Supabase Free has no PITR; see `plan.md` §17).
+1. Read release notes; export a database backup (Supabase Free has no PITR; see [plan.md, Free-plan capacity](plan.md#17-supabase-free-plan-capacity-and-operating-guardrails)).
 2. Update the app (APK) — old schemas remain compatible.
 3. Apply the named update bundle in SQL Editor (copy it from the release or the app assets).
 4. Run `verify.sql`; every row must say PASS.
@@ -344,7 +344,7 @@ for production. Docker would add work, not remove it, for hosted Supabase users.
 
 ## 8. Verification checklist for the reviewing agent
 
-1. Read `archive/wasted update.txt` and compare scope against §1–3; flag missing requirements.
+1. Read `archive/wasted update.txt` and compare scope against [sections 1–3](#1-what-this-project-is); flag missing requirements.
 2. Inspect RLS/RPCs in `supabase/migrations/` and run the four suites; check cross-account/device
    isolation and denied direct writes.
 3. Inspect `ResetExecutor` and `RemoteCommandProcessor`; confirm no other `wipeData()` path and the
@@ -358,7 +358,7 @@ for production. Docker would add work, not remove it, for hosted Supabase users.
 6. Fresh-project gate (open): create an empty project, run `setup.sql`, `verify.sql`, the four
    suites, then connect the generated dashboard and enroll a test device.
 7. Security scans: tracked-secret grep; APK key/URL scan; `.env`/keystore git-ignored; check CSP.
-8. Review the update policy in §6 against the target audience; confirm whether per-user
+8. Review the [update policy](#6-update-management-the-confusing-part--read-this) against the target audience; confirm whether per-user
    self-hosting is still the right product model or a client-hosted backend is needed.
 
 ## 9. Known gaps

@@ -57,21 +57,43 @@
 `docs/` is the **canonical, self-sufficient** documentation set and must stay usable if `plan.md`
 and `HANDOFF.md` (temporary development artifacts) are deleted.
 
+**Deployment model:** the product is built for **free Supabase Cloud** projects. Every user creates
+their own free Supabase project and hosts their own dashboard. Self-hosted Supabase is an optional
+bonus, never required, never assumed. Do not introduce anything that needs Docker on the user's
+side.
+
+### Start here
+
 - `docs/README.md` — index of all documentation.
-- `docs/backend/quickstart.md` — six-step user setup (start here for onboarding).
+- `docs/backend/quickstart.md` — six-step Supabase Cloud setup (start here for onboarding).
 - `docs/architecture.md` — system architecture, components, safety invariants.
-- `docs/backend/migrations-and-releases.md` — **authoritative** migration/release policy; read
-  before touching `supabase/migrations/`, `supabase/releases.json`, or generated release SQL.
-- `docs/backend/database.md`, `remote-protocol.md`, `decisions.md` — schema/RPCs, wire contract,
-  and rationale.
-- `docs/backend/setup.md`, `updates.md`, `release-checklist.md`, `security.md`, `hosting.md`,
-  `troubleshooting.md`, `verification.md` — task-specific backend guides.
-- `HANDOFF.md` — temporary architecture/verification brief (may be removed; docs supersede it).
-- `plan.md` — temporary phase checklist/evidence (may be removed; docs supersede it).
+- `docs/backend/self-hosting-and-setup.md` — **authoritative** for packaging, fresh-project setup,
+  the manual Auth steps SQL cannot do, the Docker command matrix, how the shipped `setup.sql` is
+  proven equal to the live project, the baseline-rebuild rules, the pre-release checklist, and the
+  optional self-hosting/upgrade track.
+
+### Read when touching…
+
+| Area | Read first |
+| --- | --- |
+| `supabase/migrations/`, `releases.json`, generated release SQL, `build-setup-sql.mjs` | `docs/backend/migrations-and-releases.md` + `self-hosting-and-setup.md` |
+| Schema, RLS, RPCs, grants, Realtime, cron | `docs/backend/database.md`, then `security.md` |
+| Device wire contract, commands, retries | `docs/backend/remote-protocol.md`, `decisions.md` |
+| Setup wizard, Auth toggles, user onboarding | `docs/backend/quickstart.md`, `setup.md` |
+| Dashboard generation/hosting | `docs/backend/hosting.md` |
+| Release cut, version bump, upgrade bundles | `docs/backend/release-checklist.md`, `updates.md` |
+| Free-plan limits, quotas, load model | `docs/backend/capacity.md` |
+| Failures/fixes | `docs/backend/troubleshooting.md`, `verification.md` |
+| **Any security question or audit** | `docs/backend/security.md` + the `security-audit` skill |
+
+### Other references
+
 - `supabase/README.md` — backend operations quick reference.
 - `supabase/releases/<appVersion>/` — generated SQL per release (`setup.sql`, update bundles,
   `verify.sql`, `manifest.json`, `README.md`); never hand-edit.
 - `supabase/migrations/` — flat, immutable, CLI-compatible history; never edit applied files.
+- `supabase/archive/migrations/` — gitignored pre-release history; reference only, not active.
+- `HANDOFF.md` / `plan.md` — temporary artifacts; docs supersede them.
 
 Rules:
 - Any release that changes SQL must update `supabase/releases.json`; Gradle regenerates the
@@ -79,6 +101,32 @@ Rules:
 - Keep docs in sync when workflow/architecture changes; link instead of duplicating, and do not
   make docs depend on `plan.md` or `HANDOFF.md`.
 - Never put secrets, project refs, or real account/device data in docs.
+
+---
+
+## Security: zero-vulnerability standard
+
+The app and backend must ship with **no known vulnerabilities**. This is not a one-time gate.
+
+- **Always use the `security-audit` skill** for any security review, pre-release audit, RLS/RPC
+  change, auth/session change, or when investigating a suspected vulnerability. Do not do an
+  ad-hoc security review instead of it.
+- Re-read `docs/backend/security.md` before changing anything that touches RLS policies, grants,
+  `SECURITY DEFINER` functions, Auth settings, enrollment tokens, or the wipe boundary.
+- Every `SECURITY DEFINER` function MUST authorize internally (`require_owner()`,
+  `require_active_device()`, or an explicit `auth.uid()`/`is_anonymous_user()` check) and set
+  `search_path = ''`. Never add `SECURITY DEFINER` to work around a permission error.
+- Every new table in `public` MUST have RLS enabled **and forced**, a SELECT-only policy scoped to
+  the owning identity, and `authenticated` SELECT-only table grants. Direct writes are denied;
+  writes go through owner-only RPCs.
+- The default-privilege `REVOKE`s in the baseline MUST stay. Without them, PostgreSQL's default
+  `EXECUTE`-to-`PUBLIC` re-exposes every future function.
+- Before a release, run the `security-audit` skill and Supabase advisors (`get_advisors` security
+  + performance) and fix or explicitly justify every finding in writing. Triage that depends on
+  design intent (for example anonymous device identities) must be recorded, not silently ignored.
+- Verify with real attack tests, not inspection: cross-tenant read/write, anonymous-device blast
+  radius, and revoked-device access. A passing RLS test suite ends with `ROLLBACK`.
+- Never weaken a control to make a test pass, and never test destructive paths on a real device.
 
 ---
 

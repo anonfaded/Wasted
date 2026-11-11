@@ -1,4 +1,4 @@
-# Quick start (self-hosted)
+# Quick start (Supabase Cloud, free plan)
 
 Six steps, no CLI or Docker. Details are linked at the bottom.
 
@@ -58,7 +58,11 @@ device's own anonymous identity to your account and consumes the code. Every dev
 code; nothing is stored in the HTML file.
 
 Too technical? A client-operated single backend (one Supabase project + one dashboard) removes all
-per-user setup, but that is a product decision outside this self-hosted flow.
+per-user setup, but that is a product decision outside this flow.
+
+Self-hosting Supabase is **not** required. The supported path is a free Supabase Cloud project as
+described above; a self-hosted instance is an optional bonus for users who already run one. See
+[optional self-hosting](./self-hosting-and-setup.md#7-self-hosting-supabase-optional-bonus).
 
 Details:
 [setup.md](./setup.md) · [hosting.md](./hosting.md) · [updates.md](./updates.md) ·

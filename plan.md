@@ -476,7 +476,7 @@ web/
 
 ### Phase 2 — Supabase core networking and durable synchronization
 
-- [x] Migrations created/applied/tested via the §7 MCP procedure: 7 migrations live on the linked project (schema, RPCs, RLS/grants, realtime, maintenance, private-enrollments RLS, FK indexes); schema/RLS/RPC/concurrency suites all pass; advisors triaged; types generated. Evidence: `evidence/phase2/remote-deployment-notes.md`.
+- [x] Migrations created/applied/tested via the [migrations/MCP procedure](#7-supabase-migrations-and-mcp-procedure): 7 migrations live on the linked project (schema, RPCs, RLS/grants, realtime, maintenance, private-enrollments RLS, FK indexes); schema/RLS/RPC/concurrency suites all pass; advisors triaged; types generated. Evidence: `evidence/phase2/remote-deployment-notes.md`.
   - Open: Auth platform settings (anonymous sign-ins, rate limits, auto-expose) have no MCP surface — apply on dashboard, local `config.toml` mirrors them; local Docker replay of migrations/seed pending (Docker not running); Realtime cross-identity delivery verified at the final acceptance round.
 - [x] Implement owner/device enrollment and generated models/types.
   - Website types generated (`web/src/database.types.ts`); Android wire models + typed claim/reconcile/transition adapters ready. User-facing claim flow lands with the Phase 3 screen.
@@ -494,7 +494,7 @@ web/
 
 - [x] Build Android Remote Management screen with Supabase URL/publishable-key/website-URL Save/Test/Enable controls, local Debug toggle/confirmation, enrollment claim/reset-enrollment, connection/last-sync/manual-sync, name, Notifications toggle, deduplicated event notifications, errors, and website-open action.
   - Config Save/Test/Open with per-field validation; enable forces Debug Mode ON; Debug Mode OFF behind a danger dialog; claim/reset enrollment (UUID rotation + remote DB clear); status/last-sync; manual sync; notifications toggle; drawer entry. Build clean, 92 unit tests green (`evidence/phase3/android-remote-screen.log`). Deduplicated event notifications land with the notifications item.
-- [x] Static dashboard built from §9: explicit Sign In/Create Account (signup → `initialize_owner_account`), device cards (≤150 s freshness, locally extrapolated timers, actual vs desired, Debug Mode, last command), revision-protected settings, Reset Timer + typed-confirmation Force Reset with per-submission idempotency keys, enrollment tokens with expiry countdown, Realtime invalidation + refetch, offline banner, accessible markup with monochrome graphite-and-bone CSS (high-contrast palette, border-weight semantics, mono labels, skip link, focus-visible, reduced motion, mobile layout), footer, **single-file `dist/index.html`** (260 KB, CSS + bundle inlined, editable CONFIG block, no external files/CDN).
+- [x] Static dashboard built from the [dashboard contract](#9-dashboard-implementation-contract): explicit Sign In/Create Account (signup → `initialize_owner_account`), device cards (≤150 s freshness, locally extrapolated timers, actual vs desired, Debug Mode, last command), revision-protected settings, Reset Timer + typed-confirmation Force Reset with per-submission idempotency keys, enrollment tokens with expiry countdown, Realtime invalidation + refetch, offline banner, accessible markup with monochrome graphite-and-bone CSS (high-contrast palette, border-weight semantics, mono labels, skip link, focus-visible, reduced motion, mobile layout), footer, **single-file `dist/index.html`** (260 KB, CSS + bundle inlined, editable CONFIG block, no external files/CDN).
   - 41 Node unit tests green (`web/tests/`); browser/a11y suites run at Phase 4.
   - Plain-language setup guide, field legend, tooltips, placeholders, and copy cleanup; validation mirrors backend constraints (email 254, handle 32, integer timer 1–525600, secret keys rejected).
 - [x] App setup wizard with generated dashboard: collects project URL + publishable key, reuses config validation, provides the bundled `setup.sql` + Auth checklist, renders the bundled dashboard template, and writes the configured HTML through SAF. Draft values persist encrypted for regeneration.
@@ -517,13 +517,13 @@ web/
 - [ ] Compatibility matrix on emulators (API 24, 33, 35 minimum): foreground/background/screen-off/Doze/OEM saver/offline/socket loss/process/service restart/reboot/user unlock/force-stop. Install the release build on the physical phone once at the end to confirm upgrade and launch.
 - [ ] Run ≥16-hour soak (emulator or spare phone) with Debug Mode ON. Repeatedly send settings, Reset Timer, and Force Reset; archive dashboard timestamps, DB events, and logcat; prove every Force Reset is debug-blocked and low-level wipe count is zero.
 - [ ] Record p50/p95 command latency, reconnect time, missed/delayed scenarios, battery impact, and foreground-notification behavior. Client accepts measured reliability before release.
-- [ ] Verify actual §17 Free-plan headroom in Supabase Usage/Realtime reports and prove projected monthly usage remains below every internal threshold.
+- [ ] Verify actual [Free-plan headroom](#17-supabase-free-plan-capacity-and-operating-guardrails) in Supabase Usage/Realtime reports and prove projected monthly usage remains below every internal threshold.
   - Measured database size 12 MB against the 500 MB limit with zero residual device/command rows; Usage and Realtime reports to be captured during the soak.
 - [ ] Rebuild a fresh Supabase project from tracked migrations/config documentation, verify zero schema drift, and prove the same release APK can be configured and enrolled against it.
 - [x] Migration organization: immutable flat migrations + `releases.json` + per-release generated folders (`setup.sql`, cumulative update bundles, verify, checksums, README); Gradle validates coverage and bundles them; no app-side update check.
 - [x] Audit hardening (2026-10-21): fail-closed verifier (FORCE RLS, exact policies/grants, RPC definer/owner/search_path/ACL, Realtime scope, cron, schema marker, PUBLIC defaults), revocation-during-execution terminalization, idempotency binding, global PUBLIC function ACL revoke, signed-release gate with explicit unsigned naming, dashboard token/link/owner-recovery fixes, anti-framing headers/fallback, rate-limit/backup/retention docs.
 - [x] Documentation: `docs/README.md` index + `docs/backend/*` (setup, migrations/releases, updates, release checklist, security, hosting, troubleshooting, verification), linked from `AGENTS.md`, `HANDOFF.md`, and READMEs.
-- [ ] Automate upgrade-path CI: apply each generated update bundle to the previous schema, then verify; fresh-project `setup.sql` replay remains pending (see `HANDOFF.md` §6).
+- [ ] Automate upgrade-path CI: apply each generated update bundle to the previous schema, then verify; fresh-project `setup.sql` replay remains pending (see [HANDOFF.md, Update management](HANDOFF.md#6-update-management-the-confusing-part--read-this)).
 - [ ] Only with separate explicit approval, locally disable Debug Mode on an emulator (or an empty sacrificial phone) and perform one real wipe E2E test.
 - [ ] Gate: no security/advisor blocker, all regression/compatibility/soak evidence passes, docs match implementation, and release/rollback rehearsal succeeds.
 
@@ -554,7 +554,7 @@ Rollback:
 - Roll back APK only to a version compatible with the additive schema.
 - Never delete/rename columns or relax RLS in the initial release. Database corrections use forward-only compensating migrations; preserve command/audit evidence.
 
-Update policy (see `HANDOFF.md` §6):
+Update policy (see [HANDOFF.md, Update management](HANDOFF.md#6-update-management-the-confusing-part--read-this)):
 
 - Migrations remain the source of truth; the linked project is verified against them with `supabase db diff --linked` and `supabase migration list --linked`.
 - Never re-run `setup.sql`. Updates are incremental and additive; old app versions keep working with newer schemas.
@@ -611,7 +611,7 @@ Git is the source of truth for reproducible structure and configuration—not fo
 Commit:
 
 - `supabase/config.toml` with local Auth, Realtime, database, port, seed, and rate-limit settings mirroring production where the CLI supports them.
-- Every ordered SQL migration from §7, including extensions, schemas, tables, constraints, indexes, triggers, functions/RPCs, grants, RLS policies, Realtime publication changes, and the named maintenance job.
+- Every ordered SQL migration from the [migrations procedure](#7-supabase-migrations-and-mcp-procedure), including extensions, schemas, tables, constraints, indexes, triggers, functions/RPCs, grants, RLS policies, Realtime publication changes, and the named maintenance job.
 - `supabase/seed.sql` containing synthetic development/test identities and rows only; make it safe to publish and repeat.
 - `supabase/tests/*.sql`, generated website database types, `config.example.js`, an environment-variable example containing names/placeholders only, and `supabase/README.md` with bootstrap, verification, project recreation, and rollback commands.
 - A non-secret hosted-project manifest in `supabase/README.md`: Auth providers, public/anonymous signup switches, rate limits, redirect URLs, CAPTCHA decision, Realtime tables, extensions, and any setting Supabase cannot represent in SQL/config. Record expected values and how MCP verifies each one.

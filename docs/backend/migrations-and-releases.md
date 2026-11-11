@@ -109,6 +109,11 @@ cannot produce. Keep all three when regenerating it:
 The 44 pre-baseline migrations are kept locally in `supabase/archive/migrations/`, which is
 gitignored. They are historical only; a fresh project starts from the baseline.
 
+**After a baseline collapse, the migration history of any project that ran the old chain no longer
+matches local files.** `supabase db push` on such a project stops with *"Remote migration versions
+not found in local migrations directory"*. Reset that project (the intended pre-release action) or
+repair its history. Never run both `setup.sql` and `db push` against one project.
+
 Docker is only required for `db dump`, `db pull`, `db diff`, `db reset`, and `migration squash`.
 `db push`, `db query`, `migration list`/`repair`, and `gen types` talk to the target directly.
 

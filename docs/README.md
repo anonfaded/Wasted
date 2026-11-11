@@ -17,6 +17,7 @@ Everything needed to set up, operate, upgrade, verify, and reason about the syst
 | [backend/quickstart.md](./backend/quickstart.md) | **Six-step setup** (start here) |
 | [backend/README.md](./backend/README.md) | Backend overview and component map |
 | [backend/setup.md](./backend/setup.md) | Fresh Supabase project setup (SQL + Auth + dashboard + enrollment) |
+| [backend/self-hosting-and-setup.md](./backend/self-hosting-and-setup.md) | **Packaging, fresh-project setup, Docker requirements, equivalence proof; [optional self-hosting and upgrades](./backend/self-hosting-and-setup.md#7-self-hosting-supabase-optional-bonus)** |
 | [backend/migrations-and-releases.md](./backend/migrations-and-releases.md) | **Authoritative** migration/release organization, naming, upgrade policy, sources |
 | [backend/database.md](./backend/database.md) | Tables, constraints, RLS model, RPC catalog, Realtime, maintenance |
 | [backend/remote-protocol.md](./backend/remote-protocol.md) | Reconcile contract, command types/states/TTLs, ordering, idempotency, retries |

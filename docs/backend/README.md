@@ -5,9 +5,13 @@ synchronizes settings, timers, status, and commands.
 
 ## Deployment model
 
-- **Per-user self-hosting:** every user creates their own Supabase project and hosts their own
-  dashboard copy. There is no shared backend or central dashboard URL.
-- Supabase Cloud is the managed backend. Docker is only for local development/replay.
+- **Primary path: Supabase Cloud, free plan.** Every user creates their own free Supabase project
+  and hosts their own dashboard copy. There is no shared backend or central dashboard URL. This is
+  the supported, tested deployment and the one the setup wizard documents.
+- **Optional bonus: self-hosted Supabase.** The same `setup.sql` works against a self-hosted
+  instance for users who already run one. It is not required, not the default, and not a
+  prerequisite anywhere in the product.
+- Docker is only for local development/replay and developer-side schema tooling.
 - The public APK ships unconfigured and makes no network calls until the user configures, enables,
   and enrolls.
 
