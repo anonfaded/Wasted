@@ -1210,7 +1210,13 @@
   </form>
 </dialog>
 
-<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden>
+  <span id="toast-message"></span>
+  <button id="toast-close" type="button" class="toast-close"
+          aria-label="Dismiss notification" title="Dismiss notification">
+    <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+  </button>
+</div>
 
 <footer>
   <span id="footer-product">Wasted Remote</span>

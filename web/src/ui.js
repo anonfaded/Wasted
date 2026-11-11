@@ -1,16 +1,76 @@
 export const $ = (selector) => document.querySelector(selector);
 
-let toastTimer;
+const TOAST_DURATION_MS = 4500;
+let toastTimer = null;
+let toastStartedAt = 0;
+let toastRemainingMs = TOAST_DURATION_MS;
+let toastVisible = false;
+let toastPaused = false;
+let toastWired = false;
+
+function ensureToastWiring() {
+  const element = $("#toast");
+  const close = $("#toast-close");
+  if (!element || !close || toastWired) return;
+  toastWired = true;
+  element.addEventListener("mouseenter", pauseToast);
+  element.addEventListener("mouseleave", resumeToast);
+  element.addEventListener("focusin", pauseToast);
+  element.addEventListener("focusout", resumeToast);
+  close.addEventListener("click", (event) => {
+    event.stopPropagation();
+    hideToast();
+  });
+}
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  toastTimer = null;
+  toastVisible = false;
+  toastPaused = false;
+  const element = $("#toast");
+  if (element) element.hidden = true;
+}
+
+function pauseToast() {
+  if (!toastVisible || toastPaused || toastTimer === null) return;
+  toastRemainingMs = Math.max(0, toastRemainingMs - (Date.now() - toastStartedAt));
+  clearTimeout(toastTimer);
+  toastTimer = null;
+  toastPaused = true;
+}
+
+function resumeToast() {
+  if (!toastVisible || !toastPaused) return;
+  toastPaused = false;
+  if (toastRemainingMs <= 0) {
+    hideToast();
+    return;
+  }
+  toastStartedAt = Date.now();
+  toastTimer = setTimeout(hideToast, toastRemainingMs);
+}
 
 export function toast(message, tone = "info") {
+  ensureToastWiring();
   const element = $("#toast");
-  element.textContent = message;
+  const label = $("#toast-message");
+  if (!element || !label) return;
+  label.textContent = message;
   element.dataset.tone = message ? tone : "";
   element.hidden = false;
+  toastVisible = true;
+  toastRemainingMs = TOAST_DURATION_MS;
+  toastPaused = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    element.hidden = true;
-  }, 4500);
+  toastTimer = null;
+  // Keep a newly-appeared notification paused if the pointer is already over it.
+  if (element.matches(":hover")) {
+    toastPaused = true;
+    return;
+  }
+  toastStartedAt = Date.now();
+  toastTimer = setTimeout(hideToast, TOAST_DURATION_MS);
 }
 
 export function showMessage(selector, message, tone = "info") {

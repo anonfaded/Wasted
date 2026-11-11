@@ -813,15 +813,45 @@ dialog p { white-space: pre-line; }
   bottom: 1rem;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   background: var(--ink);
   color: var(--ink-inverse);
   border: 1px solid var(--ink);
   border-radius: 2px;
-  padding: 0.55rem 1rem;
+  padding: 0.55rem 0.65rem 0.55rem 1rem;
   font-family: var(--mono);
   font-size: 0.8rem;
-  max-width: calc(100% - 2rem);
+  max-width: min(42rem, calc(100% - 2rem));
   z-index: 50;
+}
+.toast[hidden] { display: none; }
+#toast-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast-close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  letter-spacing: 0;
+}
+.toast-close:hover {
+  border-color: currentColor;
+  color: inherit;
+  transform: none;
+}
+.toast-close .icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin: 0;
 }
 
 #loading { text-align: center; margin-top: 2rem; font-family: var(--mono); font-size: 0.9rem; }
