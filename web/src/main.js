@@ -145,7 +145,6 @@ const CACHE_PREFIX = "wasted_dashboard_cache_v4_";
 const ACTIVE_WINDOW_LABEL = `${FRESHNESS_WINDOW_MS / 1000} seconds`;
 const THEME_KEY = "wasted_dashboard_theme";
 const VALID_THEMES = new Set(["system", "light", "dark"]);
-const THEME_COLORS = { light: "#eeece6", dark: "#111113" };
 
 const config = readConfig();
 if (!config) {
@@ -270,14 +269,13 @@ function storedTheme() {
   }
 }
 
-function resolvedTheme(theme) {
-  if (theme === "light" || theme === "dark") return theme;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function updateThemeColor(theme) {
+function updateThemeColor() {
   const meta = $("#theme-color-meta");
-  if (meta) meta.content = THEME_COLORS[resolvedTheme(theme)];
+  if (!meta) return;
+  const background = getComputedStyle(document.documentElement)
+    .getPropertyValue("--background")
+    .trim();
+  if (background) meta.content = background;
 }
 
 function applyTheme(theme, { persist = true } = {}) {
@@ -294,7 +292,7 @@ function applyTheme(theme, { persist = true } = {}) {
   for (const button of document.querySelectorAll("[data-theme-option]")) {
     button.setAttribute("aria-pressed", String(button.dataset.themeOption === selected));
   }
-  updateThemeColor(selected);
+  updateThemeColor();
 }
 
 function wireThemePicker() {
@@ -306,7 +304,7 @@ function wireThemePicker() {
   }
   const media = window.matchMedia("(prefers-color-scheme: dark)");
   media.addEventListener("change", () => {
-    if (storedTheme() === "system") updateThemeColor("system");
+    if (storedTheme() === "system") updateThemeColor();
   });
 }
 

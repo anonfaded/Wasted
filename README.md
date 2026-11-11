@@ -191,6 +191,10 @@ The publishable key is public by design and safe to expose. Never embed a secret
 * Access-denied or RLS errors — confirm the owner is a normal (non-anonymous) account and the device still belongs to it.
 * Reset enrollment clears the device session and encrypted journal, rotates the installation ID, and disables Remote Management. Local settings, timers, Device Admin, and P2P are untouched.
 
+### Design system
+
+The dashboard uses shadcn-compatible semantic CSS tokens (background, card, primary, muted, destructive, border, input, ring, radius, and shadows) without React, Radix, Tailwind, or a component runtime. It keeps the mono dossier labels and restrained red accents as a hybrid skin. System/Light/Dark themes use the same token contract, so a future shadcn theme can be mapped to the existing `[data-theme]` scopes without rewriting markup or behavior.
+
 ## Broadcast
 
 * action: `me.lucky.wasted.action.TRIGGER`
