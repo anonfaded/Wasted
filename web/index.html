@@ -189,6 +189,19 @@
   <symbol id="icon-moon" viewBox="0 0 24 24">
     <path d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z"/>
   </symbol>
+  <symbol id="icon-search" viewBox="0 0 24 24">
+    <circle cx="10.5" cy="10.5" r="6.5"/>
+    <path d="m16 16 5 5"/>
+  </symbol>
+  <symbol id="icon-sort" viewBox="0 0 24 24">
+    <path d="M4 7h10M4 12h7M4 17h4M18 5v14M15 16l3 3 3-3"/>
+  </symbol>
+  <symbol id="icon-grid" viewBox="0 0 24 24">
+    <rect x="3" y="3" width="7" height="7" rx="1"/>
+    <rect x="14" y="3" width="7" height="7" rx="1"/>
+    <rect x="3" y="14" width="7" height="7" rx="1"/>
+    <rect x="14" y="14" width="7" height="7" rx="1"/>
+  </symbol>
 </svg>
 
 <header class="app-header">
@@ -532,6 +545,69 @@
           </div>
 
           <div id="device-summary" class="stat-grid" aria-live="polite"></div>
+          <div class="device-toolbar">
+            <div class="device-toolbar-row">
+              <label class="device-search" for="device-search">
+                <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+                <input id="device-search" type="search" autocomplete="off"
+                       placeholder="Search device name or ID" aria-label="Search devices">
+              </label>
+              <label class="device-sort" for="device-sort">
+                <svg class="icon" aria-hidden="true"><use href="#icon-sort"/></svg>
+                <span>Sort</span>
+                <select id="device-sort">
+                  <option value="default">Enrollment order</option>
+                  <option value="name">Name A–Z</option>
+                  <option value="recent">Last contact</option>
+                  <option value="enrolled">Enrollment date</option>
+                  <option value="battery">Battery level</option>
+                  <option value="connection">Active first</option>
+                </select>
+              </label>
+              <div class="layout-switch" role="group" aria-label="Device layout">
+                <button type="button" class="layout-option" data-device-layout="grid"
+                        aria-pressed="true" title="Show device cards in a grid">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-grid"/></svg>
+                  <span>Cards</span>
+                </button>
+                <button type="button" class="layout-option" data-device-layout="list"
+                        aria-pressed="false" title="Show device cards in a single column">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-list"/></svg>
+                  <span>List</span>
+                </button>
+              </div>
+            </div>
+            <div class="device-filter-row">
+              <div class="filter-chips" role="group" aria-label="Filter devices">
+                <button type="button" class="filter-chip" data-device-filter="all" aria-pressed="true">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-devices"/></svg>
+                  All <span data-filter-count="all">0</span>
+                </button>
+                <button type="button" class="filter-chip" data-device-filter="active" aria-pressed="false">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-activity"/></svg>
+                  Active <span data-filter-count="active">0</span>
+                </button>
+                <button type="button" class="filter-chip" data-device-filter="inactive" aria-pressed="false">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg>
+                  Inactive <span data-filter-count="inactive">0</span>
+                </button>
+                <button type="button" class="filter-chip" data-device-filter="debug" aria-pressed="false">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-bug"/></svg>
+                  Debug ON <span data-filter-count="debug">0</span>
+                </button>
+                <button type="button" class="filter-chip" data-device-filter="low-battery" aria-pressed="false">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-battery"/></svg>
+                  Low battery <span data-filter-count="low-battery">0</span>
+                </button>
+                <button type="button" class="filter-chip" data-device-filter="notes" aria-pressed="false">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-pencil"/></svg>
+                  With notes <span data-filter-count="notes">0</span>
+                </button>
+              </div>
+              <p id="device-result-count" class="muted" aria-live="polite"></p>
+            </div>
+          </div>
+
           <div id="devices" class="device-grid" aria-live="polite"></div>
 
           <section class="panel" aria-labelledby="enroll-title">

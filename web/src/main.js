@@ -12,6 +12,13 @@ import { createAction, setDeviceDebugMode, newIdempotencyKey, RESET_TIMER, FORCE
 import { batteryLabel, batteryPercent, batteryTone, isLowBattery } from "./battery.js";
 import { devicePlatformLabel } from "./android.js";
 import {
+  DEVICE_FILTERS,
+  filterCount,
+  filterDevices,
+  normalizeDeviceView,
+  sortDevices,
+} from "./device-view.js";
+import {
   extrapolatedRemaining,
   isRecentlyConnected,
   formatRemaining,
@@ -43,6 +50,23 @@ import { installRipple } from "./ripple.js";
 const COLLAPSED_DEVICES_KEY = "wasted_dashboard_collapsed_devices";
 const HIDDEN_DEVICE_IDS_KEY = "wasted_dashboard_hidden_device_ids";
 const HIDDEN_EMAIL_KEY = "wasted_dashboard_hidden_email";
+const DEVICE_VIEW_KEY = "wasted_dashboard_device_view";
+
+function loadDeviceViewPrefs() {
+  try {
+    return normalizeDeviceView(JSON.parse(localStorage.getItem(DEVICE_VIEW_KEY) ?? "{}"));
+  } catch {
+    return normalizeDeviceView({});
+  }
+}
+
+function saveDeviceViewPrefs(view) {
+  try {
+    localStorage.setItem(DEVICE_VIEW_KEY, JSON.stringify(view));
+  } catch {
+    // View preferences are best effort.
+  }
+}
 
 function loadStoredBool(key) {
   try {
@@ -103,6 +127,8 @@ const state = {
   commandProgressTimer: null,
   targetScope: "selected",
   selectedDeviceIds: new Set(),
+  deviceQuery: "",
+  deviceView: loadDeviceViewPrefs(),
   collapsedDeviceIds: loadStoredIdSet(COLLAPSED_DEVICES_KEY),
   hiddenDeviceIds: loadStoredIdSet(HIDDEN_DEVICE_IDS_KEY),
   data: {
@@ -677,8 +703,25 @@ function renderDevices() {
   const { devices, statusByDevice, latestCommand, effectiveSettingsByDevice, notesByDevice } = state.data;
   const activeWindow = FRESHNESS_WINDOW_MS;
   const activeWindowLabel = ACTIVE_WINDOW_LABEL;
+  const filteredDevices = filterDevices(
+    devices,
+    statusByDevice,
+    notesByDevice,
+    now,
+    activeWindow,
+    state.deviceView.filter,
+    state.deviceQuery,
+  );
+  const visibleDevices = sortDevices(
+    filteredDevices,
+    statusByDevice,
+    state.deviceView.sort,
+    activeWindow,
+  );
+  container.className = `device-grid layout-${state.deviceView.layout}`;
   pruneSelectedDevices(devices);
   renderDeviceSummary(devices, statusByDevice, now, activeWindow, activeWindowLabel);
+  renderDeviceToolbar(devices, statusByDevice, notesByDevice, now, filteredDevices.length);
   const unavailableWithoutCache = !state.online && !state.dataLoaded;
   const unavailablePrefix =
     state.connectionReason === "offline" ? "Offline" : "Can't reach Supabase";
@@ -706,7 +749,28 @@ function renderDevices() {
     return;
   }
 
-  for (const device of devices) {
+  if (!visibleDevices.length) {
+    container.append(
+      el("div", { className: "empty-state" }, [
+        el("p", { text: "No devices match these filters." }),
+        el("p", {
+          className: "hint",
+          text: "Clear the search or choose a different device filter.",
+        }),
+        el("button", {
+          className: "small",
+          text: "Clear filters",
+          icon: "close",
+          attrs: { type: "button", "data-clear-device-filters": "" },
+        }),
+      ]),
+    );
+    setDashboardOnline(state.online);
+    renderCommandScope(devices);
+    return;
+  }
+
+  for (const device of visibleDevices) {
     const status = statusByDevice.get(device.id) ?? null;
     const effective = effectiveSettingsByDevice.get(device.id) ?? null;
     const command = latestCommand.get(device.id) ?? null;
@@ -716,10 +780,21 @@ function renderDevices() {
       text: timerText(status, now),
     });
     const lastContactEl = el("dd", { text: formatLastContact(status, now) });
+    const enrolledAt = Date.parse(device.enrolled_at);
+    const enrolledText = Number.isNaN(enrolledAt) ? "unknown" : formatDateTime(enrolledAt);
     const collapsed = state.collapsedDeviceIds.has(device.id);
     const hidden = state.hiddenDeviceIds.has(device.id);
     const note = notesByDevice.get(device.id)?.notes ?? "";
     const idValue = hidden ? "••••••••••••••••" : device.id;
+    const listSummary = el("div", { className: "device-list-summary" }, [
+      statusBadge(fresh ? "Active" : "Inactive", fresh ? "active" : "inactive"),
+      el("span", { className: "muted", text: `Last contact: ${formatLastContact(status, now)}` }),
+      el("span", { className: "muted", text: `Enrolled: ${enrolledText}` }),
+      statusBadge(
+        !status ? "Debug unknown" : status.debug_mode ? "Debug ON" : "Debug OFF",
+        !status ? "unknown" : status.debug_mode ? "on" : "off",
+      ),
+    ]);
     const idRow = el("div", { className: "device-id-row" }, [
       el("span", { className: "device-id-label", text: "ID" }),
       el("span", { className: "device-id-value", text: idValue }),
@@ -762,6 +837,7 @@ function renderDevices() {
         ]),
       ]),
       el("div", { className: "device-card-body" }, [
+        listSummary,
         idRow,
         el("div", { className: "device-actions" }, [
           el("button", {
@@ -841,6 +917,12 @@ function renderDevices() {
             "clock",
           ),
           lastContactEl,
+          fieldTerm(
+            "Enrolled",
+            "The date and time this device claimed its enrollment token and joined this account.",
+            "clock",
+          ),
+          el("dd", { text: enrolledText }),
           fieldTerm(
             "Battery",
             "Battery level and charging state from the last status sync. If the device is inactive, this is the last known value, not a live reading. Unknown is not 0%. Colour key: 🟢 healthy · 🟡 21–50% · 🔴 20% or less · ⚪ inactive/unknown.",
@@ -973,6 +1055,51 @@ function renderDeviceSummary(devices, statusByDevice, now, activeWindow, activeW
       info: "Devices whose last reported battery level was 20% or less, including inactive devices. The battery value may be from their last contact, not live.",
     }),
   );
+}
+
+function renderDeviceToolbar(devices, statusByDevice, notesByDevice, now, visibleCount) {
+  const filter = state.deviceView.filter;
+  const counts = {};
+  for (const name of DEVICE_FILTERS) {
+    counts[name] = filterCount(
+      devices,
+      statusByDevice,
+      notesByDevice,
+      now,
+      FRESHNESS_WINDOW_MS,
+      name,
+    );
+  }
+  for (const button of document.querySelectorAll("[data-device-filter]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.deviceFilter === filter));
+  }
+  for (const [name, count] of Object.entries(counts)) {
+    const element = document.querySelector(`[data-filter-count="${name}"]`);
+    if (element) element.textContent = String(count);
+  }
+  const sort = $("#device-sort");
+  if (sort) sort.value = state.deviceView.sort;
+  const search = $("#device-search");
+  if (search && search.value !== state.deviceQuery) search.value = state.deviceQuery;
+  for (const button of document.querySelectorAll("[data-device-layout]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.deviceLayout === state.deviceView.layout));
+  }
+  const result = $("#device-result-count");
+  if (result) {
+    const total = devices.length;
+    result.textContent = !total
+      ? "0 devices"
+      : filter !== "all" || state.deviceQuery.trim()
+        ? `Showing ${visibleCount} of ${total} devices`
+        : `${total} device${total === 1 ? "" : "s"}`;
+  }
+}
+
+function clearDeviceFilters() {
+  state.deviceQuery = "";
+  state.deviceView = { ...state.deviceView, filter: "all" };
+  saveDeviceViewPrefs(state.deviceView);
+  renderDevices();
 }
 
 function pruneSelectedDevices(devices) {
@@ -2166,6 +2293,32 @@ function wireDashboard() {
     }
   });
 
+  const deviceSearch = $("#device-search");
+  deviceSearch.addEventListener("input", () => {
+    state.deviceQuery = deviceSearch.value;
+    renderDevices();
+  });
+  $("#device-sort").addEventListener("change", (event) => {
+    state.deviceView = { ...state.deviceView, sort: event.target.value };
+    saveDeviceViewPrefs(state.deviceView);
+    renderDevices();
+  });
+  document.querySelector(".device-toolbar").addEventListener("click", (event) => {
+    const filterButton = event.target.closest("[data-device-filter]");
+    if (filterButton) {
+      state.deviceView = { ...state.deviceView, filter: filterButton.dataset.deviceFilter };
+      saveDeviceViewPrefs(state.deviceView);
+      renderDevices();
+      return;
+    }
+    const layoutButton = event.target.closest("[data-device-layout]");
+    if (layoutButton) {
+      state.deviceView = { ...state.deviceView, layout: layoutButton.dataset.deviceLayout };
+      saveDeviceViewPrefs(state.deviceView);
+      renderDevices();
+    }
+  });
+
   for (const radio of document.querySelectorAll('input[name="command-target"]')) {
     radio.addEventListener("change", () => {
       if (!radio.checked) return;
@@ -2191,6 +2344,11 @@ function wireDashboard() {
   });
 
   $("#devices").addEventListener("click", (event) => {
+    const clearFilters = event.target.closest("button[data-clear-device-filters]");
+    if (clearFilters) {
+      clearDeviceFilters();
+      return;
+    }
     const collapse = event.target.closest("button[data-device-collapse]");
     if (collapse) {
       toggleDeviceCollapsed(collapse.dataset.deviceCollapse, collapse);
