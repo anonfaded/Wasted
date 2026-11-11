@@ -1,11 +1,10 @@
 /** Data access + pure helpers for the device grid. */
 
-export async function fetchDashboardData(client) {
+export async function fetchDashboardCore(client) {
   const [
     devicesResult,
     statusResult,
     commandsResult,
-    settingsResult,
     effectiveResult,
     notesResult,
   ] = await Promise.all([
@@ -14,7 +13,6 @@ export async function fetchDashboardData(client) {
       .order("created_at", { ascending: true }),
     client.from("device_status").select("*"),
     client.rpc("list_latest_device_commands"),
-    client.from("account_settings").select("*").maybeSingle(),
     client.rpc("list_device_effective_settings"),
     client.from("device_notes").select("device_id, notes, updated_at"),
   ]);
@@ -23,7 +21,6 @@ export async function fetchDashboardData(client) {
     devicesResult,
     statusResult,
     commandsResult,
-    settingsResult,
     effectiveResult,
     notesResult,
   ]) {
@@ -46,8 +43,22 @@ export async function fetchDashboardData(client) {
     latestCommand,
     effectiveSettingsByDevice,
     notesByDevice,
-    settings: settingsResult.data ?? null,
+    settings: null,
   };
+}
+
+export async function fetchAccountSettings(client) {
+  const { data, error } = await client.from("account_settings").select("*").maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
+export async function fetchDashboardData(client) {
+  const [core, settings] = await Promise.all([
+    fetchDashboardCore(client),
+    fetchAccountSettings(client),
+  ]);
+  return { ...core, settings };
 }
 
 /** Non-revoked devices only; revoked history is preserved server-side but not actionable. */

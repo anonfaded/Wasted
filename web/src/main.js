@@ -5,7 +5,13 @@ import {
   updateOwnerHandle,
   validateHandle,
 } from "./account.js";
-import { fetchDashboardData, renameDevice, revokeDevice, updateDeviceNotes } from "./devices.js";
+import {
+  fetchAccountSettings,
+  fetchDashboardCore,
+  renameDevice,
+  revokeDevice,
+  updateDeviceNotes,
+} from "./devices.js";
 import { createEnrollmentToken, tokenExpiryLabel } from "./enrollment.js";
 import { saveAccountSettings, saveAccountLimits, saveDeviceSettings } from "./settings.js";
 import { createAction, setDeviceDebugMode, newIdempotencyKey, RESET_TIMER, FORCE_RESET, LOCK_NOW } from "./commands.js";
@@ -113,6 +119,9 @@ const state = {
   dataLoaded: false,
   loading: false,
   loadError: "",
+  settingsLoading: false,
+  settingsError: "",
+  settingsRequestId: 0,
   cacheSavedAt: 0,
   channel: null,
   realtimeAccountId: null,
@@ -394,7 +403,7 @@ function applyOptionalLink(selector, url) {
   link.hidden = false;
 }
 
-function setDashboardLoadState({ loading = false, error = "" } = {}) {
+function setDashboardLoadState({ loading = false, error = "", refreshing = false } = {}) {
   state.loading = loading;
   state.loadError = error;
   const panel = $("#dashboard-loading");
@@ -406,9 +415,20 @@ function setDashboardLoadState({ loading = false, error = "" } = {}) {
   if (!panel) return;
   panel.hidden = !loading && !error;
   panel.dataset.state = error ? "error" : "loading";
-  if (title) title.textContent = error ? "Couldn't load dashboard" : "Loading dashboard…";
+  if (title) {
+    title.textContent = error
+      ? "Couldn't load dashboard"
+      : refreshing
+        ? "Refreshing dashboard…"
+        : "Loading dashboard…";
+  }
   if (detail) {
-    detail.textContent = error || "Fetching your devices and settings.";
+    const savedAt = state.cacheSavedAt
+      ? ` from ${formatDateTime(state.cacheSavedAt)}`
+      : "";
+    detail.textContent = error || (refreshing
+      ? `Showing saved data${savedAt} while checking for updates.`
+      : "Fetching your devices and settings.");
   }
   if (retry) retry.hidden = !error;
 }
@@ -459,10 +479,7 @@ function renderAuthState() {
   $("#sign-out").hidden = !signedIn;
 
   if (signedIn) {
-    if (!state.dataLoaded) {
-      setDashboardLoadState({ loading: true });
-      renderDeviceSkeleton();
-    }
+    if (!state.dataLoaded) setDashboardLoadState({ loading: true });
     refreshDashboard();
   } else {
     teardownRealtime();
@@ -472,6 +489,9 @@ function renderAuthState() {
     state.dataLoaded = false;
     state.loading = false;
     state.loadError = "";
+    state.settingsLoading = false;
+    state.settingsError = "";
+    state.settingsRequestId += 1;
     state.cacheSavedAt = 0;
     state.refreshFailures = 0;
     state.lastDeviceCount = null;
@@ -501,8 +521,14 @@ async function refreshDashboard() {
   if (!state.session || state.refreshInFlight) return;
   state.refreshInFlight = true;
   if (!state.dataLoaded) {
-    setDashboardLoadState({ loading: true });
-    renderDeviceSkeleton();
+    const hasCachedDevices = loadCachedDashboard({ requireDevices: true });
+    setDashboardLoadState({ loading: true, refreshing: hasCachedDevices });
+    if (hasCachedDevices) {
+      renderSettings();
+      renderDevices();
+    } else {
+      renderDeviceSkeleton();
+    }
   } else {
     setDashboardLoadState();
   }
@@ -521,10 +547,18 @@ async function refreshDashboard() {
     }
 
     try {
-      if (!state.handleLoaded) {
-        state.handle = await ensureOwnerAccount(state.client, state.session);
-        state.handleLoaded = true;
-      }
+      const settingsRequest = ++state.settingsRequestId;
+      const settingsPromise = fetchAccountSettings(state.client)
+        .then((settings) => ({ settings, error: null }))
+        .catch((error) => ({ settings: null, error }));
+      const [handle, data] = await Promise.all([
+        state.handleLoaded
+          ? Promise.resolve(state.handle)
+          : ensureOwnerAccount(state.client, state.session),
+        fetchDashboardCore(state.client),
+      ]);
+      state.handle = handle;
+      state.handleLoaded = true;
       $("#account-line").textContent = state.handle
         ? `Account: ${state.handle}`
         : `Signed in as ${state.session.user.email ?? "owner"}`;
@@ -535,7 +569,10 @@ async function refreshDashboard() {
         $("#account-handle").value = state.handle;
       }
 
-      state.data = await fetchDashboardData(state.client);
+      const existingSettings = state.data.settings;
+      state.data = { ...data, settings: existingSettings };
+      state.settingsLoading = !existingSettings;
+      state.settingsError = "";
       state.dataLoaded = true;
       state.loading = false;
       state.loadError = "";
@@ -557,6 +594,18 @@ async function refreshDashboard() {
       setDeviceChromeVisible(true);
       renderSettings();
       renderDevices();
+      void settingsPromise.then(({ settings, error }) => {
+        if (settingsRequest !== state.settingsRequestId || !state.session) return;
+        state.settingsLoading = false;
+        if (error) {
+          state.settingsError = error.message;
+        } else {
+          state.data.settings = settings;
+          state.settingsError = "";
+          saveDashboardCache();
+        }
+        renderSettings();
+      });
       if (state.commandProgress) void refreshCommandProgress();
       subscribeRealtime(state.session.user.id);
       $("#offline-banner").hidden = true;
@@ -640,7 +689,7 @@ function saveDashboardCache() {
   }
 }
 
-function loadCachedDashboard() {
+function loadCachedDashboard({ requireDevices = false } = {}) {
   if (state.dataLoaded) return true;
   const key = dashboardCacheKey();
   if (!key) return false;
@@ -649,6 +698,7 @@ function loadCachedDashboard() {
     if (!raw) return false;
     const cached = JSON.parse(raw);
     if (!Array.isArray(cached.devices)) return false;
+    if (requireDevices && !cached.devices.length) return false;
     state.data = {
       devices: cached.devices,
       statusByDevice: new Map(cached.statusByDevice ?? []),
@@ -711,7 +761,7 @@ function setDashboardOnline(online, reason = state.connectionReason ?? "offline"
     } else {
       const detail = state.dataLoaded
         ? state.cacheSavedAt
-          ? ` Showing cached data last updated ${new Date(state.cacheSavedAt).toLocaleTimeString()}.`
+          ? ` Showing cached data last updated ${formatDateTime(state.cacheSavedAt)}.`
           : " Showing the data already loaded in this session."
         : " No cached dashboard data is available.";
       banner.textContent = offline
@@ -1801,13 +1851,15 @@ function renderSettings() {
   const settings = state.data.settings;
   const form = $("#settings-form");
   if (!settings) {
-    $("#settings-revision").textContent = state.loading
+    $("#settings-revision").textContent = state.loading || state.settingsLoading
       ? "Loading settings…"
-      : state.online
-        ? "settings unavailable"
-        : state.connectionReason === "offline"
-          ? "offline — reconnect to load settings"
-          : "Supabase unreachable — retrying";
+      : state.settingsError
+        ? "settings unavailable — refresh to retry"
+        : state.online
+          ? "settings unavailable"
+          : state.connectionReason === "offline"
+            ? "offline — reconnect to load settings"
+            : "Supabase unreachable — retrying";
     return;
   }
   $("#lock-trigger").checked = Boolean(settings.lock_trigger_enabled);
@@ -1818,9 +1870,10 @@ function renderSettings() {
   const revision = $("#settings-revision");
   revision.textContent = `Global settings version ${settings.revision}${
     settings.initialized_at ? "" : " · not initialized yet"
-  }`;
-  revision.title =
-    "The global version increases each time global settings are saved. Devices with overrides still apply the newest global values for fields they inherit.";
+  }${state.settingsError ? " · refresh failed" : ""}`;
+  revision.title = state.settingsError
+    ? `Could not refresh settings: ${state.settingsError}. The values shown are the last loaded values.`
+    : "The global version increases each time global settings are saved. Devices with overrides still apply the newest global values for fields they inherit.";
   form.dataset.revision = String(settings.revision);
   renderLimits();
 }
