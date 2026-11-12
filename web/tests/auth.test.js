@@ -8,9 +8,7 @@ import {
   signOut,
   validateCreateAccount,
   validateSignIn,
-  validateEmailChange,
   validatePasswordChange,
-  changeEmail,
   changePassword,
 } from "../src/auth.js";
 
@@ -140,22 +138,6 @@ test("auth errors are translated without changing unknown messages", () => {
   assert.equal(friendlyAuthError("Custom backend error"), "Custom backend error");
 });
 
-test("email change reuses the email rules and rejects the current address", () => {
-  assert.deepEqual(validateEmailChange("", "old@example.com"), {
-    field: "account-new-email",
-    message: "Enter your email address.",
-  });
-  assert.equal(
-    validateEmailChange("not-an-email", "old@example.com").message,
-    "Enter a valid email address.",
-  );
-  assert.equal(
-    validateEmailChange("old@example.com", "old@example.com").message,
-    "That is already your email address.",
-  );
-  assert.equal(validateEmailChange("new@example.com", "old@example.com"), null);
-});
-
 test("password change requires current, new and matching confirmation", () => {
   assert.equal(
     validatePasswordChange("", "a-long-new-password1", "a-long-new-password1").message,
@@ -227,19 +209,4 @@ test("password change aborts when the current password is wrong", async () => {
     /Wrong email or password/,
   );
   assert.equal(updated, false, "must not change the password after a failed re-authentication");
-});
-
-test("email change calls updateUser and surfaces backend errors", async () => {
-  const seen = [];
-  const client = {
-    auth: {
-      updateUser: async (attrs) => {
-        seen.push(attrs);
-        return { error: null };
-      },
-    },
-  };
-
-  await changeEmail(client, "New@Example.com ");
-  assert.deepEqual(seen, [{ email: "new@example.com" }]);
 });

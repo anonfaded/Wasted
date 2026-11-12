@@ -926,17 +926,6 @@
                 </p>
               </div>
             </div>
-            <dl class="account-facts">
-              <dt title="The owner email used only for this dashboard; devices do not receive it."><svg class="icon field-icon" aria-hidden="true"><use href="#icon-mail"/></svg>Signed-in email</dt>
-              <dd class="account-email-row">
-                <span id="account-email">—</span>
-                <button id="account-email-toggle" type="button" class="icon-button"
-                        aria-label="Hide signed-in email" aria-pressed="false"
-                        title="Hide the signed-in email">
-                  <svg class="icon" aria-hidden="true"><use href="#icon-eye"/></svg>
-                </button>
-              </dd>
-            </dl>
             <form id="account-form" novalidate>
               <div class="field">
                 <label for="account-handle">Account name</label>
@@ -956,40 +945,36 @@
 
             <section class="account-credential" aria-labelledby="account-email-title">
               <h4 id="account-email-title">
-                <svg class="icon heading-icon" aria-hidden="true"><use href="#icon-mail"/></svg>Change email
+                <svg class="icon heading-icon" aria-hidden="true"><use href="#icon-mail"/></svg>Email address
               </h4>
-              <p class="hint">
-                Your sign-in email for this dashboard. It is not sent to enrolled devices and does not
-                change anything on your phone.
-              </p>
-              <p class="hint">
-                <strong>The change needs email confirmation.</strong> Supabase sends a link to your new
-                address and to your current address; the change applies only after both are clicked.
-                Keep access to your current inbox until then.
-              </p>
-              <p class="hint">
-                <strong>Where those emails can go.</strong> Without custom SMTP, Supabase's built-in
-                sender only delivers to team members of your Supabase organization — other addresses are
-                refused. Its 2-emails-per-hour cap applies only while the <em>Confirm email</em> setting
-                (Authentication → Sign In / Providers) is on, which this setup keeps off. Custom SMTP
-                removes both limits.
-              </p>
-              <form id="account-email-form" novalidate>
-                <div class="field">
-                  <label for="account-new-email">New email address</label>
-                  <input id="account-new-email" name="newEmail" type="email" autocomplete="email"
-                         autocapitalize="none" spellcheck="false" maxlength="254"
-                         placeholder="new@example.com" required
-                         title="Supabase emails a confirmation link to both this address and your current one. The change applies only after both are confirmed.">
-                </div>
-                <div class="actions">
-                  <button type="submit" class="primary">
-                    <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>
-                    <span class="button-label">Send confirmation links</span>
+              <dl class="account-facts">
+                <dt title="The owner email used only for this dashboard; devices do not receive it."><svg class="icon field-icon" aria-hidden="true"><use href="#icon-mail"/></svg>Signed-in email</dt>
+                <dd class="account-email-row">
+                  <span id="account-email">—</span>
+                  <button id="account-email-toggle" type="button" class="icon-button"
+                          aria-label="Hide signed-in email" aria-pressed="false"
+                          title="Hide the signed-in email">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-eye"/></svg>
                   </button>
-                </div>
-                <p id="account-email-message" class="message" role="status"></p>
-              </form>
+                </dd>
+              </dl>
+              <p class="hint">
+                The sign-in email is not editable here, because an email change sends confirmation
+                emails and is easy to get wrong. Change it in your Supabase project instead:
+              </p>
+              <ol class="hint">
+                <li>Open
+                  <a id="account-users-link" href="https://supabase.com/dashboard"
+                     target="_blank" rel="noopener noreferrer">Authentication → Users</a>
+                  in your Supabase project.</li>
+                <li>Your owner account is the only one that is not anonymous.</li>
+                <li>Open its menu, choose <strong>Edit user</strong>, enter the new email, and save.</li>
+                <li>Return here and sign in with the new address.</li>
+              </ol>
+              <p class="hint">
+                The new address works for sign-in right away. Enrolled devices are unaffected — they
+                authenticate with their own anonymous identities, not your email.
+              </p>
             </section>
 
             <section class="account-credential" aria-labelledby="account-password-title">

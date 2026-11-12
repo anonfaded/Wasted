@@ -1105,6 +1105,18 @@ button.small {
 }
 .account-credential .hint { margin-top: 0; }
 .account-credential .field + .field { margin-top: 0.7rem; }
+.account-credential ol.hint {
+  margin: 0.4rem 0 0.6rem;
+  padding-left: 1.25rem;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+.account-credential ol.hint li + li { margin-top: 0.2rem; }
+
+.account-credential .account-facts {
+  margin: 0.6rem 0 0.75rem;
+}
+.account-credential .account-facts dt .icon { display: none; }
 
 /* Monochrome stamps: meaning comes from weight and border style, not color */
 .badge {

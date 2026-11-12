@@ -32,7 +32,7 @@ export function wireAuth(client) {
   $("#show-create").addEventListener("click", () => showMode("create"));
   $("#show-sign-in").addEventListener("click", () => showMode("sign-in"));
 
-  for (const input of [$("#sign-in-email"), $("#create-email"), $("#account-new-email")]) {
+  for (const input of [$("#sign-in-email"), $("#create-email")]) {
     if (!input) continue;
     input.addEventListener("beforeinput", (event) => {
       if (!event.data || (event.inputType ?? "").startsWith("delete")) return;
@@ -183,17 +183,8 @@ export function validateSignIn(email, password) {
   return null;
 }
 
-/** New-account, changed-email and changed-password rules share one length floor. */
+/** New-account and changed-password rules share one length floor. */
 export const MIN_PASSWORD_LENGTH = 12;
-
-export function validateEmailChange(email, currentEmail) {
-  const emailError = validateEmail(email, "account-new-email");
-  if (emailError) return emailError;
-  if (normalizeEmail(email) === normalizeEmail(currentEmail)) {
-    return { field: "account-new-email", message: "That is already your email address." };
-  }
-  return null;
-}
 
 /**
  * Password change requires the current password, a new one, and an identical confirmation.
@@ -238,11 +229,6 @@ export function validatePasswordChange(current, next, confirmation) {
  * disabled the session alone is enough; when it is enabled Supabase demands a nonce, so the
  * caller must surface that instead of silently failing.
  */
-export async function changeEmail(client, email) {
-  const { error } = await client.auth.updateUser({ email: normalizeEmail(email) });
-  if (error) throw authError(error.message, error.code);
-}
-
 export async function changePassword(client, currentPassword, nextPassword, email) {
   if (email) {
     // Verify the current password by re-authenticating before an irreversible change.
@@ -350,18 +336,6 @@ export function friendlyAuthError(message) {
   }
   if (/password should be|weak password/i.test(text)) {
     return "Password rejected: use at least 12 characters with mixed character classes.";
-  }
-  if (/email_address_not_authorized/i.test(text)) {
-    return (
-      "Supabase's built-in email sender only delivers to your organization's team members. " +
-      "Add this address to your Supabase organization, or configure custom SMTP in Authentication settings."
-    );
-  }
-  if (/over_email_send_rate_limit|email rate limit exceeded/i.test(text)) {
-    return (
-      "Supabase's built-in email sender allows 2 emails per hour per project. " +
-      "Wait, or configure custom SMTP to raise the limit."
-    );
   }
   if (/rate limit|too many/i.test(text)) {
     return "Too many attempts. Wait a moment and try again.";
