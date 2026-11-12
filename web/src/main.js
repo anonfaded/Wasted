@@ -1,5 +1,14 @@
 import { readConfig, createSupabaseClient } from "./supabase-client.js";
-import { wireAuth, currentSession, onAuthChange, signOut } from "./auth.js";
+import {
+  wireAuth,
+  currentSession,
+  onAuthChange,
+  signOut,
+  changeEmail,
+  changePassword,
+  validateEmailChange,
+  validatePasswordChange,
+} from "./auth.js";
 import {
   ensureOwnerAccount,
   updateOwnerHandle,
@@ -323,6 +332,24 @@ function wireThemePicker() {
   });
 }
 
+/** Clears typed credentials so a new sign-in never inherits the previous owner's input. */
+function resetCredentialForms() {
+  for (const selector of ["#account-email-form", "#account-password-form"]) {
+    const form = $(selector);
+    if (form) form.reset();
+  }
+  for (const selector of ["#account-email-message", "#account-password-message"]) {
+    clearMessage(selector);
+  }
+  for (const toggle of document.querySelectorAll("[data-password-toggle]")) {
+    const input = document.getElementById(toggle.dataset.passwordToggle);
+    if (!input || input.id.startsWith("sign-in") || input.id.startsWith("create-")) continue;
+    input.type = "password";
+    toggle.setAttribute("aria-pressed", "false");
+    toggle.setAttribute("aria-label", "Show password");
+  }
+}
+
 function renderAccountEmail() {
   const email = state.accountEmail;
   const value = $("#account-email");
@@ -511,6 +538,7 @@ function renderAuthState() {
     state.accountEmail = "";
     renderAccountEmail();
     $("#account-message").textContent = "";
+    resetCredentialForms();
   }
   if (!signedIn) closeHeaderMenu();
   syncHeaderMenu();
@@ -781,6 +809,8 @@ function setDashboardOnline(online, reason = state.connectionReason ?? "offline"
     "#limits-form button[type=submit]",
     "#limits-reset",
     "#account-form button[type=submit]",
+    "#account-email-form button[type=submit]",
+    "#account-password-form button[type=submit]",
     "#target-all",
     "#target-selected",
   ];
@@ -2459,6 +2489,92 @@ function wireDashboard() {
       toast("Account name updated.", "success");
     } catch (error) {
       showMessage("#account-message", error.message, "error");
+    } finally {
+      setBusy(button, false);
+    }
+  });
+
+  $("#account-email-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!requireOnline("#account-email-message")) return;
+    const input = $("#account-new-email");
+    const email = input.value.trim();
+    const validation = validateEmailChange(email, state.accountEmail);
+    if (validation) {
+      showMessage("#account-email-message", validation.message, "error");
+      $(`#${validation.field}`)?.focus();
+      return;
+    }
+    const confirmed = await confirmAction({
+      title: "Change sign-in email?",
+      message:
+        `Send a confirmation link for “${email}”?\n\n` +
+        "Supabase emails a link to that address and to your current one. Your sign-in email stays " +
+        "unchanged until both are confirmed, so keep access to your current inbox.\n\n" +
+        "Enrolled devices are not affected.",
+      confirmLabel: "Send confirmation",
+      danger: false,
+    });
+    if (!confirmed) return;
+
+    const button = event.target.querySelector("button[type=submit]");
+    clearMessage("#account-email-message");
+    setBusy(button, true);
+    try {
+      await changeEmail(state.client, email);
+      input.value = "";
+      showMessage(
+        "#account-email-message",
+        `Confirmation links sent to ${email} and your current address. Your sign-in email changes only after both are confirmed.`,
+        "success",
+      );
+      toast("Confirmation links sent.", "success");
+    } catch (error) {
+      showMessage("#account-email-message", error.message, "error");
+    } finally {
+      setBusy(button, false);
+    }
+  });
+
+  $("#account-password-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!requireOnline("#account-password-message")) return;
+    const currentInput = $("#account-current-password");
+    const nextInput = $("#account-new-password");
+    const confirmInput = $("#account-new-password-confirm");
+    const validation = validatePasswordChange(
+      currentInput.value,
+      nextInput.value,
+      confirmInput.value,
+    );
+    if (validation) {
+      showMessage("#account-password-message", validation.message, "error");
+      $(`#${validation.field}`)?.focus();
+      return;
+    }
+    const confirmed = await confirmAction({
+      title: "Change password?",
+      message:
+        "Your dashboard password will be replaced immediately. Browsers already signed in stay " +
+        "signed in; new sign-ins need the new password.\n\n" +
+        "Enrolled devices are not affected.",
+      confirmLabel: "Update password",
+      danger: false,
+    });
+    if (!confirmed) return;
+
+    const button = event.target.querySelector("button[type=submit]");
+    clearMessage("#account-password-message");
+    setBusy(button, true);
+    try {
+      await changePassword(state.client, currentInput.value, nextInput.value, state.accountEmail);
+      currentInput.value = "";
+      nextInput.value = "";
+      confirmInput.value = "";
+      showMessage("#account-password-message", "Password updated.", "success");
+      toast("Password updated.", "success");
+    } catch (error) {
+      showMessage("#account-password-message", error.message, "error");
     } finally {
       setBusy(button, false);
     }

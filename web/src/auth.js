@@ -32,7 +32,7 @@ export function wireAuth(client) {
   $("#show-create").addEventListener("click", () => showMode("create"));
   $("#show-sign-in").addEventListener("click", () => showMode("sign-in"));
 
-  for (const input of [$("#sign-in-email"), $("#create-email")]) {
+  for (const input of [$("#sign-in-email"), $("#create-email"), $("#account-new-email")]) {
     if (!input) continue;
     input.addEventListener("beforeinput", (event) => {
       if (!event.data || (event.inputType ?? "").startsWith("delete")) return;
@@ -183,6 +183,79 @@ export function validateSignIn(email, password) {
   return null;
 }
 
+/** New-account, changed-email and changed-password rules share one length floor. */
+export const MIN_PASSWORD_LENGTH = 12;
+
+export function validateEmailChange(email, currentEmail) {
+  const emailError = validateEmail(email, "account-new-email");
+  if (emailError) return emailError;
+  if (normalizeEmail(email) === normalizeEmail(currentEmail)) {
+    return { field: "account-new-email", message: "That is already your email address." };
+  }
+  return null;
+}
+
+/**
+ * Password change requires the current password, a new one, and an identical confirmation.
+ * Confirmation is mandatory so a typo cannot silently lock the owner out of their dashboard.
+ */
+export function validatePasswordChange(current, next, confirmation) {
+  if (!current) {
+    return { field: "account-current-password", message: "Enter your current password." };
+  }
+  if (!next) {
+    return { field: "account-new-password", message: "Enter a new password." };
+  }
+  if (next.length < MIN_PASSWORD_LENGTH) {
+    return {
+      field: "account-new-password",
+      message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+    };
+  }
+  if (next === current) {
+    return {
+      field: "account-new-password",
+      message: "Choose a password different from the current one.",
+    };
+  }
+  if (!confirmation) {
+    return {
+      field: "account-new-password-confirm",
+      message: "Confirm your new password.",
+    };
+  }
+  if (next !== confirmation) {
+    return {
+      field: "account-new-password-confirm",
+      message: "Passwords do not match.",
+    };
+  }
+  return null;
+}
+
+/**
+ * Changing an email or password requires re-authentication. With `secure_password_change`
+ * disabled the session alone is enough; when it is enabled Supabase demands a nonce, so the
+ * caller must surface that instead of silently failing.
+ */
+export async function changeEmail(client, email) {
+  const { error } = await client.auth.updateUser({ email: normalizeEmail(email) });
+  if (error) throw authError(error.message, error.code);
+}
+
+export async function changePassword(client, currentPassword, nextPassword, email) {
+  if (email) {
+    // Verify the current password by re-authenticating before an irreversible change.
+    const { error } = await client.auth.signInWithPassword({
+      email: normalizeEmail(email),
+      password: currentPassword,
+    });
+    if (error) throw authError(error.message, error.code);
+  }
+  const { error } = await client.auth.updateUser({ password: nextPassword });
+  if (error) throw authError(error.message, error.code);
+}
+
 export function validateCreateAccount(email, password, confirmation, handle) {
   const emailError = validateEmail(email, "create-email");
   if (emailError) return emailError;
@@ -278,11 +351,32 @@ export function friendlyAuthError(message) {
   if (/password should be|weak password/i.test(text)) {
     return "Password rejected: use at least 12 characters with mixed character classes.";
   }
+  if (/email_address_not_authorized/i.test(text)) {
+    return (
+      "Supabase's built-in email sender only delivers to your organization's team members. " +
+      "Add this address to your Supabase organization, or configure custom SMTP in Authentication settings."
+    );
+  }
+  if (/over_email_send_rate_limit|email rate limit exceeded/i.test(text)) {
+    return (
+      "Supabase's built-in email sender allows 2 emails per hour per project. " +
+      "Wait, or configure custom SMTP to raise the limit."
+    );
+  }
   if (/rate limit|too many/i.test(text)) {
     return "Too many attempts. Wait a moment and try again.";
   }
   if (/failed to fetch|network|load failed/i.test(text)) {
     return "Could not reach Supabase. Check your connection and try again.";
+  }
+  if (/reauth|nonce/i.test(text)) {
+    return "This project requires a verification code to change credentials. Sign out and sign in again, then retry.";
+  }
+  if (/email.*already|already.*email|email address.*registered/i.test(text)) {
+    return "That email address is already used by another account.";
+  }
+  if (/email.*invalid|invalid.*email/i.test(text)) {
+    return "Enter a valid email address.";
   }
   return text;
 }

@@ -953,6 +953,117 @@
               </div>
               <p id="account-message" class="message" role="status"></p>
             </form>
+
+            <section class="account-credential" aria-labelledby="account-email-title">
+              <h4 id="account-email-title">
+                <svg class="icon heading-icon" aria-hidden="true"><use href="#icon-mail"/></svg>Change email
+              </h4>
+              <p class="hint">
+                Your sign-in email for this dashboard. It is not sent to enrolled devices and does not
+                change anything on your phone.
+              </p>
+              <p class="hint">
+                <strong>The change needs email confirmation.</strong> Supabase sends a link to your new
+                address and to your current address; the change applies only after both are clicked.
+                Keep access to your current inbox until then.
+              </p>
+              <p class="hint">
+                <strong>Where those emails can go.</strong> Without custom SMTP, Supabase's built-in
+                sender only delivers to team members of your Supabase organization — other addresses are
+                refused. Its 2-emails-per-hour cap applies only while the <em>Confirm email</em> setting
+                (Authentication → Sign In / Providers) is on, which this setup keeps off. Custom SMTP
+                removes both limits.
+              </p>
+              <form id="account-email-form" novalidate>
+                <div class="field">
+                  <label for="account-new-email">New email address</label>
+                  <input id="account-new-email" name="newEmail" type="email" autocomplete="email"
+                         autocapitalize="none" spellcheck="false" maxlength="254"
+                         placeholder="new@example.com" required
+                         title="Supabase emails a confirmation link to both this address and your current one. The change applies only after both are confirmed.">
+                </div>
+                <div class="actions">
+                  <button type="submit" class="primary">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>
+                    <span class="button-label">Send confirmation links</span>
+                  </button>
+                </div>
+                <p id="account-email-message" class="message" role="status"></p>
+              </form>
+            </section>
+
+            <section class="account-credential" aria-labelledby="account-password-title">
+              <h4 id="account-password-title">
+                <svg class="icon heading-icon" aria-hidden="true"><use href="#icon-lock"/></svg>Change password
+              </h4>
+              <p class="hint">
+                Enter your current password, then the new one twice. Use at least 12 characters with
+                upper and lower case letters and digits. The new password takes effect immediately; no
+                email is sent and other signed-in browsers stay signed in.
+              </p>
+              <form id="account-password-form" novalidate>
+                <div class="field">
+                  <label for="account-current-password">Current password</label>
+                  <div class="password-wrap">
+                    <input id="account-current-password" name="currentPassword" type="password"
+                           autocomplete="current-password" placeholder="Your current password" required>
+                    <button type="button" class="password-toggle"
+                            data-password-toggle="account-current-password"
+                            aria-label="Show password" aria-pressed="false">
+                      <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 5c-5.5 0-9.5 5-10 7 .5 2 4.5 7 10 7s9.5-5 10-7c-.5-2-4.5-7-10-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/>
+                      </svg>
+                      <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M3 3l18 18-1.4 1.4L3 4.4V3zm9 2c-1.6 0-3.1.4-4.4 1.1l2.3 2.3c.7-.3 1.4-.5 2.1-.5 2.2 0 4 1.8 4 4 0 .7-.2 1.4-.5 2l2.3 2.3C19.7 15.1 21 13.5 21 12c-.5-2-4.5-7-9-7zM3 12c.5 2 4.5 7 9 7 1.6 0 3.1-.4 4.4-1.1l-2.3-2.3c-.7.3-1.4.5-2.1.5-2.2 0-4-1.8-4-4 0-.7.2-1.4.5-2L6.3 8.3C4.3 9.5 3.4 11 3 12z"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="account-new-password">New password</label>
+                  <div class="password-wrap">
+                    <input id="account-new-password" name="newPassword" type="password"
+                           autocomplete="new-password" minlength="12"
+                           placeholder="At least 12 characters" required>
+                    <button type="button" class="password-toggle"
+                            data-password-toggle="account-new-password"
+                            aria-label="Show password" aria-pressed="false">
+                      <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 5c-5.5 0-9.5 5-10 7 .5 2 4.5 7 10 7s9.5-5 10-7c-.5-2-4.5-7-10-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/>
+                      </svg>
+                      <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M3 3l18 18-1.4 1.4L3 4.4V3zm9 2c-1.6 0-3.1.4-4.4 1.1l2.3 2.3c.7-.3 1.4-.5 2.1-.5 2.2 0 4 1.8 4 4 0 .7-.2 1.4-.5 2l2.3 2.3C19.7 15.1 21 13.5 21 12c-.5-2-4.5-7-9-7zM3 12c.5 2 4.5 7 9 7 1.6 0 3.1-.4 4.4-1.1l-2.3-2.3c-.7.3-1.4.5-2.1.5-2.2 0-4-1.8-4-4 0-.7.2-1.4.5-2L6.3 8.3C4.3 9.5 3.4 11 3 12z"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="account-new-password-confirm">Confirm new password</label>
+                  <div class="password-wrap">
+                    <input id="account-new-password-confirm" name="newPasswordConfirm" type="password"
+                           autocomplete="new-password" minlength="12"
+                           placeholder="Repeat the new password" required>
+                    <button type="button" class="password-toggle"
+                            data-password-toggle="account-new-password-confirm"
+                            aria-label="Show password" aria-pressed="false">
+                      <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 5c-5.5 0-9.5 5-10 7 .5 2 4.5 7 10 7s9.5-5 10-7c-.5-2-4.5-7-10-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/>
+                      </svg>
+                      <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M3 3l18 18-1.4 1.4L3 4.4V3zm9 2c-1.6 0-3.1.4-4.4 1.1l2.3 2.3c.7-.3 1.4-.5 2.1-.5 2.2 0 4 1.8 4 4 0 .7-.2 1.4-.5 2l2.3 2.3C19.7 15.1 21 13.5 21 12c-.5-2-4.5-7-9-7zM3 12c.5 2 4.5 7 9 7 1.6 0 3.1-.4 4.4-1.1l-2.3-2.3c-.7.3-1.4.5-2.1.5-2.2 0-4-1.8-4-4 0-.7.2-1.4.5-2L6.3 8.3C4.3 9.5 3.4 11 3 12z"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="actions">
+                  <button type="submit" class="primary">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg>
+                    <span class="button-label">Update password</span>
+                  </button>
+                </div>
+                <p id="account-password-message" class="message" role="status"></p>
+              </form>
+            </section>
           </section>
         </section>
 

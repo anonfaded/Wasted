@@ -111,7 +111,12 @@ The dashboard package is generated **by the app**, already configured with your 
    No Supabase Auth URL configuration is needed for owner signup.
 6. Open the hosted URL, create your account, then paste that URL into Remote Management, Save, and
    Enable. Create an enrollment token in the dashboard and claim it in the app. The account name is
-   saved to Supabase and appears on every browser; change it under **Account**.
+   saved to Supabase and appears on every browser; change it under **Account**. The same tab changes
+   your sign-in email and password: a password change applies immediately, while an email change
+   sends confirmation links to both the old and new address and only applies after both are
+   confirmed. Without custom SMTP, Supabase's built-in sender delivers only to your Supabase
+   organization's team members; its 2-emails-per-hour cap applies only while **Confirm email** is on,
+   which this setup turns off.
 
 To update an existing dashboard, open that **same Netlify project → project menu → Deploys**, and
 upload the new ZIP there. Do not create another project; that changes the URL and requires updating

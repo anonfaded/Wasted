@@ -1088,6 +1088,24 @@ button.small {
   .account-facts { grid-template-columns: 1fr; gap: 0.15rem; }
 }
 
+.account-credential {
+  margin-top: 1.35rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--border);
+}
+.account-credential h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+.account-credential .hint { margin-top: 0; }
+.account-credential .field + .field { margin-top: 0.7rem; }
+
 /* Monochrome stamps: meaning comes from weight and border style, not color */
 .badge {
   display: inline-block;

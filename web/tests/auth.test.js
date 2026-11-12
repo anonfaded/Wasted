@@ -8,6 +8,10 @@ import {
   signOut,
   validateCreateAccount,
   validateSignIn,
+  validateEmailChange,
+  validatePasswordChange,
+  changeEmail,
+  changePassword,
 } from "../src/auth.js";
 
 test("sign out ends only the current browser session", async () => {
@@ -134,4 +138,108 @@ test("auth errors are translated without changing unknown messages", () => {
     "This dashboard already has an owner. Sign in instead.",
   );
   assert.equal(friendlyAuthError("Custom backend error"), "Custom backend error");
+});
+
+test("email change reuses the email rules and rejects the current address", () => {
+  assert.deepEqual(validateEmailChange("", "old@example.com"), {
+    field: "account-new-email",
+    message: "Enter your email address.",
+  });
+  assert.equal(
+    validateEmailChange("not-an-email", "old@example.com").message,
+    "Enter a valid email address.",
+  );
+  assert.equal(
+    validateEmailChange("old@example.com", "old@example.com").message,
+    "That is already your email address.",
+  );
+  assert.equal(validateEmailChange("new@example.com", "old@example.com"), null);
+});
+
+test("password change requires current, new and matching confirmation", () => {
+  assert.equal(
+    validatePasswordChange("", "a-long-new-password1", "a-long-new-password1").message,
+    "Enter your current password.",
+  );
+  assert.equal(
+    validatePasswordChange("old-password-1", "", "").message,
+    "Enter a new password.",
+  );
+  assert.equal(
+    validatePasswordChange("old-password-1", "short", "short").message,
+    "Password must be at least 12 characters.",
+  );
+  assert.equal(
+    validatePasswordChange("same-password-1", "same-password-1", "same-password-1").message,
+    "Choose a password different from the current one.",
+  );
+  assert.equal(
+    validatePasswordChange("old-password-1", "a-long-new-password1", "").message,
+    "Confirm your new password.",
+  );
+  assert.equal(
+    validatePasswordChange("old-password-1", "a-long-new-password1", "a-long-new-password2").message,
+    "Passwords do not match.",
+  );
+  assert.equal(
+    validatePasswordChange("old-password-1", "a-long-new-password1", "a-long-new-password1"),
+    null,
+  );
+});
+
+test("password change re-authenticates before updating", async () => {
+  const calls = [];
+  const client = {
+    auth: {
+      signInWithPassword: async (creds) => {
+        calls.push(["signInWithPassword", creds]);
+        return { error: null };
+      },
+      updateUser: async (attrs) => {
+        calls.push(["updateUser", attrs]);
+        return { error: null };
+      },
+    },
+  };
+
+  await changePassword(client, "old-password-1", "a-long-new-password1", "owner@example.com");
+
+  assert.deepEqual(calls, [
+    ["signInWithPassword", { email: "owner@example.com", password: "old-password-1" }],
+    ["updateUser", { password: "a-long-new-password1" }],
+  ]);
+});
+
+test("password change aborts when the current password is wrong", async () => {
+  let updated = false;
+  const client = {
+    auth: {
+      signInWithPassword: async () => ({ error: { message: "Invalid login credentials" } }),
+      updateUser: async () => {
+        updated = true;
+        return { error: null };
+      },
+    },
+  };
+
+  await assert.rejects(
+    () => changePassword(client, "wrong-password", "a-long-new-password1", "owner@example.com"),
+    /Wrong email or password/,
+  );
+  assert.equal(updated, false, "must not change the password after a failed re-authentication");
+});
+
+test("email change calls updateUser and surfaces backend errors", async () => {
+  const seen = [];
+  const client = {
+    auth: {
+      updateUser: async (attrs) => {
+        seen.push(attrs);
+        return { error: null };
+      },
+    },
+  };
+
+  await changeEmail(client, "New@Example.com ");
+  assert.deepEqual(seen, [{ email: "new@example.com" }]);
 });
