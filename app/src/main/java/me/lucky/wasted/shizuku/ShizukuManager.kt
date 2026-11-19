@@ -8,6 +8,11 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
 import me.lucky.wasted.IRemoteShell
 import rikka.shizuku.Shizuku
 
@@ -29,23 +34,43 @@ import rikka.shizuku.Shizuku
  */
 class ShizukuManager(private val ctx: Context) {
 
+    data class State(
+        val installed: Boolean,
+        val running: Boolean,
+        val permissionGranted: Boolean,
+        val connected: Boolean,
+    )
+
     @Volatile private var shell: IRemoteShell? = null
     private var boundArgs: Shizuku.UserServiceArgs? = null
     private var boundConn: ServiceConnection? = null
+
+    private val _state = MutableStateFlow(
+        State(
+            installed = false,
+            running = false,
+            permissionGranted = false,
+            connected = false,
+        ),
+    )
+    val state: StateFlow<State> = _state.asStateFlow()
 
     // ─── Shizuku lifecycle listeners ─────────────────────────────────────────
 
     private val onBinderReceived = Shizuku.OnBinderReceivedListener {
         Log.d(TAG, "Shizuku binder received")
+        publishState()
         if (hasPermission()) bindShell()
     }
 
     private val onBinderDead = Shizuku.OnBinderDeadListener {
         Log.w(TAG, "Shizuku binder died")
         shell = null
+        publishState()
     }
 
     private val onPermissionResult = Shizuku.OnRequestPermissionResultListener { _, result ->
+        publishState()
         if (result == PackageManager.PERMISSION_GRANTED) {
             Log.i(TAG, "Shizuku permission granted — binding shell")
             bindShell()
@@ -64,6 +89,7 @@ class ShizukuManager(private val ctx: Context) {
         Shizuku.addBinderReceivedListenerSticky(onBinderReceived)
         Shizuku.addBinderDeadListener(onBinderDead)
         Shizuku.addRequestPermissionResultListener(onPermissionResult)
+        publishState()
         Log.d(TAG, "ShizukuManager initialized")
     }
 
@@ -73,6 +99,7 @@ class ShizukuManager(private val ctx: Context) {
         Shizuku.removeBinderDeadListener(onBinderDead)
         Shizuku.removeRequestPermissionResultListener(onPermissionResult)
         unbindShell()
+        publishState()
         Log.d(TAG, "ShizukuManager destroyed")
     }
 
@@ -106,6 +133,15 @@ class ShizukuManager(private val ctx: Context) {
         try { it.asBinder().isBinderAlive } catch (_: Exception) { false }
     } ?: false
 
+    private fun publishState() {
+        _state.value = State(
+            installed = isInstalled(),
+            running = isRunning(),
+            permissionGranted = hasPermission(),
+            connected = isConnected(),
+        )
+    }
+
     // ─── Permission ──────────────────────────────────────────────────────────
 
     /** Show the Shizuku permission request dialog to the user. */
@@ -134,18 +170,22 @@ class ShizukuManager(private val ctx: Context) {
         val conn = object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName, binder: IBinder) {
                 shell = IRemoteShell.Stub.asInterface(binder)
+                publishState()
                 Log.i(TAG, "Shell connected")
             }
             override fun onServiceDisconnected(name: ComponentName) {
                 shell = null
+                publishState()
                 Log.w(TAG, "Shell disconnected")
             }
         }.also { boundConn = it }
 
         try {
             Shizuku.bindUserService(args, conn)
+            publishState()
         } catch (e: Exception) {
             Log.e(TAG, "bindUserService failed: ${e.message}")
+            publishState()
         }
     }
 
@@ -245,7 +285,7 @@ class ShizukuManager(private val ctx: Context) {
                 "3. Check hidden accounts: on a second phone use Termux → pkg install android-tools → " +
                 "adb connect <this phone IP> → adb shell dumpsys account list\n" +
                 "4. Reboot this phone\n" +
-                "5. Come back and tap Become Device Owner again"
+                "5. Come back and tap 'Set up Device Owner' again"
             )
             output.contains("already", ignoreCase = true) && output.contains("owner", ignoreCase = true) -> throw Exception(
                 "A device or profile owner is already set on this phone.\n\n" +

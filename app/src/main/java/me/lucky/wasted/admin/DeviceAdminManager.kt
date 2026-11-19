@@ -77,10 +77,11 @@ class DeviceAdminManager(private val ctx: Context) {
      * 3 = MANAGE_EXTERNAL_STORAGE → file wipe only
      * 4 = nothing extra → own data only
      *
-     * Only meaningful on Android 14+ when not Device Owner.
-     * On <14, wipeData() is always a full factory reset regardless of tier.
+     * On <14, an active Device Admin can perform a full factory reset.
+     * On 14+, full wipe requires Device Owner; otherwise it is best-effort.
      */
     fun getProtectionTier(): Int = when {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE && isActive() -> 1
         canUseFullDeviceWipeApi() -> 1
         isShizukuConnected() -> 2
         hasManageExternalStoragePermission() -> 3
@@ -191,7 +192,7 @@ class DeviceAdminManager(private val ctx: Context) {
     }
 
     private fun deleteUserFiles() {
-        val dirs = listOf(
+        val dirs = mutableListOf(
             Environment.DIRECTORY_DOWNLOADS,
             Environment.DIRECTORY_DCIM,
             Environment.DIRECTORY_DOCUMENTS,
@@ -202,8 +203,10 @@ class DeviceAdminManager(private val ctx: Context) {
             Environment.DIRECTORY_NOTIFICATIONS,
             Environment.DIRECTORY_PODCASTS,
             Environment.DIRECTORY_RINGTONES,
-            Environment.DIRECTORY_SCREENSHOTS,
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            dirs.add(Environment.DIRECTORY_SCREENSHOTS)
+        }
         for (dirName in dirs) {
             try {
                 Environment.getExternalStoragePublicDirectory(dirName)

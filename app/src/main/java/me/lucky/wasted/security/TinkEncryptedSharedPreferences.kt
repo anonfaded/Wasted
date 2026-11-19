@@ -29,7 +29,9 @@ class TinkEncryptedSharedPreferences private constructor(
             fileName: String,
             legacyEntriesProvider: (() -> Map<String, *>)? = null,
         ): SharedPreferences {
-            return TinkEncryptedSharedPreferences(context.applicationContext, fileName, legacyEntriesProvider)
+            // Preserve the supplied context: device-protected callers must not collapse back to
+            // the credential-protected application context.
+            return TinkEncryptedSharedPreferences(context, fileName, legacyEntriesProvider)
         }
     }
 

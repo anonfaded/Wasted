@@ -14,13 +14,18 @@ import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 import java.util.*
 
 import me.lucky.wasted.Application as WastedApp
 import me.lucky.wasted.Preferences
 import me.lucky.wasted.R
-import me.lucky.wasted.Utils
 import me.lucky.wasted.admin.DeviceAdminManager
+import me.lucky.wasted.settings.LocalSettingsApplier
 import me.lucky.wasted.databinding.FragmentMainBinding
 import me.lucky.wasted.shizuku.ShizukuManager
 
@@ -30,9 +35,13 @@ class MainFragment : Fragment() {
     private lateinit var prefs: Preferences
     private lateinit var prefsdb: Preferences
     private val admin by lazy { DeviceAdminManager(ctx) }
+    private val applier by lazy { LocalSettingsApplier.create(ctx) }
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         prefs.copyTo(prefsdb, key)
+        if (key == "triggers") {
+            binding.root.post { refreshSecretColor() }
+        }
     }
 
     override fun onCreateView(
@@ -46,6 +55,15 @@ class MainFragment : Fragment() {
         return binding.root
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                shizuku()?.state?.collect { refreshProtectionUI() }
+            }
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         prefs.registerListener(prefsListener)
@@ -55,7 +73,14 @@ class MainFragment : Fragment() {
         super.onResume()
         // Refresh whenever we return to screen — covers returning from:
         // Shizuku app (after starting/granting permission), Settings (after removing accounts/granting files access)
+        refreshSecretColor()
         refreshProtectionUI()
+    }
+
+    private fun refreshSecretColor() {
+        binding.secret.setBackgroundColor(
+            ctx.getColor(if (prefs.triggers != 0) R.color.secret_1 else R.color.secret_0),
+        )
     }
 
     override fun onStop() {
@@ -70,9 +95,7 @@ class MainFragment : Fragment() {
         if (prefs.secret.isEmpty()) prefs.secret = makeSecret()
         binding.apply {
             secret.text = prefs.secret
-            secret.setBackgroundColor(ctx.getColor(
-                if (prefs.triggers != 0) R.color.secret_1 else R.color.secret_0
-            ))
+            refreshSecretColor()
             wipeData.isChecked = prefs.isWipeData
             wipeEmbeddedSim.isChecked = prefs.isWipeEmbeddedSim
             wipeEmbeddedSim.isEnabled = wipeData.isChecked
@@ -81,13 +104,14 @@ class MainFragment : Fragment() {
     }
 
     private fun setup() = binding.apply {
+        homeHelp.setOnClickListener { showHomeHelp() }
         wipeData.setOnCheckedChangeListener { _, isChecked ->
-            prefs.isWipeData = isChecked
+            applier.setWipeData(isChecked)
             wipeEmbeddedSim.isEnabled = isChecked
             refreshProtectionUI()
         }
         wipeEmbeddedSim.setOnCheckedChangeListener { _, isChecked ->
-            prefs.isWipeEmbeddedSim = isChecked
+            applier.setWipeEmbeddedSim(isChecked)
         }
         toggle.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) requestAdmin() else setOff()
@@ -95,8 +119,7 @@ class MainFragment : Fragment() {
     }
 
     private fun setOn() {
-        prefs.isEnabled = true
-        Utils(ctx).setEnabled(true)
+        applier.setMasterEnabled(true)
         binding.toggle.isChecked = true
         // Prompt for All Files Access right after enabling — needed for Tier 3 (file deletion)
         if (!admin.hasManageExternalStoragePermission() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -107,11 +130,26 @@ class MainFragment : Fragment() {
     }
 
     private fun setOff() {
-        prefs.isEnabled = false
-        Utils(ctx).setEnabled(false)
+        applier.setMasterEnabled(false)
         try { admin.remove() } catch (exc: SecurityException) {}
         binding.toggle.isChecked = false
         refreshProtectionUI()
+    }
+
+    private fun showHomeHelp() {
+        val padding = (24 * resources.displayMetrics.density).toInt()
+        val body = android.widget.TextView(ctx).apply {
+            text = getString(R.string.home_help_body)
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+            setLineSpacing(0f, 1.1f)
+            setPadding(padding, padding / 2, padding, padding / 2)
+        }
+        val scroll = android.widget.ScrollView(ctx).apply { addView(body) }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.home_help_title)
+            .setView(scroll)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private val registerForDeviceAdmin =
@@ -142,21 +180,23 @@ class MainFragment : Fragment() {
     // ─── Protection level + Setup cards ──────────────────────────────────────
 
     /**
-     * Refresh both cards. Cards only show when wipe is enabled and Device Admin is active.
+     * Refresh both cards.
+     *
+     * The protection card only matters while wiping is armed, but the setup card does not: it is
+     * how the user gets Shizuku and Device Owner ready in the first place, and the Remote
+     * Management screen sends them here. Hiding it until wipe is enabled would hide the very steps
+     * the user was told to follow.
      */
     private fun refreshProtectionUI() {
-        val showCards = prefs.isWipeData && admin.isActive()
-        if (!showCards) {
-            binding.protectionCard.visibility = View.GONE
-            binding.setupCard.visibility = View.GONE
-            return
-        }
-        binding.protectionCard.visibility = View.VISIBLE
-        binding.protectionStatus.text = when (admin.getProtectionTier()) {
-            1 -> getString(R.string.protection_tier_1)
-            2 -> getString(R.string.protection_tier_2)
-            3 -> getString(R.string.protection_tier_3)
-            else -> getString(R.string.protection_tier_4)
+        val showProtection = prefs.isWipeData && admin.isActive()
+        binding.protectionCard.visibility = if (showProtection) View.VISIBLE else View.GONE
+        if (showProtection) {
+            binding.protectionStatus.text = when (admin.getProtectionTier()) {
+                1 -> getString(R.string.protection_tier_1)
+                2 -> getString(R.string.protection_tier_2)
+                3 -> getString(R.string.protection_tier_3)
+                else -> getString(R.string.protection_tier_4)
+            }
         }
         updateSetupCard()
     }
@@ -184,7 +224,8 @@ class MainFragment : Fragment() {
                 binding.setupTitle.text = "✓ Device Owner Active"
                 binding.setupBody.text =
                     "Wasted is enrolled as Device Owner.\n" +
-                    "A full factory reset will fire on trigger."
+                    "A full factory reset will fire on trigger.\n\n" +
+                    "Android blocks uninstalling Wasted while it owns this device. A factory reset is required to remove ownership."
                 binding.setupAction.visibility = View.GONE
                 binding.filesAccessDivider.visibility = View.GONE
                 binding.filesAccessRow.visibility = View.GONE
@@ -248,19 +289,21 @@ class MainFragment : Fragment() {
             }
 
             else -> {
-                binding.setupTitle.text = "🔒 Upgrade to Device Owner"
+                binding.setupTitle.text = "🔒 Set up Device Owner"
                 binding.setupBody.text =
                     "Shizuku is active — TRIM + app data clear is armed.\n\n" +
                     "For FULL factory-reset capability, make Wasted the Device Owner:\n\n" +
                     "✓ Full data destruction guaranteed\n" +
                     "✓ Most reliable wipe on Android 14+\n\n" +
+                    "⚠️ THIS IS FINAL:\n" +
+                    "While Wasted is Device Owner, Android blocks uninstalling it. You cannot remove ownership from Settings. The normal way to remove Wasted or its ownership is a factory reset.\n\n" +
                     "Prerequisites — BEFORE tapping the button:\n" +
                     "1. Settings → Accounts → remove every account\n" +
                     "2. Settings → Apps → open Gmail, Samsung Account, Google → remove accounts\n" +
                     "3. Reboot the phone\n" +
-                    "4. Come back and tap Set Device Owner"
+                    "4. Come back and tap 'Set up Device Owner'"
                 binding.setupAction.apply {
-                    text = "Set Device Owner"
+                    text = "Set up Device Owner"
                     visibility = View.VISIBLE
                     setOnClickListener { showDeviceOwnerConfirmDialog() }
                 }
@@ -282,8 +325,10 @@ class MainFragment : Fragment() {
 
     private fun showDeviceOwnerConfirmDialog() {
         AlertDialog.Builder(ctx)
-            .setTitle("Set Device Owner — Full Factory Reset")
+            .setTitle("⚠️ Make Wasted Device Owner — This Is Final")
             .setMessage(
+                "⚠️ THIS IS FINAL FOR THIS PHONE.\n\n" +
+                "While Wasted is Device Owner, Android blocks uninstalling it. You cannot remove Device Owner from Settings, and the app cannot be uninstalled. The only normal way to remove ownership or uninstall Wasted is a factory reset.\n\n" +
                 "✓ This enables FULL data destruction capability.\n" +
                 "✓ Wasted will format the device on trigger.\n\n" +
                 "Prerequisites (MUST be done first):\n\n" +
@@ -293,11 +338,10 @@ class MainFragment : Fragment() {
                 "• Reboot the phone\n\n" +
                 "Not sure if accounts are hidden? Use 'Check Accounts' to verify.\n\n" +
                 "Then Wasted will execute:\n" +
-                "  dpm set-device-owner me.lucky.wasted/.admin.DeviceAdminReceiver\n\n" +
-                "To undo later: disable Device Admin in Wasted settings."
+                "  dpm set-device-owner me.lucky.wasted/.admin.DeviceAdminReceiver"
             )
             .setNeutralButton("Check Accounts") { _, _ -> showCheckAccountsDialog() }
-            .setPositiveButton("Set Device Owner") { _, _ -> doBecomeDeviceOwner() }
+            .setPositiveButton("I understand — continue") { _, _ -> doBecomeDeviceOwner() }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
@@ -349,6 +393,7 @@ class MainFragment : Fragment() {
             act.runOnUiThread {
                 if (!isAdded) return@runOnUiThread
                 binding.setupAction.isEnabled = true
+                if (success) refreshProtectionUI()
                 AlertDialog.Builder(ctx)
                     .setTitle(if (success) "✓ Device Owner Set" else "Failed")
                     .setMessage(message)

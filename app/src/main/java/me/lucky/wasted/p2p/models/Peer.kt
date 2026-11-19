@@ -15,7 +15,7 @@ data class Peer(
     val deviceName: String,         // User-friendly device name
     val ipAddress: String,          // Current IP address on local network
     val port: Int,                  // TCP port for TLS connection
-    val certificateHash: String,    // SHA-256 hash of APK signing certificate
+    val certificateHash: String,    // SHA-256 of the peer's pinned TLS leaf certificate
     val pairedAt: Long,             // Timestamp of pairing (milliseconds)
     val lastSeen: Long,             // Timestamp of last successful connection
     val isConnected: Boolean = false, // Current connection status

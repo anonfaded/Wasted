@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import me.lucky.wasted.Preferences
 import me.lucky.wasted.admin.DeviceAdminManager
+import me.lucky.wasted.admin.ResetExecutor
+import me.lucky.wasted.admin.ResetResult
 import me.lucky.wasted.p2p.database.WastedP2PDatabase
 import me.lucky.wasted.p2p.models.Message
 import me.lucky.wasted.p2p.models.MessageType
@@ -55,7 +57,7 @@ class RemoteControlManager(
      * Peer will show confirmation dialog before executing reset.
      */
     fun sendRemoteReset(peer: Peer) {
-        Log.d(TAG, "Reset button clicked (remote)")
+        Log.d(TAG, "Local action requested")
         
         scope.launch {
             try {
@@ -77,12 +79,12 @@ class RemoteControlManager(
 
                 val success = p2pNetwork.sendToPeerWithRetry(peer, message)
                 if (success) {
-                    Log.i(TAG, "Reset command sent to ${peer.deviceName}")
+                    Log.i(TAG, "P2P command sent")
                 } else {
-                    Log.e(TAG, "Failed to send reset command to ${peer.deviceName}")
+                    Log.e(TAG, "P2P command send failed")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to send reset command to ${peer.deviceName}: ${e.message}", e)
+                Log.e(TAG, "P2P command send failed: ${e.javaClass.simpleName}")
             }
         }
     }
@@ -91,49 +93,34 @@ class RemoteControlManager(
      * Execute local reset after user confirmation.
      */
     fun executeLocalReset(): ResetExecutionResult {
-        Log.d(TAG, "Reset button clicked (local)")
+        Log.d(TAG, "Local action requested")
 
-        val resetSupport = adminManager.getResetSupport()
-        if (!resetSupport.isSupported) {
-            Log.e(TAG, "Reset is not supported on this phone: ${resetSupport.userMessage}")
-            return ResetExecutionResult(
-                success = false,
-                userMessage = resetSupport.userMessage,
-                ackStatus = "failed",
-                ackReason = resetSupport.userMessage,
-            )
-        }
-
-        return try {
-            Log.d(TAG, "User confirmed reset")
-            Log.i(TAG, "wipeData() called")
-            adminManager.wipeData()
-            Log.i(TAG, "Device reset initiated")
-            ResetExecutionResult(
+        return when (val result = ResetExecutor.create(context).execute()) {
+            is ResetResult.Initiated -> ResetExecutionResult(
                 success = true,
                 userMessage = "Device reset requested",
                 ackStatus = "confirmed",
             )
-        } catch (e: IllegalStateException) {
-            val reason = if ((e.message ?: "").contains("system user", ignoreCase = true)) {
-                "This Android user does not allow factory reset through Device Admin. Emulator system users commonly reject wipe requests."
-            } else {
-                e.message ?: "Reset is not allowed on this device"
+            is ResetResult.DebugBlocked -> {
+                Log.i(TAG, "Local action blocked")
+                ResetExecutionResult(
+                    success = false,
+                    userMessage = result.message,
+                    ackStatus = "debug_blocked",
+                    ackReason = result.message,
+                )
             }
-            Log.e(TAG, "Failed to execute local reset: $reason", e)
-            ResetExecutionResult(
+            is ResetResult.NotSupported -> ResetExecutionResult(
                 success = false,
-                userMessage = reason,
+                userMessage = result.message,
                 ackStatus = "failed",
-                ackReason = reason,
+                ackReason = result.message,
             )
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to execute local reset: ${e.message}", e)
-            ResetExecutionResult(
+            is ResetResult.Failed -> ResetExecutionResult(
                 success = false,
-                userMessage = "Reset could not be started on this device",
+                userMessage = result.message,
                 ackStatus = "failed",
-                ackReason = e.message ?: "Reset could not be started on this device",
+                ackReason = result.message,
             )
         }
     }
@@ -145,11 +132,11 @@ class RemoteControlManager(
     suspend fun handleResetCommandMessage(message: Message) {
         try {
             val payload = gson.fromJson(message.payload, Map::class.java)
-            Log.d(TAG, "Reset command received from ${message.fromDeviceId}")
+            Log.d(TAG, "P2P command received")
 
             val peerName = payload["deviceName"] as? String ?: "Remote Device"
             if (!prefs.remoteResetConfirmationEnabled) {
-                Log.d(TAG, "Remote reset confirmation disabled; executing immediately")
+                Log.d(TAG, "Remote action approved")
                 val result = executeLocalReset()
                 sendResetAck(message.fromDeviceId, peerName, result.ackStatus, result.ackReason)
                 return
@@ -158,9 +145,9 @@ class RemoteControlManager(
             // Set pending reset to trigger UI confirmation dialog
             _pendingReset.value = message.fromDeviceId to peerName
 
-            Log.d(TAG, "Showing reset confirmation dialog")
+            Log.d(TAG, "Showing P2P confirmation")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to handle reset command: ${e.message}", e)
+            Log.e(TAG, "P2P action failed: ${e.javaClass.simpleName}")
         }
     }
 
@@ -171,7 +158,7 @@ class RemoteControlManager(
 
         scope.launch {
             val (peerId, peerName) = _pendingReset.value ?: return@launch
-            Log.d(TAG, "Remote reset confirmation disabled while request was pending; auto-declining")
+            Log.d(TAG, "Remote action declined")
             sendResetAck(
                 peerId,
                 peerName,
@@ -190,12 +177,12 @@ class RemoteControlManager(
             try {
                 val (peerId, peerName) = _pendingReset.value ?: return@launch
                 
-                Log.d(TAG, "User confirmed reset from $peerName")
+                Log.d(TAG, "P2P action confirmed")
                 val result = executeLocalReset()
                 sendResetAck(peerId, peerName, result.ackStatus, result.ackReason)
                 _pendingReset.value = null
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to confirm remote reset: ${e.message}", e)
+                Log.e(TAG, "P2P action failed: ${e.javaClass.simpleName}")
             }
         }
     }
@@ -208,7 +195,7 @@ class RemoteControlManager(
             val (peerId, peerName) = _pendingReset.value ?: return@launch
             sendResetAck(peerId, peerName, "declined")
             _pendingReset.value = null
-            Log.d(TAG, "User declined remote reset")
+            Log.d(TAG, "Remote action declined")
         }
     }
 
@@ -228,7 +215,7 @@ class RemoteControlManager(
                 Log.e(TAG, "Device Admin not active")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to lock device: ${e.message}", e)
+            Log.e(TAG, "Failed to lock device: ${e.javaClass.simpleName}")
         }
         return false
     }
@@ -268,7 +255,7 @@ class RemoteControlManager(
         )
         val delivered = p2pNetwork.sendToPeerWithRetry(peer, message)
         if (delivered) {
-            Log.i(TAG, "Reset $status ACK sent to $peerName")
+            Log.i(TAG, "P2P acknowledgment sent")
         }
     }
 }

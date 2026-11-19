@@ -79,6 +79,7 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun initBiometric(): Boolean {
+        if (!prefs.isBiometricUnlockEnabled) return false
         val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
         when (BiometricManager
@@ -118,6 +119,7 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        Utils(this).updateForegroundRequiredEnabled()
         prefs.registerListener(prefsListener)
     }
 
@@ -167,6 +169,18 @@ open class MainActivity : AppCompatActivity() {
             .commit()
     }
 
+    fun openP2pScreen() {
+        binding.navigation.menu.findItem(R.id.nav_p2p)?.isChecked = true
+        replaceFragment(P2PNetworkFragment())
+        binding.drawer.close()
+    }
+
+    fun openHomeScreen() {
+        binding.navigation.menu.findItem(R.id.nav_main)?.isChecked = true
+        replaceFragment(MainFragment())
+        binding.drawer.close()
+    }
+
     private fun getFragment(id: Int) = when (id) {
         R.id.nav_main -> MainFragment()
         R.id.nav_trigger_tile -> TileFragment()
@@ -175,6 +189,7 @@ open class MainActivity : AppCompatActivity() {
         R.id.nav_trigger_application -> ApplicationFragment()
         R.id.nav_recast -> RecastFragment()
         R.id.nav_p2p -> P2PNetworkFragment()
+        R.id.nav_remote -> me.lucky.wasted.remote.ui.RemoteManagementFragment()
         else -> MainFragment()
     }
 

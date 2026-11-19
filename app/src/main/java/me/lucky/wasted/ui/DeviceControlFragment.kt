@@ -114,7 +114,7 @@ class DeviceControlFragment : Fragment() {
         
         // Initialize managers (inject from parent activity/viewmodel in production)
         // For now, create dummy instances
-        Log.d(TAG, "Device control fragment created for $deviceName")
+        Log.d(TAG, "Device control fragment created")
     }
     
     private fun showLockConfirmation() {
@@ -122,7 +122,7 @@ class DeviceControlFragment : Fragment() {
             .setTitle("Lock Device?")
             .setMessage("Lock '$deviceName' remotely?")
             .setPositiveButton("Lock") { _, _ ->
-                Log.i(TAG, "User confirmed lock for $deviceName")
+                Log.i(TAG, "User confirmed lock")
                 // Call remoteControlManager.lockDeviceLocally()
             }
             .setNegativeButton("Cancel", null)
@@ -134,7 +134,7 @@ class DeviceControlFragment : Fragment() {
             .setTitle("Reset Device?")
             .setMessage("Reset '$deviceName'? This will wipe all data and cannot be undone.")
             .setPositiveButton("Reset") { _, _ ->
-                Log.i(TAG, "User confirmed reset for $deviceName")
+                Log.i(TAG, "User confirmed reset")
                 // Call remoteControlManager.sendRemoteReset(peer)
             }
             .setNegativeButton("Cancel", null)
@@ -202,11 +202,11 @@ class RemoteResetConfirmationDialog : DialogFragment() {
             .setTitle("Remote Reset Request")
             .setMessage("'$peerName' is requesting to reset this device. Wipe all data?")
             .setPositiveButton("Confirm Reset") { _, _ ->
-                Log.i(TAG, "Remote reset confirmed for $peerName")
+                Log.i(TAG, "Remote reset confirmed")
                 onConfirm?.invoke()
             }
             .setNegativeButton("Decline") { _, _ ->
-                Log.d(TAG, "Remote reset declined from $peerName")
+                Log.d(TAG, "Remote reset declined")
                 onDecline?.invoke()
             }
             .create()
