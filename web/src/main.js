@@ -64,6 +64,7 @@ const COLLAPSED_DEVICES_KEY = "wasted_dashboard_collapsed_devices";
 const HIDDEN_DEVICE_IDS_KEY = "wasted_dashboard_hidden_device_ids";
 const HIDDEN_EMAIL_KEY = "wasted_dashboard_hidden_email";
 const DEVICE_VIEW_KEY = "wasted_dashboard_device_view";
+const FLEET_BANNER_KEY = "wasted_dashboard_fleet_banner";
 
 function loadDeviceViewPrefs() {
   try {
@@ -94,6 +95,19 @@ function saveStoredBool(key, value) {
     localStorage.setItem(key, String(value));
   } catch {
     // UI preferences are best effort.
+  }
+}
+
+/**
+ * Like loadStoredBool but defaults to ON. A missing key means "enabled", so a first-time
+ * visit and a deliberately enabled preference both read as true.
+ */
+function loadStoredBoolDefaultOn(key) {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? true : value === "true";
+  } catch {
+    return true;
   }
 }
 
@@ -147,6 +161,7 @@ const state = {
   selectedDeviceIds: new Set(),
   deviceQuery: "",
   deviceView: loadDeviceViewPrefs(),
+  fleetBannerEnabled: loadStoredBoolDefaultOn(FLEET_BANNER_KEY),
   collapsedDeviceIds: loadStoredIdSet(COLLAPSED_DEVICES_KEY),
   hiddenDeviceIds: loadStoredIdSet(HIDDEN_DEVICE_IDS_KEY),
   data: {
@@ -180,6 +195,9 @@ if (!config) {
 async function boot(cfg) {
   applyFooter(cfg);
   wireThemePicker();
+  trackHeaderHeight();
+  trackNavStuck();
+  wireFleetBannerPreference();
   applyConnectionInfo(cfg);
   applySetupLinks(cfg);
   applyOptionalLink("#footer-privacy", cfg.privacyUrl);
@@ -330,6 +348,87 @@ function wireThemePicker() {
   });
 }
 
+/**
+ * Publishes the sticky header's real height as --app-header-height. The nav sticks directly
+ * below it, so hardcoding a value leaves a gap or an overlap whenever the header reflows.
+ */
+function trackHeaderHeight() {
+  const header = document.querySelector(".app-header");
+  if (!header) return;
+  const root = document.documentElement;
+  const apply = () => {
+    const height = header.getBoundingClientRect().height;
+    if (height > 0) root.style.setProperty("--app-header-height", `${height}px`);
+  };
+  apply();
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(apply).observe(header);
+  } else {
+    window.addEventListener("resize", apply);
+  }
+}
+
+/**
+ * Flags the tab bar while it is pinned under the header so its top corners can square off.
+ * Sticky positioning has no CSS selector for "currently stuck", so compare rects on scroll.
+ */
+function trackNavStuck() {
+  const nav = document.querySelector(".dashboard-nav");
+  const header = document.querySelector(".app-header");
+  if (!nav || !header) return;
+  let stuck = null;
+  const apply = () => {
+    const navRect = nav.getBoundingClientRect();
+    // Hidden sections report a zero-size rect; never treat that as docked.
+    if (!navRect.height || nav.offsetParent === null) return;
+    // Compare against the resolved sticky offset, which already includes the visual gap
+    // between the header and the bar. Docked means "sitting at that offset".
+    const stickyTop = parseFloat(getComputedStyle(nav).top);
+    const next = Number.isFinite(stickyTop) && navRect.top <= stickyTop + 1;
+    if (next === stuck) return;
+    stuck = next;
+    nav.classList.toggle("is-stuck", next);
+  };
+  apply();
+  window.addEventListener("scroll", apply, { passive: true });
+  window.addEventListener("resize", apply);
+  if (typeof ResizeObserver === "function") new ResizeObserver(apply).observe(nav);
+}
+
+/** Reflects the saved per-browser preference onto the menu switch and the Devices banner. */
+function renderFleetBannerPreference() {
+  const toggle = $("#fleet-reset-banner-toggle");
+  if (toggle) toggle.checked = state.fleetBannerEnabled;
+  applyFleetBannerVisibility();
+}
+
+/**
+ * The banner is hidden by the preference OR when there is nothing to act on. Both rules apply,
+ * so the block never appears on an empty fleet even while the preference is on.
+ */
+function applyFleetBannerVisibility() {
+  const fleet = $("#fleet-actions");
+  if (!fleet) return;
+  fleet.hidden = !state.fleetBannerEnabled || !state.data.devices.length;
+}
+
+function wireFleetBannerPreference() {
+  const toggle = $("#fleet-reset-banner-toggle");
+  if (!toggle) return;
+  renderFleetBannerPreference();
+  toggle.addEventListener("change", () => {
+    state.fleetBannerEnabled = toggle.checked;
+    saveStoredBool(FLEET_BANNER_KEY, state.fleetBannerEnabled);
+    applyFleetBannerVisibility();
+    toast(
+      state.fleetBannerEnabled
+        ? "Reset banner shown on the Devices tab."
+        : "Reset banner hidden. Force Reset is still available under Controls.",
+      "info",
+    );
+  });
+}
+
 /** Clears typed credentials so a new sign-in never inherits the previous owner's input. */
 function resetCredentialForms() {
   for (const selector of ["#account-password-form"]) {
@@ -464,8 +563,10 @@ function setDashboardLoadState({ loading = false, error = "", refreshing = false
 function setDeviceChromeVisible(visible) {
   const summary = $("#device-summary");
   const toolbar = document.querySelector(".device-toolbar");
+  const fleet = $("#fleet-actions");
   if (summary) summary.hidden = !visible;
   if (toolbar) toolbar.hidden = !visible;
+  if (fleet) fleet.hidden = !visible || !state.fleetBannerEnabled || !state.data.devices.length;
 }
 
 function renderDeviceSkeleton() {
@@ -820,11 +921,13 @@ function setDashboardOnline(online, reason = state.connectionReason ?? "offline"
   }
   document
     .querySelectorAll(
-      "[data-device-rename], [data-device-revoke], [data-device-settings], [data-device-notes], [data-device-select], [data-debug-device]",
+      "[data-device-rename], [data-device-revoke], [data-device-force-reset], [data-device-settings], [data-device-notes], [data-device-select], [data-debug-device]",
     )
     .forEach((button) => {
       button.disabled = !online || button.dataset.debugUnknown === "true";
     });
+  const fleetReset = $("#fleet-force-reset");
+  if (fleetReset) fleetReset.disabled = !online;
   if ($("#action-scope")) renderCommandScope(state.data.devices);
 }
 
@@ -914,6 +1017,7 @@ function renderDevices() {
   );
   container.className = `device-grid layout-${state.deviceView.layout}`;
   setDeviceChromeVisible(true);
+  applyFleetBannerVisibility();
   pruneSelectedDevices(devices);
   renderDeviceSummary(devices, statusByDevice, now, activeWindow, activeWindowLabel);
   renderDeviceToolbar(devices, statusByDevice, notesByDevice, now, filteredDevices.length);
@@ -1035,37 +1139,51 @@ function renderDevices() {
         listSummary,
         idRow,
         el("div", { className: "device-actions" }, [
-          el("button", {
-            className: "small",
-            text: "Settings",
-            icon: "controls",
-            attrs: {
-              type: "button",
-              "data-device-settings": device.id,
-              title: "Set this device's remote settings or inherit the global values",
-            },
-          }),
-          el("button", {
-            className: "small",
-            text: "Rename",
-            icon: "pencil",
-            attrs: {
-              type: "button",
-              "data-device-rename": device.id,
-              "data-device-name": device.name || "",
-              title: "Rename this device in the dashboard only",
-            },
-          }),
-          el("button", {
-            className: "small danger-outline",
-            text: "Revoke",
-            icon: "trash",
-            attrs: {
-              type: "button",
-              "data-device-revoke": device.id,
-              title: "Stop remote commands for this device without wiping it",
-            },
-          }),
+          el("div", { className: "device-actions-group" }, [
+            el("button", {
+              className: "small",
+              text: "Settings",
+              icon: "controls",
+              attrs: {
+                type: "button",
+                "data-device-settings": device.id,
+                title: "Set this device's remote settings or inherit the global values",
+              },
+            }),
+            el("button", {
+              className: "small",
+              text: "Rename",
+              icon: "pencil",
+              attrs: {
+                type: "button",
+                "data-device-rename": device.id,
+                "data-device-name": device.name || "",
+                title: "Rename this device in the dashboard only",
+              },
+            }),
+            el("button", {
+              className: "small danger-outline",
+              text: "Revoke",
+              icon: "trash",
+              attrs: {
+                type: "button",
+                "data-device-revoke": device.id,
+                title: "Stop remote commands for this device without wiping it",
+              },
+            }),
+          ]),
+          el("div", { className: "device-actions-group device-actions-destructive" }, [
+            el("button", {
+              className: "small danger",
+              text: "Reset",
+              icon: "warning",
+              attrs: {
+                type: "button",
+                "data-device-force-reset": device.id,
+                title: "Queue a factory reset for this device; requires Debug Mode OFF and a typed confirmation",
+              },
+            }),
+          ]),
         ]),
         ...(status
           ? []
@@ -2254,6 +2372,22 @@ function openRenameDialog(deviceId, currentName, button) {
   dialog.addEventListener("close", onClose);
 }
 
+/** Per-card Force Reset: the same command as Controls, scoped to this one device. */
+async function resetSingleDevicePrompt(deviceId, button) {
+  const device = state.data.devices.find((row) => row.id === deviceId);
+  const targets = device ? [device] : [];
+  if (!targets.length) {
+    toast("This device is no longer enrolled.", "error");
+    return;
+  }
+  if (!(await confirmForceReset(targets))) return;
+  await sendCommand(FORCE_RESET, {
+    scope: "selected",
+    deviceIds: [deviceId],
+    button,
+  });
+}
+
 async function revokeDevicePrompt(deviceId, button) {
   if (!state.online) {
     toast(actionUnavailableMessage(state.connectionReason), "error");
@@ -2628,6 +2762,11 @@ function wireDashboard() {
     const revoke = event.target.closest("button[data-device-revoke]");
     if (revoke) {
       revokeDevicePrompt(revoke.dataset.deviceRevoke, revoke);
+      return;
+    }
+    const deviceReset = event.target.closest("button[data-device-force-reset]");
+    if (deviceReset) {
+      resetSingleDevicePrompt(deviceReset.dataset.deviceForceReset, deviceReset);
     }
   });
 
@@ -2739,15 +2878,21 @@ function wireDashboard() {
       toast("Select at least one device first.");
       return;
     }
-    const confirmed = await confirmAction({
-      title: "Force Reset",
-      message:
-        `Send a factory-reset command to ${targets.length} targeted device(s):\n` +
-        `${targets.map((device) => device.name || "Unnamed device").join(", ")}\n\n` +
-        "Devices in Debug Mode will NOT be reset. This cannot be undone.",
-      typedPhrase: "RESET",
+    if (await confirmForceReset(targets)) await sendAction(FORCE_RESET);
+  });
+
+  // Devices tab fast path: the same Force Reset command, scoped to the whole fleet.
+  $("#fleet-force-reset").addEventListener("click", async () => {
+    const devices = state.data.devices;
+    if (!devices.length) {
+      toast("Enroll a device first. Force Reset needs at least one target.");
+      return;
+    }
+    if (!(await confirmForceReset(devices))) return;
+    await sendCommand(FORCE_RESET, {
+      scope: "all",
+      button: $("#fleet-force-reset"),
     });
-    if (confirmed) await sendAction(FORCE_RESET);
   });
 
   $("#create-token").addEventListener("click", async () => {
@@ -2812,19 +2957,42 @@ function updateTokenExpiry(expiresAt) {
 }
 
 async function sendAction(actionType) {
-  if (!requireOnline("#commands-message")) return;
   const targets = commandTargets();
-  if (targets.scope === "selected" && targets.deviceIds.length === 0) {
-    showMessage("#commands-message", "Select at least one device first.", "error");
-    return;
-  }
   const button = actionType === FORCE_RESET
     ? $("#force-reset")
     : actionType === LOCK_NOW
       ? $("#lock-devices")
       : $("#reset-timer");
+  await sendCommand(actionType, {
+    scope: targets.scope,
+    deviceIds: targets.deviceIds,
+    button,
+    messageSelector: "#commands-message",
+  });
+}
+
+/**
+ * Single queue path for targeted commands. Controls and the Devices tab both call this, so
+ * every trigger produces the identical action; only the entry point differs.
+ */
+async function sendCommand(actionType, { scope, deviceIds = [], button = null, messageSelector = null }) {
+  if (!state.online) {
+    const reason = actionUnavailableMessage(state.connectionReason);
+    if (messageSelector) showMessage(messageSelector, reason, "error");
+    else toast(reason, "error");
+    return;
+  }
+  if (scope === "selected" && deviceIds.length === 0) {
+    const message = "Select at least one device first.";
+    if (messageSelector) showMessage(messageSelector, message, "error");
+    else toast(message);
+    return;
+  }
   const label = COMMAND_LABELS[actionType] ?? actionType;
-  beginCommandProgress(label, targetDevices().map((device) => device.id));
+  const progressIds = scope === "all"
+    ? state.data.devices.map((device) => device.id)
+    : deviceIds;
+  beginCommandProgress(label, progressIds);
   clearMessage("#commands-message");
   setBusy(button, true);
   try {
@@ -2832,8 +3000,8 @@ async function sendAction(actionType) {
       state.client,
       actionType,
       newIdempotencyKey(),
-      targets.scope,
-      targets.deviceIds,
+      scope,
+      scope === "all" ? [] : deviceIds,
     );
     trackCommandAction(result.action_id);
     toast(`${label} sent. Waiting for the device.`, "info");
@@ -2844,6 +3012,18 @@ async function sendAction(actionType) {
   } finally {
     setBusy(button, false);
   }
+}
+
+/** Shared Force Reset confirmation, including the typed phrase requirement. */
+function confirmForceReset(targets) {
+  return confirmAction({
+    title: "Force Reset",
+    message:
+      `Send a factory-reset command to ${targets.length} targeted device(s):\n` +
+      `${targets.map((device) => device.name || "Unnamed device").join(", ")}\n\n` +
+      "Devices in Debug Mode will NOT be reset. This cannot be undone.",
+    typedPhrase: "RESET",
+  });
 }
 
 function wireSignOut() {

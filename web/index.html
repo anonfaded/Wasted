@@ -238,6 +238,19 @@
         </button>
       </div>
     </div>
+    <div class="menu-view">
+      <p class="menu-heading">Dashboard</p>
+      <label class="menu-switch"
+             title="Show the fleet-wide Force Reset block at the top of the Devices tab. This is a per-browser display preference; it never changes what devices can do.">
+        <span class="menu-switch-label">Reset every device banner</span>
+        <span class="switch">
+          <input id="fleet-reset-banner-toggle" type="checkbox" checked>
+          <span class="switch-track" aria-hidden="true">
+            <span class="switch-thumb"></span>
+          </span>
+        </span>
+      </label>
+    </div>
     <div id="menu-connection" class="menu-connection" hidden>
       <p class="menu-heading">Supabase connection</p>
       <div class="menu-field">
@@ -566,6 +579,26 @@
           </div>
 
           <div id="device-summary" class="stat-grid" aria-live="polite"></div>
+
+          <div id="fleet-actions" class="fleet-actions" hidden>
+            <div class="fleet-actions-copy">
+              <p class="eyebrow">Destructive</p>
+              <h3><svg class="icon heading-icon" aria-hidden="true"><use href="#icon-warning"/></svg>Reset every device</h3>
+              <p class="section-desc">
+                Queues the same <strong>Force Reset</strong> as
+                <strong>Controls → Targeted actions</strong>, for all enrolled devices. Devices with
+                Debug Mode ON are blocked and reported, and you must type RESET to confirm.
+              </p>
+            </div>
+            <div class="fleet-actions-buttons">
+              <button id="fleet-force-reset" type="button" class="danger"
+                      title="Queue a factory reset on every enrolled device; requires Debug Mode OFF and a typed confirmation">
+                <svg class="icon" aria-hidden="true"><use href="#icon-warning"/></svg>
+                <span class="button-label">Force Reset all devices</span>
+              </button>
+            </div>
+          </div>
+
           <div class="device-toolbar">
             <div class="device-toolbar-row">
               <label class="device-search" for="device-search">
